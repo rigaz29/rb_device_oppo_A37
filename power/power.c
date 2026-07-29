@@ -20,8 +20,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <utils/Log.h>
 
@@ -39,15 +41,118 @@
  *
  * android.hardware.power@1.0-impl memeriksa pointer setFeature sebelum
  * memanggilnya, jadi membiarkannya NULL aman.
- *
- * Kalau suatu saat DT2W di-port ke driver touch kernel, kembalikan set_feature
- * beserta helper sysfs_write_str()/sysfs_write_int() yang ikut dibuang di sini
- * karena tidak ada lagi yang memakainya.
  */
+
+/*
+ * Tunables governor "interactive". init.qcom.power.rc menyetel governor ini
+ * lewat path GLOBAL (bukan per-policy), jadi atributnya ada di direktori ini.
+ *
+ * Yang dipakai:
+ *   boost      - sustained boost; 1 menahan frekuensi tinggi sampai ditulis 0
+ *   boostpulse - pulse sepanjang boostpulse_duration (60 ms, diset init.qcom.power.rc)
+ *
+ * Parameter cpu_boost di bawah /sys/module/cpu_boost/parameters sengaja TIDAK
+ * dipakai di sini:
+ * boost_ms cuma module_param biasa tanpa callback, jadi menulisnya hanya
+ * mengubah durasi untuk event sync cpufreq — bukan pemicu boost on-demand.
+ * Sentuhan layar sendiri sudah ditangani cpu_boost langsung di kernel lewat
+ * input_register_handler(), tanpa perlu userspace.
+ */
+#define INTERACTIVE_PATH "/sys/devices/system/cpu/cpufreq/interactive/"
+#define BOOST_PATH       INTERACTIVE_PATH "boost"
+#define BOOSTPULSE_PATH  INTERACTIVE_PATH "boostpulse"
+
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void sysfs_write(const char *path, const char *val)
+{
+    char errbuf[80];
+    int fd;
+    ssize_t len;
+
+    fd = open(path, O_WRONLY);
+    if (fd < 0) {
+        /*
+         * ENOENT itu wajar: governor sedang bukan "interactive" (init.qcom.power.rc
+         * memakai "powersave" pada mode charger), jadi atributnya memang tidak
+         * ada. Jangan banjiri log untuk kondisi normal.
+         */
+        if (errno != ENOENT) {
+            strerror_r(errno, errbuf, sizeof(errbuf));
+            ALOGE("open %s: %s", path, errbuf);
+        }
+        return;
+    }
+
+    len = write(fd, val, strlen(val));
+    if (len < 0) {
+        strerror_r(errno, errbuf, sizeof(errbuf));
+        ALOGE("write %s: %s", path, errbuf);
+    }
+
+    close(fd);
+}
 
 static void power_init(__attribute__((unused)) struct power_module *module)
 {
     ALOGI("%s", __func__);
+}
+
+static void power_set_interactive(__attribute__((unused)) struct power_module *module,
+                                  int on)
+{
+    /*
+     * Layar mati: lepaskan sustained boost kalau masih tertahan, supaya
+     * frekuensi tidak ditahan tinggi selama layar padam. Saat layar menyala
+     * tidak ada yang perlu dilakukan — governor interactive dan cpu_boost
+     * sudah menangani sendiri.
+     */
+    if (!on) {
+        pthread_mutex_lock(&lock);
+        sysfs_write(BOOST_PATH, "0");
+        pthread_mutex_unlock(&lock);
+    }
+}
+
+static void power_hint(__attribute__((unused)) struct power_module *module,
+                       power_hint_t hint, void *data)
+{
+    switch (hint) {
+    case POWER_HINT_LAUNCH:
+        /*
+         * PENTING: jangan dereference `data`. android.hardware.power@1.0-impl
+         * (Power.cpp) hanya mengirim pointer non-NULL kalau nilainya bukan nol:
+         *   if (data) powerHint(..., &param); else powerHint(..., NULL);
+         * RootActivityContainer.java mengirim 1 saat peluncuran mulai dan 0 saat
+         * selesai, jadi 0 sampai ke sini sebagai NULL. Keberadaan pointernya
+         * sendiri yang menjadi flag.
+         */
+        pthread_mutex_lock(&lock);
+        sysfs_write(BOOST_PATH, data ? "1" : "0");
+        pthread_mutex_unlock(&lock);
+        break;
+
+    case POWER_HINT_INTERACTION:
+        /*
+         * Selalu dikirim dengan data=0, jadi `data` di sini selalu NULL —
+         * jangan dibaca. Yang benar-benar butuh ini adalah interaksi TANPA
+         * sentuhan: rotasi layar (DisplayRotation.java) dan animasi window
+         * (SurfaceAnimationRunner.java). Untuk sentuhan sendiri pulse ini
+         * berlebihan tapi tidak berbahaya — cuma memperpanjang boostpulse_endtime.
+         */
+        pthread_mutex_lock(&lock);
+        sysfs_write(BOOSTPULSE_PATH, "1");
+        pthread_mutex_unlock(&lock);
+        break;
+
+    default:
+        /*
+         * POWER_HINT_LOW_POWER sengaja tidak ditangani: membatasi frekuensi
+         * butuh mengubah scaling_max_freq dan memulihkannya lagi, yang perlu
+         * diuji di perangkat. Battery saver tetap bekerja di level framework.
+         */
+        break;
+    }
 }
 
 static int power_open(const hw_module_t* module, const char* name,
@@ -72,6 +177,8 @@ static int power_open(const hw_module_t* module, const char* name,
     dev->common.hal_api_version = HARDWARE_HAL_API_VERSION;
 
     dev->init = power_init;
+    dev->setInteractive = power_set_interactive;
+    dev->powerHint = power_hint;
     *device = (hw_device_t*)dev;
 
     ALOGD("%s: exit", __FUNCTION__);
@@ -94,6 +201,8 @@ struct power_module HAL_MODULE_INFO_SYM = {
         .methods = &power_module_methods,
     },
 
-    .init = power_init
+    .init = power_init,
+    .setInteractive = power_set_interactive,
+    .powerHint = power_hint
 
 };

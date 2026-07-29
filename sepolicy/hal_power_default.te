@@ -1,1 +1,8 @@
 allow hal_power_default sysfs:file { open write };
+
+# powerHint/setInteractive menulis ke tunables governor interactive di
+# /sys/devices/system/cpu/cpufreq/interactive/{boost,boostpulse}. Path itu
+# dilabeli sysfs_devices_system_cpu (system/sepolicy/private/genfs_contexts:108),
+# bukan sysfs, jadi aturan di atas tidak menutupinya.
+allow hal_power_default sysfs_devices_system_cpu:dir search;
+allow hal_power_default sysfs_devices_system_cpu:file { open write };
