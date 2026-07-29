@@ -25,56 +25,29 @@
 
 #include <utils/Log.h>
 
-#define TAP_TO_WAKE_NODE "/sys/android_touch/doubletap2wake"
-
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-static int sysfs_write_str(char *path, char *s)
-{
-    char buf[80];
-    int len;
-    int ret = 0;
-    int fd;
-
-    fd = open(path, O_WRONLY);
-    if (fd < 0) {
-        strerror_r(errno, buf, sizeof(buf));
-        ALOGE("Error opening %s: %s\n", path, buf);
-        return -1 ;
-    }
-
-    len = write(fd, s, strlen(s));
-    if (len < 0) {
-        strerror_r(errno, buf, sizeof(buf));
-        ALOGE("Error writing to %s: %s\n", path, buf);
-        ret = -1;
-    }
-
-    close(fd);
-
-    return ret;
-}
-
-static int sysfs_write_int(char *path, int value)
-{
-    char buf[80];
-    snprintf(buf, 80, "%d", value);
-    return sysfs_write_str(path, buf);
-}
+/*
+ * CATATAN: dukungan double-tap-to-wake dibuang dari HAL ini.
+ *
+ * set_feature() dulu menulis state ke /sys/android_touch/doubletap2wake, tapi
+ * node itu tidak pernah ada di perangkat ini: string "doubletap2wake" maupun
+ * "android_touch" nol hasil di seluruh pohon kernel_oppo_msm8939. Driver touch
+ * di kernel ini memang tidak punya dukungan DT2W sama sekali.
+ *
+ * Selain itu framework pun tidak pernah memanggilnya: overlay device ini tidak
+ * menyetel config_supportsDoubleTapWake, jadi toggle-nya tidak muncul di
+ * Settings dan setFeature tidak pernah dipicu.
+ *
+ * android.hardware.power@1.0-impl memeriksa pointer setFeature sebelum
+ * memanggilnya, jadi membiarkannya NULL aman.
+ *
+ * Kalau suatu saat DT2W di-port ke driver touch kernel, kembalikan set_feature
+ * beserta helper sysfs_write_str()/sysfs_write_int() yang ikut dibuang di sini
+ * karena tidak ada lagi yang memakainya.
+ */
 
 static void power_init(__attribute__((unused)) struct power_module *module)
 {
     ALOGI("%s", __func__);
-}
-
-static void set_feature(struct power_module *module __unused,
-                feature_t feature, int state)
-{
-    char tmp_str[64];
-    if (feature == POWER_FEATURE_DOUBLE_TAP_TO_WAKE) {
-        snprintf(tmp_str, 64, "%d", state);
-        sysfs_write_str(TAP_TO_WAKE_NODE, tmp_str);
-    }
 }
 
 static int power_open(const hw_module_t* module, const char* name,
@@ -99,7 +72,6 @@ static int power_open(const hw_module_t* module, const char* name,
     dev->common.hal_api_version = HARDWARE_HAL_API_VERSION;
 
     dev->init = power_init;
-    dev->setFeature = set_feature;
     *device = (hw_device_t*)dev;
 
     ALOGD("%s: exit", __FUNCTION__);
@@ -122,7 +94,6 @@ struct power_module HAL_MODULE_INFO_SYM = {
         .methods = &power_module_methods,
     },
 
-    .init = power_init,
-    .setFeature = set_feature
+    .init = power_init
 
 };
