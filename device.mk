@@ -455,6 +455,16 @@ PRODUCT_PACKAGES += \
     libwcnss_qmi \
     wcnss_service
 
+# libwpa_client dibutuhkan oleh prebuilt vendor/bin/imsdatadaemon (DT_NEEDED),
+# tapi tidak ikut terpasang sehingga daemon-nya gagal dlopen dan tidak pernah
+# jalan. init.target.rc menyalakannya saat sys.ims.QMI_DAEMON_STATUS=1 dan
+# device ini memang mengaktifkan VoLTE (persist.dbg.ims_volte_enable=1,
+# persist.dbg.volte_avail_ovr=1), jadi tanpa ini VoLTE tidak mungkin bekerja.
+# Modulnya ada di external/wpa_supplicant_8 dan sudah LOCAL_PROPRIETARY_MODULE,
+# jadi terpasang ke /vendor/lib tempat biner vendor bisa melihatnya.
+PRODUCT_PACKAGES += \
+    libwpa_client
+
 PRODUCT_PACKAGES += \
     hostapd \
     wpa_supplicant \
