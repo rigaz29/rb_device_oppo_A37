@@ -54,7 +54,11 @@ BOARD_KERNEL_SEPARATED_DT := true
 TARGET_KERNEL_ARCH := arm64
 TARGET_CUSTOM_DTBTOOL := dtbToolOppo
 TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
-TARGET_KERNEL_CROSS_COMPILE_PREFIX := aarch64-linux-android-
+# TARGET_KERNEL_CROSS_COMPILE_PREFIX sengaja tidak diset: menyetelnya membuat
+# vendor/lineage/config/BoardConfigKernel.mk melewati default KERNEL_TOOLCHAIN_arm64,
+# sehingga CROSS_COMPILE menunjuk direktori yang tidak ada di host mana pun:
+#   ccache: error: execute_noreturn of /tmp/src/android/tc/bin/aarch64-linux-android-gcc
+# Tanpa baris itu, build memakai prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.
 TARGET_KERNEL_CLANG_COMPILE := false
 
 # File System
