@@ -61,8 +61,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
     debug.sf.disable_backpressure=1 \
     debug.sf.latch_unsignaled=1 \
     debug.cpurend.vsync=false \
-    persist.hwc.mdpcomp.enable=true \
-    persist.hwc.ptor.enable=true \
     debug.sf.gpu_comp_tiling=1 \
     debug.performance.tuning=1 \
     video.accelerate.hw=1
@@ -205,9 +203,11 @@ PRODUCT_PACKAGES += \
     libshim_camera \
     libcamera_shim \
     camera.msm8916 \
-    Camera2 \
-    Snap \
-    SnapdragonCamera
+    Snap
+# CATATAN: Camera2 dibuang karena packages/apps/Snap/Android.mk memakai
+# LOCAL_OVERRIDES_PACKAGES := Camera2 — apk-nya ikut dikompilasi lalu dibuang
+# lagi dari image. SnapdragonCamera dibuang karena bukan nama modul yang ada di
+# tree ini (satu-satunya modul di packages/apps/Snap adalah "Snap").
 
 
 # Permissions
@@ -249,8 +249,16 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/privapp-permissions-qti.xml:system/etc/permissions/privapp-permissions-qti.xml
 
 # Overlay
+# overlay-lineage/ sebelumnya tidak pernah didaftarkan, sehingga isinya mati:
+#   - config_deviceHardwareKeys=83 (Home+Back+AppSwitch+Volume) tidak pernah
+#     terpasang, jadi menu Settings > Buttons tidak cocok dengan tombol fisik.
+#   - config_deviceHardwareWakeKeys=64, config_trustLegacyEncryption=true dan
+#     config_buttonBrightnessSettingDefault=0 juga ikut terabaikan.
+# Nilai 83 cocok dengan keylayout/ft5x06_ts.kl (HOME, BACK, APP_SWITCH) plus
+# gpio-keys.kl (VOLUME_UP/DOWN), jadi overlay ini memang milik device ini.
 DEVICE_PACKAGE_OVERLAYS += \
-    $(LOCAL_PATH)/overlay
+    $(LOCAL_PATH)/overlay \
+    $(LOCAL_PATH)/overlay-lineage
 
 # Properties
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -368,11 +376,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.product.first_api_level=19
 
 # Properties
+# persist.data.qmi.adb_logmask, persist.radio.apm_sim_not_pwdn dan
+# ro.telephony.call_ring.multiple sudah diset di blok RIL di bawah; di sini
+# tinggal yang unik saja supaya tidak ada dua sumber untuk nilai yang sama.
 PRODUCT_PROPERTY_OVERRIDES += \
-    persist.data.qmi.adb_logmask=0 \
-    persist.radio.apm_sim_not_pwdn=1 \
-    persist.radio.add_power_save=1 \
-    ro.telephony.call_ring.multiple=false
+    persist.radio.add_power_save=1
 
 # HIDL
 PRODUCT_PACKAGES += \
@@ -467,7 +475,9 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     android.hardware.usb@1.0-service.cyanogen_8916
 
-# Hack
+# Driver prima membaca konfigurasinya lewat request_firmware, jadi file yang
+# sama harus ada juga di bawah firmware/wlan/prima. Ini satu-satunya aturan yang
+# meng-install file tersebut — aturan symlink kembar di Android.mk sudah dibuang.
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/WCNSS_qcom_cfg.ini:$(TARGET_COPY_OUT_VENDOR)/firmware/wlan/prima/WCNSS_qcom_cfg.ini
 
@@ -481,12 +491,19 @@ PRODUCT_DEXPREOPT_SPEED_APPS += SystemUI
 PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true
 PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 
+# CATATAN dalvik: nilai di bawah ini cuma jadi cadangan di build.prop. Yang
+# benar-benar dipakai saat boot ditentukan init/init_msm8916.cpp
+# (set_device_dalvik_properties), karena vendor_load_properties() dijalankan
+# SETELAH /system/build.prop dibaca oleh init dan dalvik.vm.* bukan properti
+# ro. sehingga boleh ditimpa. Sebelumnya kedua tempat ini berbeda (128m/256m
+# vs 256m/512m) sehingga isi build.prop menyesatkan. Sekarang keduanya sama
+# untuk A37 yang RAM-nya 2GB.
 PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.heapstartsize=16m \
-    dalvik.vm.heapgrowthlimit=128m \
-    dalvik.vm.heapsize=256m \
+    dalvik.vm.heapgrowthlimit=256m \
+    dalvik.vm.heapsize=512m \
     dalvik.vm.heaptargetutilization=0.75 \
-    dalvik.vm.heapminfree=512k \
+    dalvik.vm.heapminfree=2m \
     dalvik.vm.heapmaxfree=8m \
     dalvik.vm.zygotemaxfailedboots=5 \
     dalvik.vm.foreground-heap-growth-multiplier=2.0 \

@@ -122,7 +122,6 @@ OVERRIDE_RS_DRIVER := libRSDriver_adreno.so
 # Audio
 AUDIO_FEATURE_ENABLED_MULTI_VOICE_SESSIONS := true
 AUDIO_FEATURE_ENABLED_SND_MONITOR := true
-AUDIO_FEATURE_ENABLED_SND_MONITOR := true
 BOARD_USES_ALSA_AUDIO := true
 BOARD_USES_GENERIC_AUDIO := true
 TARGET_USES_QCOM_MM_AUDIO := true
@@ -167,7 +166,6 @@ TARGET_PROCESS_SDK_VERSION_OVERRIDE := \
 # GPS
 TARGET_NO_RPC := true
 USE_DEVICE_SPECIFIC_GPS := true
-SELINUX_IGNORE_NEVERALLOWS := true
 
 # Shim
 TARGET_LD_SHIM_LIBS := \
@@ -176,6 +174,9 @@ TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so
 
 # SEpolicy
+# CATATAN: neverallow masih diabaikan karena file_contexts device ini belum
+# lengkap; lihat androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE.
+SELINUX_IGNORE_NEVERALLOWS := true
 include device/qcom/sepolicy-legacy/sepolicy.mk
 BOARD_SEPOLICY_DIRS += \
     $(PLATFORM_PATH)/sepolicy
