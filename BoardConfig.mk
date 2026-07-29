@@ -72,7 +72,14 @@ BOARD_USERDATAIMAGE_PARTITION_SIZE := 11632902144
 TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 BOARD_SUPPRESS_EMMC_WIPE := true
-TARGET_EXFAT_DRIVER := sdfat
+# CATATAN: TARGET_EXFAT_DRIVER := sdfat dibuang. Variabel itu tidak dibaca oleh
+# apa pun di LineageOS 17.1 — satu-satunya kemunculannya di seluruh tree adalah
+# baris ini sendiri. Di 17.1 vold menentukan dukungan exFAT lewat
+# IsFilesystemSupported("exfat") yang membaca /proc/filesystems.
+# Kernel ini tidak punya driver exFAT sama sekali (nol berkas exfat/sdfat),
+# sedangkan ROM sudah memasang mkfs.exfat dan fsck.exfat. Jadi kartu microSD
+# ber-exFAT (umumnya yang >32GB) tidak akan ter-mount sampai driver exFAT
+# di-port ke kernel. Membiarkan variabel ini hanya menyamarkan masalahnya.
 TARGET_RECOVERY_FSTAB := $(PLATFORM_PATH)/rootdir/etc/fstab.qcom
 TARGET_USES_MKE2FS := true
 BOARD_ROOT_EXTRA_FOLDERS := firmware persist
