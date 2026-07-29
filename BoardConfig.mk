@@ -175,9 +175,18 @@ TARGET_NO_RPC := true
 USE_DEVICE_SPECIFIC_GPS := true
 
 # Shim
+# libmmcamera2_stats_algorithm.so dulu dipetakan ke libcamera_shim.so, padahal
+# satu-satunya simbol yang tidak bisa dipenuhi library non-shim mana pun untuk
+# blob itu adalah android_atomic_acquire_load — dan itu hanya ada di
+# libshim_camera.so. libcamera_shim.so tidak menyediakan satu pun simbol yang
+# dibutuhkan blob tersebut, jadi pemetaan lama salah sasaran dan resolusinya
+# cuma bergantung pada urutan pemuatan (libshim_camera kebetulan sudah dimuat
+# oleh libmmcamera2_stats_modules.so di proses yang sama).
+# Diverifikasi: dengan libshim_camera.so, simbol libmmcamera2_stats_algorithm.so
+# yang tak terpenuhi = 0.
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
-    /system/vendor/lib/libmmcamera2_stats_algorithm.so|libcamera_shim.so \
+    /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
     /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so
 
 # SEpolicy
