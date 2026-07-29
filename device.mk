@@ -42,6 +42,32 @@ PRODUCT_PACKAGES += \
     android.hardware.renderscript@1.0-impl
 
 # Properties
+#
+# debug.sf.latch_unsignaled=1 DIBUANG — sedang diuji sebagai penyebab glitch
+# wallpaper sesaat setelah layar dinyalakan. Properti itu membuat
+# BufferLayer::fenceHasSignaled() (frameworks/native/.../BufferLayer.cpp:579)
+# mengembalikan true tanpa memeriksa acquire fence sama sekali, sehingga
+# SurfaceFlinger boleh menampilkan buffer yang render-nya BELUM selesai. Itu
+# cocok dengan gejala "sebentar tidak pas lalu benar sendiri". Default AOSP
+# memang 0, jadi membuangnya = kembali ke perilaku benar.
+#
+# debug.sf.disable_backpressure=1 SENGAJA DIPERTAHANKAN dulu meski juga tersangka
+# (SurfaceFlinger.cpp:363 -> mPropagateBackpressure=false). Kalau dua-duanya
+# dibuang sekaligus dan glitch hilang, tidak akan ketahuan mana penyebabnya.
+# Kalau glitch masih ada setelah ini, itu variabel berikutnya yang diubah.
+#
+# Tujuh properti berikut dibuang karena NOL pembaca di seluruh tree
+# (frameworks/, hardware/, system/, vendor/qcom/) — cuma pajangan:
+#   debug.enable.sglscale, debug.egl.hw, debug.sf.disable_hwc,
+#   debug.sf.recomputecrop, debug.cpurend.vsync, debug.sf.gpu_comp_tiling,
+#   debug.performance.tuning
+# Catatan: debug.sf.recomputecrop sekilas paling mencurigakan untuk masalah
+# "tidak pas ke layar", tapi Android 10 tidak membacanya sama sekali.
+#
+# Yang tetap ada karena terbukti dibaca: debug.composition.type dan
+# debug.mdpcomp.idletime dibaca hardware/qcom-caf/msm8916/display (tree display
+# yang benar-benar dibangun device ini), debug.sf.hw dibaca SurfaceFlinger.cpp,
+# debug.hwui.use_buffer_age dibaca frameworks/base/libs/hwui/Properties.h.
 PRODUCT_PROPERTY_OVERRIDES += \
     debug.composition.type=c2d \
     ro.surface_flinger.max_frame_buffer_acquired_buffers=3 \
@@ -52,17 +78,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.hwc.ptor.enable=true \
     pm.dexopt.shared=quicken \
     pm.dexopt.downgrade_after_inactive_days=10 \
-    debug.enable.sglscale=1 \
     debug.sf.hw=1 \
     debug.hwui.renderer=opengl \
-    debug.egl.hw=1 \
-    debug.sf.disable_hwc=0 \
-    debug.sf.recomputecrop=0 \
     debug.sf.disable_backpressure=1 \
-    debug.sf.latch_unsignaled=1 \
-    debug.cpurend.vsync=false \
-    debug.sf.gpu_comp_tiling=1 \
-    debug.performance.tuning=1 \
     video.accelerate.hw=1
 
 # Screen density
