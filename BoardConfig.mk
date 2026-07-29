@@ -126,7 +126,6 @@ TARGET_DISABLE_POSTRENDER_CLEANUP := true
 # Audio
 AUDIO_FEATURE_ENABLED_MULTI_VOICE_SESSIONS := true
 AUDIO_FEATURE_ENABLED_SND_MONITOR := true
-AUDIO_FEATURE_ENABLED_SND_MONITOR := true
 BOARD_USES_ALSA_AUDIO := true
 BOARD_USES_GENERIC_AUDIO := true
 TARGET_USES_QCOM_MM_AUDIO := true
@@ -175,7 +174,6 @@ TARGET_HAS_LEGACY_CAMERA_HAL1 := true
 # GPS
 TARGET_NO_RPC := true
 USE_DEVICE_SPECIFIC_GPS := true
-SELINUX_IGNORE_NEVERALLOWS := true
 
 
 # Shims
@@ -201,6 +199,9 @@ TARGET_LD_SHIM_LIBS += \
     /system/vendor/lib64/libril-qc-qmi-1.so|libshims_ril.so
 
 # SELinux
+# CATATAN: neverallow masih diabaikan karena file_contexts device ini belum
+# lengkap; lihat androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE.
+SELINUX_IGNORE_NEVERALLOWS := true
 include device/qcom/sepolicy-legacy/sepolicy.mk
 BOARD_SEPOLICY_DIRS += $(PLATFORM_PATH)/sepolicy
 BOARD_PLAT_PRIVATE_SEPOLICY_DIR += $(PLATFORM_PATH)/sepolicy/private

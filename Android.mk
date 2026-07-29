@@ -107,11 +107,16 @@ $(WV_SYMLINKS): $(LOCAL_INSTALLED_MODULE)
 
 ALL_DEFAULT_INSTALLED_MODULES += $(WV_SYMLINKS)
 
-WCNSS_CFG_SYMLINK := $(TARGET_OUT_VENDOR)/firmware/wlan/prima/WCNSS_qcom_cfg.ini
-$(WCNSS_CFG_SYMLINK): $(LOCAL_INSTALLED_MODULE)
-	@mkdir -p $(dir $@)
-	$(hide) ln -sf /data/vendor/wifi/$(notdir $@) $@
-
-ALL_DEFAULT_INSTALLED_MODULES += $(WCNSS_CFG_SYMLINK)
+# CATATAN: dulu di sini ada aturan symlink
+#   $(TARGET_OUT_VENDOR)/firmware/wlan/prima/WCNSS_qcom_cfg.ini -> /data/vendor/wifi/...
+# Aturan itu dibuang karena dua alasan:
+#   1. Tidak ada satu pun init script di tree ini yang menyalin ini ke
+#      /data/vendor/wifi, jadi symlink-nya selalu menggantung (dangling) dan
+#      driver prima gagal membaca konfigurasinya lewat request_firmware.
+#   2. device.mk sudah meng-install file aslinya ke path yang PERSIS SAMA lewat
+#      PRODUCT_COPY_FILES, sehingga ada dua aturan make untuk satu target
+#      output. Itulah yang memaksa BUILD_BROKEN_DUP_RULES := true di
+#      BoardConfig.mk, dan hasilnya bergantung pada urutan parsing makefile.
+# Sekarang hanya PRODUCT_COPY_FILES yang meng-install file itu.
 
 endif

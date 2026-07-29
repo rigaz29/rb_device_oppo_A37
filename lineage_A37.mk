@@ -20,7 +20,9 @@ $(call inherit-product, device/oppo/A37/device.mk)
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
 # Assert
-TARGET_OTA_ASSERT_DEVICE := a37f,A37f,A37fw,a37fw,msm8916,msm8939
+# A37/A37m ikut didaftarkan: PRODUCT_DEVICE memang "A37", dan varian A37m
+# disebut di README tapi belum pernah ada di daftar ini.
+TARGET_OTA_ASSERT_DEVICE := A37,a37,a37f,A37f,A37fw,a37fw,A37m,a37m,msm8916,msm8939
 
 # Shipping API level
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_k.mk)
