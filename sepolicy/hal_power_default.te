@@ -10,3 +10,6 @@ allow hal_power_default sysfs:file { open write };
 # bukan sysfs, jadi aturan di atas tidak menutupinya.
 allow hal_power_default sysfs_devices_system_cpu:dir search;
 allow hal_power_default sysfs_devices_system_cpu:file { open write };
+
+# DT2W dikendalikan lewat node procfs Synaptics; aturan proc_touchpanel
+# di atas sudah menutupinya (rw_file_perms superset dari {open write}).
