@@ -1,2 +1,8 @@
-# The Synaptics gesture driver reports double-tap as Linux KEY_F4 (62).
-key 62 WAKEUP
+# Tombol kapasitif — mapping sama dengan ft5x06_ts.kl. Tanpa baris ini
+# Android hanya memuat synaptics-s3203.kl (Generic.kl tidak dimuat),
+# sehingga back/home/app-switch mati.
+key 158   BACK              VIRTUAL
+key 172   HOME              VIRTUAL
+key 139   APP_SWITCH        VIRTUAL
+# Gesture driver Synaptics melaporkan double-tap sebagai KEY_F4 (62).
+key 62    WAKEUP
