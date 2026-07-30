@@ -1,0 +1,2 @@
+# The Synaptics gesture driver reports double-tap as Linux KEY_F4 (62).
+key 62 WAKEUP

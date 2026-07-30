@@ -28,19 +28,10 @@
 #include <utils/Log.h>
 
 /*
- * CATATAN: dukungan double-tap-to-wake dibuang dari HAL ini.
+ * DT2W memakai gesture firmware Synaptics yang dikendalikan lewat procfs.
  *
- * set_feature() dulu menulis state ke /sys/android_touch/doubletap2wake, tapi
- * node itu tidak pernah ada di perangkat ini: string "doubletap2wake" maupun
- * "android_touch" nol hasil di seluruh pohon kernel_oppo_msm8939. Driver touch
- * di kernel ini memang tidak punya dukungan DT2W sama sekali.
- *
- * Selain itu framework pun tidak pernah memanggilnya: overlay device ini tidak
- * menyetel config_supportsDoubleTapWake, jadi toggle-nya tidak muncul di
- * Settings dan setFeature tidak pernah dipicu.
- *
- * android.hardware.power@1.0-impl memeriksa pointer setFeature sebelum
- * memanggilnya, jadi membiarkannya NULL aman.
+ * Driver hanya memasang IRQ wake gesture pada suspend berikutnya; sehingga
+ * perubahan toggle saat layar hidup berlaku ketika layar kembali dimatikan.
  */
 
 /*
@@ -61,6 +52,7 @@
 #define INTERACTIVE_PATH "/sys/devices/system/cpu/cpufreq/interactive/"
 #define BOOST_PATH       INTERACTIVE_PATH "boost"
 #define BOOSTPULSE_PATH  INTERACTIVE_PATH "boostpulse"
+#define DOUBLE_TAP_TO_WAKE_PATH "/proc/touchpanel/double_tap_enable"
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -111,6 +103,23 @@ static void power_set_interactive(__attribute__((unused)) struct power_module *m
         pthread_mutex_lock(&lock);
         sysfs_write(BOOST_PATH, "0");
         pthread_mutex_unlock(&lock);
+    }
+}
+
+static void power_set_feature(__attribute__((unused)) struct power_module *module,
+                              feature_t feature, int state)
+{
+    switch (feature) {
+    case POWER_FEATURE_DOUBLE_TAP_TO_WAKE:
+        /* The driver accepts exactly 0 or 1; state is supplied by PowerManager. */
+        pthread_mutex_lock(&lock);
+        sysfs_write(DOUBLE_TAP_TO_WAKE_PATH, state ? "1" : "0");
+        pthread_mutex_unlock(&lock);
+        break;
+
+    default:
+        /* Unsupported features are intentionally ignored by this legacy HAL. */
+        break;
     }
 }
 
@@ -173,12 +182,13 @@ static int power_open(const hw_module_t* module, const char* name,
     }
 
     dev->common.tag = HARDWARE_MODULE_TAG;
-    dev->common.module_api_version = POWER_MODULE_API_VERSION_0_2;
+    dev->common.module_api_version = POWER_MODULE_API_VERSION_0_3;
     dev->common.hal_api_version = HARDWARE_HAL_API_VERSION;
 
     dev->init = power_init;
     dev->setInteractive = power_set_interactive;
     dev->powerHint = power_hint;
+    dev->setFeature = power_set_feature;
     *device = (hw_device_t*)dev;
 
     ALOGD("%s: exit", __FUNCTION__);
@@ -193,7 +203,7 @@ static struct hw_module_methods_t power_module_methods = {
 struct power_module HAL_MODULE_INFO_SYM = {
     .common = {
         .tag = HARDWARE_MODULE_TAG,
-        .module_api_version = POWER_MODULE_API_VERSION_0_2,
+        .module_api_version = POWER_MODULE_API_VERSION_0_3,
         .hal_api_version = HARDWARE_HAL_API_VERSION,
         .id = POWER_HARDWARE_MODULE_ID,
         .name = "msm8916 Power HAL",
@@ -203,6 +213,7 @@ struct power_module HAL_MODULE_INFO_SYM = {
 
     .init = power_init,
     .setInteractive = power_set_interactive,
-    .powerHint = power_hint
+    .powerHint = power_hint,
+    .setFeature = power_set_feature
 
 };
