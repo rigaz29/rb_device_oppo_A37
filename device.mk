@@ -514,14 +514,16 @@ PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 # SETELAH /system/build.prop dibaca oleh init dan dalvik.vm.* bukan properti
 # ro. sehingga boleh ditimpa. Sebelumnya kedua tempat ini berbeda (128m/256m
 # vs 256m/512m) sehingga isi build.prop menyesatkan. Sekarang keduanya sama
-# untuk A37 yang RAM-nya 2GB.
+# untuk A37 yang RAM-nya 2GB + zram LZ4 256 MB.
+# heapgrowthlimit 192m (bukan 256m): app pakai lebih sedikit RAM per-proses,
+# sehingga lebih banyak app bisa tetap di background sebelum LMK/swap.
 PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.heapstartsize=16m \
-    dalvik.vm.heapgrowthlimit=256m \
-    dalvik.vm.heapsize=512m \
+    dalvik.vm.heapgrowthlimit=192m \
+    dalvik.vm.heapsize=384m \
     dalvik.vm.heaptargetutilization=0.75 \
-    dalvik.vm.heapminfree=2m \
-    dalvik.vm.heapmaxfree=8m \
+    dalvik.vm.heapminfree=4m \
+    dalvik.vm.heapmaxfree=6m \
     dalvik.vm.zygotemaxfailedboots=5 \
     dalvik.vm.foreground-heap-growth-multiplier=2.0 \
     dalvik.vm.dex2oat-flags=--no-watch-dog \

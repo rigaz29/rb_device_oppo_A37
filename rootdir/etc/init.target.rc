@@ -75,20 +75,22 @@ on post-fs
     chmod 0222 /sys/kernel/debug/tracing/trace_marker
     swapon_all /vendor/etc/fstab.qcom
     write /proc/sys/vm/page-cluster 0
-    write /proc/sys/vm/swappiness 35
-    write /proc/sys/vm/dirty_background_ratio 20
+    # swappiness 60: dengan LZ4 zram, swap murah — manfaatkan untuk
+    # menjaga lebih banyak app di background.
+    write /proc/sys/vm/swappiness 60
+    write /proc/sys/vm/dirty_background_ratio 10
     write /proc/sys/vm/dirty_expire_centisecs 200
-    write /proc/sys/vm/dirty_ratio 40
-    write /proc/sys/vm/page-cluster 0
+    write /proc/sys/vm/dirty_ratio 30
     write /proc/sys/vm/vfs_cache_pressure 65
 
 on post-fs-data
-    # Tune FS 
-    write /sys/block/mmcblk0/queue/scheduler cfq
+    # deadline lebih cocok untuk eMMC daripada cfq (latency lebih rendah,
+    # throughput lebih tinggi untuk random I/O).
+    write /sys/block/mmcblk0/queue/scheduler deadline
     write /sys/block/mmcblk0/queue/add_random 0
-    write /sys/block/mmcblk0/queue/nr_requests 300
-    write /sys/block/mmcblk0/queue/read_ahead_kb 2048
-    write /sys/block/mmcblk0/bdi/read_ahead_kb 64
+    write /sys/block/mmcblk0/queue/nr_requests 256
+    write /sys/block/mmcblk0/queue/read_ahead_kb 512
+    write /sys/block/mmcblk0/bdi/read_ahead_kb 128
 
 on charger
    wait /dev/block/bootdevice/by-name/system
@@ -130,9 +132,12 @@ on property:sys.boot_completed=1
     write /sys/module/process_reclaim/parameters/pressure_min 50
     write /sys/module/process_reclaim/parameters/per_swap_size 512
     write /sys/module/lowmemorykiller/parameters/vmpressure_file_min 53059
-    write /sys/module/lowmemorykiller/parameters/minfree "18432,23040,27648,32256,36864,46080"
-    write /proc/sys/vm/min_free_kbytes 2919
-    write /proc/sys/vm/extra_free_kbytes 6075
+    # minfree lebih rendah: dengan zram LZ4 256 MB, swap murah — biarkan
+    # lebih banyak app tetap di RAM sebelum di-kill.
+    # 48,64,80,96,112,136 MB (dalam 4K pages).
+    write /sys/module/lowmemorykiller/parameters/minfree "12288,16384,20480,24576,28672,34816"
+    write /proc/sys/vm/min_free_kbytes 4096
+    write /proc/sys/vm/extra_free_kbytes 8192
     # CATATAN: tiga baris tuning KSM dibuang — CONFIG_KSM tidak menyala di
     # lineageos_a37f_defconfig, jadi /sys/kernel/mm/ksm/ tidak pernah ada.
     # Sengaja tidak dinyalakan: di Snapdragon 410 ongkos CPU untuk scanning KSM
@@ -140,5 +145,5 @@ on property:sys.boot_completed=1
     write /sys/block/mmcblk0/queue/scheduler noop
     write /sys/block/mmcblk0/queue/rq_affinity 0
     write /sys/block/mmcblk0/queue/nr_requests 128
-    write /sys/block/mmcblk0/queue/read_ahead_kb 128
+    write /sys/block/mmcblk0/queue/read_ahead_kb 256
     write /sys/block/mmcblk0/bdi/read_ahead_kb 128
