@@ -1,8 +1,10 @@
 # Audio
-ro.vendor.audio.sdk.fluencetype=fluence
+# ro.vendor.audio.sdk.fluencetype dan persist.vendor.audio.fluence.voicerec
+# dibuang dari sini: keduanya juga diset di device.mk (baris 172 dan 174)
+# dengan nilai berbeda, dan post_process_props di Android 12 menolak itu.
+# Nilai device.mk yang dipertahankan karena memang itu yang selama ini
+# berlaku — ADDITIONAL_SYSTEM_PROPERTIES ditulis setelah system.prop.
 persist.vendor.audio.fluence.voicecall=true
-persist.vendor.audio.fluence.voicerec=false
-persist.vendor.audio.fluence.speaker=false
 persist.vendor.audio.fluence.speaker=false
 
 # Camera
@@ -16,8 +18,8 @@ ro.charger.enable_suspend=true
 ro.charger.disable_init_blank=true
 
 #Display
-ro.surface_flinger.vsync_event_phase_offset_ns=4000000
-ro.surface_flinger.vsync_sf_event_phase_offset_ns=8000000
+# Kedua offset vsync dibuang dari sini dengan alasan yang sama: device.mk
+# baris 69-70 menyetelnya ke 5000000/7500000, dan itu nilai yang berlaku.
 
 # LMKD
 ro.lmk.critical_upgrade=true
