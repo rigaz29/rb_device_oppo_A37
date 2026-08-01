@@ -177,6 +177,23 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.debug.wfd.enable=1 \
     persist.sys.wfd.virtual=1
 
+# eBPF
+# Kernel 3.10 tidak punya syscall bpf sama sekali. Android 12 membuang gerbang
+# versi kernel yang masih ada di Android 11, sehingga tanpa properti ini:
+#   - bpfloader gagal memuat program bpf, mencetak "DO NOT EXPECT SYSTEM TO
+#     BOOT SUCCESSFULLY", lalu keluar dengan status 2
+#   - netd gagal di TrafficController::start(), lalu sleep(60) + exit(1)
+#     sehingga masuk crash loop
+# Properti ini yang dibaca kedua tambalan itu (rigaz29/android_system_bpf dan
+# rigaz29/android_system_netd, keduanya cherry-pick dari LineageOS-UL).
+# Default-nya true, jadi harus diset eksplisit di sini.
+#
+# Akibatnya akuntansi trafik per-UID jatuh ke jalur lama: xt_qtaguid ada di
+# kernel ini, dan NetworkStatsFactory memilih jalurnya sendiri dari keberadaan
+# /sys/fs/bpf/map_netd_app_uid_stats_map.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.kernel.ebpf.supported=false
+
 # Properties
 PRODUCT_PROPERTY_OVERRIDES += \
     audio.deep_buffer.media=true \
