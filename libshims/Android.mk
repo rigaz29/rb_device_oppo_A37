@@ -47,13 +47,12 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true
 include $(BUILD_SHARED_LIBRARY)
 
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := \
-    ril/ril.c
-
-LOCAL_MODULE := libshims_ril
-LOCAL_MODULE_TAGS := optional
-
-include $(BUILD_SHARED_LIBRARY)
+# libshims_ril didefinisikan di Android.bp, bukan di sini. Definisi kembar
+# antara kati dan soong menggagalkan build sebelum satu berkas pun dikompilasi:
+#   base_rules.mk:335: error: MODULE.TARGET.SHARED_LIBRARIES.libshims_ril
+#                      already defined by device/oppo/A37/libshims
+# Versi Android.bp yang dipertahankan karena punya soc_specific: true, jadi
+# mendarat di /vendor — tempat blob yang di-shim (libril-qc-qmi-1.so) berada.
+# Blok Android.mk ini tidak punya LOCAL_VENDOR_MODULE sehingga akan memasangnya
+# ke /system/lib, di mana linker tidak akan mencarinya.
 
