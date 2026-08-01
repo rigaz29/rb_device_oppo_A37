@@ -4,3 +4,12 @@ type proc_touchpanel, fs_type, proc_type;
 
 # Dipertahankan dari tree 19.1: dirujuk system_app.te.
 type touchpanel_sysfs, sysfs_type, file_type;
+
+# device/qcom/sepolicy-legacy/legacy-common/file_contexts baris 87-88 melabeli
+# /sys/.../block/mmcblk[0-9]/stat dengan sysfs_disk_stat, tapi AOSP membuang
+# deklarasi tipenya setelah Android 10 — di 17.1 masih ada di
+# system/sepolicy/public/file.te:14, di 19.1 nol hasil. Akibatnya checkfc
+# menolak vendor_file_contexts:
+#   libsepol.context_from_record: type sysfs_disk_stat is not defined
+# Dideklarasikan ulang di sini dengan atribut yang sama persis seperti aslinya.
+type sysfs_disk_stat, fs_type, sysfs_type;
