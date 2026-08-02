@@ -11,7 +11,17 @@
 /dev/block/bootdevice/by-name/boot           /boot        emmc    defaults                                                    defaults
 /dev/block/bootdevice/by-name/recovery       /recovery    emmc    defaults                                                    defaults
 /dev/block/bootdevice/by-name/misc           /misc        emmc    defaults                                                    defaults
-/dev/block/bootdevice/by-name/modem          /firmware    vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337    wait
+# context= WAJIB di sini. vfat tidak mendukung xattr, jadi label file datang dari
+# genfscon. Platform menyetel "genfscon vfat / u:object_r:vfat:s0"
+# (system/sepolicy/private/genfs_contexts:315), sehingga SELURUH isi /firmware
+# berlabel `vfat` — bukan `firmware_file`. Padahal policy device ini memberi izin
+# terhadap firmware_file, bukan vfat:
+#   sepolicy/vendor_init.te:1,7   sepolicy/keystore.te:3,4
+#   sepolicy/mediacodec.te:2      sepolicy/priv_app.te:16
+# plus hal_drm/esepmdaemon di device/qcom/sepolicy-legacy. Tanpa opsi ini aturan
+# itu tidak pernah cocok dan pembacaan firmware modem/DRM ditolak saat enforcing.
+# ROM LineageOS 18.1 A37 yang beredar memakai opsi yang sama.
+/dev/block/bootdevice/by-name/modem          /firmware    vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337,context=u:object_r:firmware_file:s0    wait
 
 /devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto,encryptable=userdata
 /devices/platform/msm_hsusb*                 auto         auto    defaults                                                    voldmanaged=usb:auto

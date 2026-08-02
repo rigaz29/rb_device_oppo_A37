@@ -99,7 +99,10 @@ on charger
    chown root system /sys/class/power_supply/bms/voltage_ocv
    chmod 0664 /sys/class/power_supply/bms/current_now
    chmod 0664 /sys/class/power_supply/bms/voltage_ocv
-   load_system_props
+   # load_system_props dihapus: deprecated di Android 11. host_init_verifier
+   # menolaknya sebagai error sehingga build gagal, dan di runtime pun ia sudah
+   # no-op — do_load_system_props (system/core/init/builtins.cpp:1084) hanya
+   # mencatat "deprecated action `load_system_props` called" lalu return.
    start vm_bms
 
 on property:sys.boot_completed=1
