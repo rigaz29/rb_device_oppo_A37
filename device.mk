@@ -23,11 +23,13 @@ PRODUCT_AAPT_CONFIG := normal
 PRODUCT_AAPT_PREF_CONFIG := xhdpi
 
 # Display
+# composer@2.1-impl → composer@2.1-service (18.1: impl dihapus, service saja)
+# Sumber: msm8916-common lineage-18.1
 PRODUCT_PACKAGES += \
     android.hardware.graphics.allocator@2.0-impl \
     android.hardware.graphics.allocator@2.0-service \
     android.hardware.graphics.mapper@2.0-impl-2.1 \
-    android.hardware.graphics.composer@2.1-impl \
+    android.hardware.graphics.composer@2.1-service \
     android.hardware.memtrack@1.0-impl \
     android.hardware.memtrack@1.0-service \
     gralloc.msm8916 \
@@ -95,10 +97,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
     debug.hwui.use_buffer_age=false
 
 # DRM
+# clearkey @1.2 → @1.3 (Sumber: msm8916-common lineage-18.1)
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.2-service.clearkey
+    android.hardware.drm@1.3-service.clearkey
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608
@@ -108,9 +111,11 @@ PRODUCT_PACKAGES += \
     vendor.lineage.trust@1.0-service
 
 # Audio
+# 18.1: audio@5.0→@6.0, service nama baru, BT audio stack baru
+# Sumber: msm8916-common lineage-18.1
 PRODUCT_PACKAGES += \
     audio.primary.msm8916 \
-    audio.a2dp.default \
+    audio.bluetooth.default \
     audio.r_submix.default \
     audio.usb.default \
     tinymix \
@@ -118,9 +123,10 @@ PRODUCT_PACKAGES += \
     libqcomvisualizer \
     libqcomvoiceprocessing \
     libqcompostprocbundle \
-    android.hardware.audio@5.0-impl \
-    android.hardware.audio@2.0-service \
-    android.hardware.audio.effect@5.0-impl
+    android.hardware.audio@6.0-impl \
+    android.hardware.audio.service \
+    android.hardware.audio.effect@6.0-impl \
+    android.hardware.bluetooth.audio@2.0-impl
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml
@@ -160,7 +166,8 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/mixer_paths.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths.xml \
     $(LOCAL_PATH)/audio/mixer_paths_mtp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_mtp.xml \
     $(LOCAL_PATH)/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
-    frameworks/av/services/audiopolicy/config/a2dp_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/bluetooth_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/a2dp_in_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_in_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
     frameworks/av/services/audiopolicy/config/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
     frameworks/av/services/audiopolicy/config/r_submix_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/r_submix_audio_policy_configuration.xml \
@@ -195,7 +202,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
     vendor.audio.offload.buffer.size.kb=64 \
     ro.config.vc_call_vol_steps=7 \
     ro.config.media_vol_steps=25 \
-    persist.bluetooth.bluetooth_audio_hal.disabled=true \
     vendor.audio.offload.gapless.enabled=true
 
 PRODUCT_COPY_FILES += \
@@ -249,7 +255,7 @@ PRODUCT_PACKAGES += \
     gps.msm8916
 
 # Charger images
-PRODUCT_PACKAGES += charger_res_images
+# charger_res_images dihapus di 18.1 (Sumber: msm8916-common lineage-18.1)
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/gps/flp.conf:system/etc/flp.conf \
@@ -292,11 +298,13 @@ PRODUCT_PACKAGES += \
     android.hardware.keymaster@3.0-service
 
 # Keystore
-PRODUCT_PACKAGES += \
-    keystore.msm8916
+# keystore.msm8916 dihapus di 18.1 (Sumber: msm8916-common lineage-18.1)
 
-PRODUCT_PACKAGES += InProcessNetworkStack
-PRODUCT_DISABLE_SCUDO := true
+# Network stack — 18.1: tambah tethering in-process
+# Sumber: msm8916-common lineage-18.1
+PRODUCT_PACKAGES += \
+    InProcessNetworkStack \
+    com.android.tethering.inprocess
 
 # FM
 PRODUCT_PACKAGES += \
@@ -366,12 +374,20 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.telephony.cdma.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.cdma.xml \
     frameworks/native/data/etc/android.software.sip.voip.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.sip.voip.xml
 
+# Power
+# CATATAN: referensi msm8916-common 18.1 pakai AIDL power-service-qti.
+# Sementara tetap power@1.0 HIDL (sudah proven di 17.1 dengan powerHint +
+# setInteractive custom). Upgrade ke AIDL bisa menyusul setelah boot stabil.
 PRODUCT_PACKAGES += \
     power.msm8916
 
 PRODUCT_PACKAGES += \
     android.hardware.power@1.0-impl \
     android.hardware.power@1.0-service
+
+# Gatekeeper — baru di 18.1, wajib (Sumber: msm8916-common lineage-18.1)
+PRODUCT_PACKAGES += \
+    android.hardware.gatekeeper@1.0-service.software
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.config.max_starting_bg=8
@@ -393,6 +409,12 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.product.first_api_level=19
 
+# Properti baru 18.1 (Sumber: msm8916-common lineage-18.1 + a6000 ref)
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.charger.enable_suspend=true \
+    ro.control_privapp_permissions=enforce \
+    ro.oem_unlock_supported=0
+
 # Properties
 # persist.data.qmi.adb_logmask, persist.radio.apm_sim_not_pwdn dan
 # ro.telephony.call_ring.multiple sudah diset di blok RIL di bawah; di sini
@@ -401,14 +423,30 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.radio.add_power_save=1
 
 # HIDL
+# 18.1: tambah libhidltransport/libhwbinder, VINTF override, RRO
+# Sumber: msm8916-common lineage-18.1
 PRODUCT_PACKAGES += \
     android.hidl.base@1.0 \
-    android.hidl.manager@1.0
+    android.hidl.manager@1.0 \
+    libhidltransport \
+    libhidltransport.vendor \
+    libhwbinder \
+    libhwbinder.vendor
+
+PRODUCT_ENFORCE_VINTF_MANIFEST_OVERRIDE := true
+
+# RRO (Runtime Resource Overlay) — wajib di Android 11
+# Sumber: msm8916-common lineage-18.1
+PRODUCT_ENFORCE_RRO_TARGETS := *
+PRODUCT_PACKAGES += \
+    WifiOverlay \
+    TetheringConfigOverlay
 
 # Health
+# 18.1: @2.0 → @2.1 (Sumber: msm8916-common lineage-18.1)
 PRODUCT_PACKAGES += \
-    android.hardware.health@2.0-impl \
-    android.hardware.health@2.0-service
+    android.hardware.health@2.1-impl \
+    android.hardware.health@2.1-service
 
 # Touchscreen
 PRODUCT_COPY_FILES += \
@@ -426,7 +464,8 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     libcnefeatureconfig \
     librmnetctl \
-    libxml2
+    libxml2 \
+    libcutils_shim
 
 # Baseband Fix
 PRODUCT_PACKAGES += \
@@ -466,8 +505,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
     wifi.interface=wlan0
 
 # WiFi HAL
+# .legacy → regular (Sumber: msm8916-common lineage-18.1)
 PRODUCT_PACKAGES += \
-    android.hardware.wifi@1.0-service.legacy
+    android.hardware.wifi@1.0-service
 
 # Wifi
 PRODUCT_PACKAGES += \
