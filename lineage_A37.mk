@@ -27,6 +27,11 @@ TARGET_OTA_ASSERT_DEVICE := A37,a37,a37f,A37f,A37fw,a37fw,A37m,a37m,msm8916,msm8
 # Must define platform variant before including any common things
 TARGET_BOARD_PLATFORM_VARIANT := msm8916
 
+# Device pertama kali rilis dengan Android 4.4 (API 19).
+# product_launched_with_k.mk sudah menyetel ini, tapi deklarasi eksplisit
+# memastikan FCM legacy target tetap benar meskipun inherit order berubah.
+PRODUCT_SHIPPING_API_LEVEL := 19
+
 TARGET_VENDOR := Oppo
 PRODUCT_DEVICE := A37
 PRODUCT_NAME := lineage_A37

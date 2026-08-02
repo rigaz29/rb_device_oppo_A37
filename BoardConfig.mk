@@ -58,6 +58,10 @@ BOARD_KERNEL_SEPARATED_DT := true
 TARGET_KERNEL_ARCH := arm64
 TARGET_CUSTOM_DTBTOOL := dtbToolOppo
 TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
+# Host toolchain LOS 18.1 pakai clang/lld; kernel 3.10 butuh flag ini agar
+# host tools (fixdep, conf) bisa di-link dengan lld.
+# Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
+TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-line-argument"
 
 # File System
 TARGET_FS_CONFIG_GEN := $(PLATFORM_PATH)/config.fs
@@ -109,6 +113,15 @@ VENDOR_SECURITY_PATCH := 2016-01-01
 BOARD_USES_QCOM_HARDWARE := true
 MALLOC_SVELTE := true
 
+# Kernel 3.10 tidak punya memfd_create (baru di 3.17). Android 11 butuh ini
+# untuk ashmem-to-memfd transition. Flag ini mengaktifkan backport di tree.
+# Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
+TARGET_HAS_MEMFD_BACKPORT := true
+
+# Dedupe VNDK libraries with identical core variants.
+# Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
+TARGET_VNDK_USE_CORE_VARIANT := true
+
 # HIDL
 DEVICE_MANIFEST_FILE := $(PLATFORM_PATH)/manifest.xml
 DEVICE_MATRIX_FILE := $(PLATFORM_PATH)/compatibility_matrix.xml
@@ -125,6 +138,9 @@ TARGET_FORCE_HWC_FOR_VIRTUAL_DISPLAYS := true
 TARGET_USES_C2D_COMPOSITION := true
 TARGET_ADDITIONAL_GRALLOC_10_USAGE_BITS := 0x2000U | 0x02000000U | 0x02002000U
 OVERRIDE_RS_DRIVER := libRSDriver_adreno.so
+# Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
+TARGET_DISABLE_POSTRENDER_CLEANUP := true
+TARGET_USES_LEGACY_WFD := true
 
 # Audio
 AUDIO_FEATURE_ENABLED_MULTI_VOICE_SESSIONS := true
@@ -144,7 +160,9 @@ QCOM_BT_READ_ADDR_FROM_PROP := true
 TARGET_PROVIDES_LIBLIGHT := true
 
 # Charger
-BOARD_CHARGER_ENABLE_SUSPEND := true
+# BOARD_CHARGER_ENABLE_SUSPEND dibuang — di 18.1 diganti properti
+# ro.charger.enable_suspend=true di device.mk.
+# Sumber: msm8916-common lineage-18.1 (commit "Replace BOARD_CHARGER_ENABLE_SUSPEND")
 BOARD_CHARGER_DISABLE_INIT_BLANK := true
 BACKLIGHT_PATH := /sys/class/leds/lcd-backlight/brightness
 
@@ -187,14 +205,17 @@ USE_DEVICE_SPECIFIC_GPS := true
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
     /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
-    /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so
+    /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so \
+    /system/vendor/lib/libril-qc-qmi-1.so|libcutils_shim.so
 
 # SEpolicy
 # CATATAN: neverallow masih diabaikan karena file_contexts device ini belum
 # lengkap; lihat androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE.
 SELINUX_IGNORE_NEVERALLOWS := true
 include device/qcom/sepolicy-legacy/sepolicy.mk
-BOARD_SEPOLICY_DIRS += \
+# Di 18.1 BOARD_SEPOLICY_DIRS diganti BOARD_VENDOR_SEPOLICY_DIRS.
+# Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
+BOARD_VENDOR_SEPOLICY_DIRS += \
     $(PLATFORM_PATH)/sepolicy
 
 # Wi-Fi
@@ -208,7 +229,9 @@ TARGET_USES_QCOM_WCNSS_QMI := true
 WIFI_DRIVER_FW_PATH_AP := "ap"
 WIFI_DRIVER_FW_PATH_STA := "sta"
 WPA_SUPPLICANT_VERSION := VER_0_8_X
-WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION := true
+# WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION dibuang — tidak ada di 18.1.
+# Sumber: msm8916-common lineage-18.1 (flag ini dihapus di diff resmi)
+WIFI_HIDL_UNIFIED_SUPPLICANT_SERVICE_RC_ENTRY := true
 
 # Proprietary Prebuilt
 -include vendor/oppo/A37/BoardConfigVendor.mk
