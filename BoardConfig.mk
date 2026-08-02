@@ -40,7 +40,7 @@ TARGET_CPU_VARIANT := cortex-a53
 TARGET_USES_64_BIT_BINDER := true
 
 # Kernel
-BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 loop.max_part=7 earlyprintk ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
+BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 loop.max_part=7 earlyprintk ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 androidboot.init_fatal_reboot_target=recovery
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
@@ -48,17 +48,16 @@ BOARD_KERNEL_PAGESIZE := 2048
 BOARD_KERNEL_OFFSET := 0x00008000
 BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset 0x01000000 --tags_offset 0x00000100
-BOARD_KERNEL_IMAGE_NAME := Image
+BOARD_KERNEL_IMAGE_NAME := zImage
 TARGET_KERNEL_SOURCE := kernel/oppo/msm8939
 BOARD_KERNEL_SEPARATED_DT := true
-TARGET_KERNEL_ARCH := arm64
+TARGET_KERNEL_ARCH := arm
 TARGET_CUSTOM_DTBTOOL := dtbToolOppo
 TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
-# TARGET_KERNEL_CROSS_COMPILE_PREFIX sengaja tidak diset: menyetelnya membuat
-# vendor/lineage/config/BoardConfigKernel.mk melewati default KERNEL_TOOLCHAIN_arm64,
-# sehingga CROSS_COMPILE menunjuk direktori yang tidak ada di host mana pun:
-#   ccache: error: execute_noreturn of /tmp/src/android/tc/bin/aarch64-linux-android-gcc
-# Tanpa baris itu, build memakai prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.
+# Kernel 32-bit (arm) mengikuti resep acroreiser A6010 lineage-19.1. DTB tetap
+# terpisah (BOARD_KERNEL_SEPARATED_DT + dtbToolOppo) sesuai bootloader OPPO, jadi
+# image-nya zImage (bukan zImage-dtb yang append DTB). TARGET_KERNEL_CROSS_COMPILE_PREFIX
+# sengaja tidak diset agar build memakai default prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9.
 TARGET_KERNEL_CLANG_COMPILE := false
 
 # File System

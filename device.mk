@@ -325,6 +325,27 @@ PRODUCT_PACKAGES += \
     init.recovery.qcom.rc \
     ueventd.qcom.rc
 
+# First-stage mount: fstab di ramdisk (resep acroreiser A6010 lineage-19.1).
+# First-stage init Android 12 membaca fstab dari ramdisk untuk me-mount /system
+# sebelum switch-root; tanpa entri first_stage_mount ini boot mentok di splash.
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/rootdir/etc/fstab.ramdisk.qcom:$(TARGET_COPY_OUT_RAMDISK)/fstab.qcom
+
+# Cgroup v1 + task profiles (kernel 3.10 tidak punya cgroup v2).
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/cgroups.json:$(TARGET_COPY_OUT_VENDOR)/etc/cgroups.json \
+    $(LOCAL_PATH)/configs/task_profiles.json:$(TARGET_COPY_OUT_VENDOR)/etc/task_profiles.json
+
+# lmkd: kernel 3.10 tanpa PSI; pakai strategi legacy (resep acroreiser 19.1).
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.lmk.use_psi=false \
+    ro.lmk.use_new_strategy=false \
+    ro.lmk.kill_timeout_ms=20 \
+    ro.lmk.critical=0 \
+    ro.lmk.low=900 \
+    ro.lmk.swap_free_low_percentage=10 \
+    ro.config.per_app_memcg=false
+
 # For config.fs
 PRODUCT_PACKAGES += \
     fs_config_files

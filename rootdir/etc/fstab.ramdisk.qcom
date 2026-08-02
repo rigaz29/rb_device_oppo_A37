@@ -1,0 +1,6 @@
+# Android ramdisk fstab file.
+# Dipakai first-stage init untuk me-mount /system sebelum switch-root.
+# Path platform eksplisit (bukan symlink /dev/block/bootdevice) karena pada
+# tahap sangat awal symlink bootdevice belum tentu tersedia.
+
+/dev/block/platform/soc.0/7824900.sdhci/by-name/system         /system      ext4    ro,barrier=1,discard                                                wait,first_stage_mount
