@@ -216,8 +216,23 @@ TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libril-qc-qmi-1.so|libcutils_shim.so
 
 # SEpolicy
-# CATATAN: neverallow masih diabaikan karena file_contexts device ini belum
-# lengkap; lihat androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE.
+# SELINUX_IGNORE_NEVERALLOWS masih WAJIB, dan alasannya bukan lagi
+# "file_contexts device belum lengkap" — itu sudah beres (semua 18 HAL service
+# yang dideklarasikan device.mk kini berlabel).
+#
+# Alasan sebenarnya, diukur dengan `m sepolicy_neverallows` memakai override
+# SETELAH include di bawah (kalau disetel sebelum include, nilainya ditimpa
+# oleh device/qcom/sepolicy-legacy/sepolicy.mk:11 yang memaksa := true):
+# ada ~1.500 pelanggaran neverallow, hampir semuanya dari sepolicy legacy QCOM
+# dan platform, mis. 626 dari system/sepolicy/public/property.te dan 46 masing-
+# masing dari domain aplikasi (priv_app, untrusted_app, radio, ...).
+# Hanya 8 yang berasal dari device tree ini, semuanya dari
+# app_domain(timekeep_app) di sepolicy/timekeep_app.te:7.
+#
+# Catatan: baris di bawah ini redundan karena sepolicy-legacy juga menyetelnya,
+# tapi dipertahankan supaya niatnya eksplisit saat file itu nanti diganti.
+# Flag ini hanya mematikan pemeriksaan neverallow saat BUILD; mode permissive
+# runtime datang dari androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE.
 SELINUX_IGNORE_NEVERALLOWS := true
 include device/qcom/sepolicy-legacy/sepolicy.mk
 # Di 18.1 BOARD_SEPOLICY_DIRS diganti BOARD_VENDOR_SEPOLICY_DIRS.
