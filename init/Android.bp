@@ -18,8 +18,19 @@ cc_library_static {
     name: "libinit_msm8916",
     recovery_available: true,
     srcs: ["init_msm8916.cpp"],
+
+    // Di Android 11 android-base/result.h menarik android-base/format.h yang
+    // meng-include <fmt/chrono.h>, sehingga include_dirs mentah ke
+    // system/core/base/include saja tidak cukup lagi:
+    //   system/core/base/include/android-base/format.h:23:10:
+    //     fatal error: 'fmt/chrono.h' file not found
+    // fmtlib sendiri menyuruh jangan di-link langsung ("This is built into
+    // libbase. If you want to use this library, link to libbase instead."
+    // external/fmtlib/Android.bp:18), dan libbase memang mengekspornya lewat
+    // export_static_lib_headers: ["fmtlib"] (system/core/base/Android.bp:131).
+    static_libs: ["libbase"],
+
     include_dirs: [
-        "system/core/base/include",
         "system/core/init",
         "external/selinux/libselinux/include"
     ]

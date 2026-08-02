@@ -30,10 +30,19 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysinfo.h>
+
+// _system_properties.h menolak di-include langsung (guard
+// _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_ di bionic/libc/include/sys/
+// _system_properties.h:35). Definisikan guard-nya seperti yang dilakukan
+// system/core/init sendiri, agar prop_info dan __system_property_update
+// bisa dipakai.
+#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
+#include <sys/_system_properties.h>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -46,7 +55,32 @@
 using android::base::GetProperty;
 using android::base::ReadFileToString;
 using android::base::Trim;
-using android::init::property_set;
+
+/*
+ * android::init::property_set dihapus dari property_service.h di Android 11,
+ * dan penggantinya (InitPropertySet, property_service.cpp:607) tidak diekspor
+ * lewat header mana pun.
+ *
+ * android::base::SetProperty juga bukan pengganti yang benar di sini:
+ * vendor_load_properties() dipanggil dari PropertyLoadBootDefaults()
+ * (property_service.cpp:877,917), yaitu SEBELUM StartPropertyService(),
+ * sehingga socket /dev/socket/property_service belum ada dan SetProperty akan
+ * gagal.
+ *
+ * Jadi dipakai penulisan langsung ke property area — pola yang sama dengan
+ * PropertySet di property_service.cpp:179-193. Bedanya di sini penjaga
+ * "ro.* write-once" memang sengaja dilewati, karena itulah gunanya override
+ * dari vendor init.
+ */
+static void property_override(const char* name, const char* value)
+{
+    prop_info* pi = (prop_info*) __system_property_find(name);
+    if (pi != nullptr) {
+        __system_property_update(pi, value, strlen(value));
+    } else {
+        __system_property_add(name, strlen(name), value, strlen(value));
+    }
+}
 
 static void init_alarm_boot_properties()
 {
@@ -75,9 +109,9 @@ static void init_alarm_boot_properties()
          */
         if ((Trim(boot_reason) == "3" || tmp == "true")
                 && Trim(power_off_alarm) == "1")
-            property_set("ro.alarm_boot", "true");
+            property_override("ro.alarm_boot", "true");
         else
-            property_set("ro.alarm_boot", "false");
+            property_override("ro.alarm_boot", "false");
     }
 }
 
@@ -90,13 +124,13 @@ bool is2GB()
 
 void set_device_dalvik_properties()
 {
-  property_set("dalvik.vm.heapstartsize", "16m");
-  property_set("dalvik.vm.heapgrowthlimit", is2GB() ? "256m" : "128m");
-  property_set("dalvik.vm.heapsize", is2GB() ? "512m" : "256m");
-  property_set("dalvik.vm.heaptargetutilization", "0.75");
-  property_set("dalvik.vm.heapminfree", is2GB() ? "2m" : "512k");
-  property_set("dalvik.vm.heapmaxfree", "8m");
-  property_set("ro.vendor.qti.sys.fw.bg_apps_limit", is2GB() ? "17" : "9");
+  property_override("dalvik.vm.heapstartsize", "16m");
+  property_override("dalvik.vm.heapgrowthlimit", is2GB() ? "256m" : "128m");
+  property_override("dalvik.vm.heapsize", is2GB() ? "512m" : "256m");
+  property_override("dalvik.vm.heaptargetutilization", "0.75");
+  property_override("dalvik.vm.heapminfree", is2GB() ? "2m" : "512k");
+  property_override("dalvik.vm.heapmaxfree", "8m");
+  property_override("ro.vendor.qti.sys.fw.bg_apps_limit", is2GB() ? "17" : "9");
 }
 
 void vendor_load_properties()
