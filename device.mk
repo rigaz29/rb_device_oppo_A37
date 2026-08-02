@@ -347,6 +347,17 @@ PRODUCT_COPY_FILES += \
     frameworks/av/media/libstagefright/data/media_codecs_google_video.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_video.xml
 
 # Media
+# CATATAN duplicate rule libmm-omxcore (lihat BUILD_BROKEN_DUP_RULES di
+# BoardConfig.mk): modul ini juga disalin sebagai prebuilt oleh
+# vendor/oppo/A37/A37-vendor.mk ke path output yang PERSIS SAMA. Yang menang
+# adalah aturan PRODUCT_COPY_FILES alias blob — diverifikasi dari perintah
+# ninja-nya: "cp vendor/oppo/A37/proprietary/vendor/lib/libmm-omxcore.so".
+# Menghapus baris di bawah TIDAK menyelesaikan duplikat: libmm-omxcore tetap
+# ter-install karena jadi dependensi modul libOmx* lain yang dibangun dari
+# source (sudah diuji). Satu-satunya cara menghilangkan duplikat adalah
+# membuang salinan prebuilt di A37-vendor.mk, dan itu MENGGANTI biner yang
+# terpasang (blob -> hasil build source). Belum dilakukan karena kombinasi
+# blob + libOmx* source itulah yang terbukti boot di 17.1.
 PRODUCT_PACKAGES += \
     libmm-omxcore \
     libOmxAacEnc \

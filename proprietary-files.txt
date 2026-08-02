@@ -132,6 +132,7 @@ vendor/lib/libmmcamera2_wnr_module.so
 vendor/lib/libmmcamera_hdr_gb_lib.so
 vendor/lib/libmmcamera_hdr_lib.so
 vendor/lib/libmmcamera_imglib.so
+vendor/lib/libmmcamera_tuning.so
 vendor/lib/libmmcamera_pdafcamif.so
 vendor/lib/libmmcamera_pdaf.so
 vendor/lib/libmmcamera_tintless_algo.so
@@ -195,7 +196,6 @@ lib/libmmparser_lite.so
 lib/libOmxMux.so
 lib/libOmxVpp.so
 lib/libvpplibrary.so
-lib/sensors.a6000.so
 lib/vendor.qti.hardware.iop@1.0.so
 lib/vendor.qti.hardware.iop@2.0.so
 vendor/bin/adsprpcd
@@ -334,6 +334,7 @@ vendor/lib/libqti-iopd-client.so
 vendor/lib/libqti-iopd.so
 vendor/lib/libqti-perfd-client.so
 vendor/lib/libqti-perfd.so
+vendor/lib/libthermalclient.so
 vendor/lib/libqti-util.so
 vendor/lib/libqti-utils.so
 vendor/lib/libril-qc-qmi-1.so

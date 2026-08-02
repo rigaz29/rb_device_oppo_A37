@@ -32,6 +32,16 @@ TARGET_NO_BOOTLOADER := true
 # BUILD_BROKEN_PHONY_TARGETS dibuang: obsolete di Android 11, KATI_obsolete_var
 # di build/make/core/board_config.mk membuatnya jadi hard error. Daftar
 # BUILD_BROKEN_* yang masih sah ada di board_config.mk:89-94.
+#
+# BUILD_BROKEN_DUP_RULES masih dibutuhkan, dan penyebabnya tepat SATU target:
+#   out/target/product/A37/system/vendor/lib/libmm-omxcore.so
+# A37-vendor.mk menyalin blob prebuilt ke path itu, sementara modul
+# libmm-omxcore juga ter-install ke sana sebagai dependensi libOmx* yang
+# dibangun dari source. Yang menang adalah salinan blob (diverifikasi dari
+# perintah ninja). Menghapus libmm-omxcore dari PRODUCT_PACKAGES di device.mk
+# TIDAK menolong — sudah diuji, modulnya tetap ditarik lewat dependensi.
+# Satu-satunya cara menghilangkan flag ini adalah membuang salinan prebuilt
+# dari A37-vendor.mk, tapi itu mengganti biner yang terpasang.
 BUILD_BROKEN_DUP_RULES := true
 # Stack GPS device-specific (gps/core, gps/utils, gps/loc_api/*) masih memakai
 # LOCAL_COPY_HEADERS, yang jadi hard error di Android 11
