@@ -29,8 +29,15 @@ TARGET_NO_BOOTLOADER := true
 # Tanpa keduanya, build memakai prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.
 
 # Temp build fix
-BUILD_BROKEN_PHONY_TARGETS := true
+# BUILD_BROKEN_PHONY_TARGETS dibuang: obsolete di Android 11, KATI_obsolete_var
+# di build/make/core/board_config.mk membuatnya jadi hard error. Daftar
+# BUILD_BROKEN_* yang masih sah ada di board_config.mk:89-94.
 BUILD_BROKEN_DUP_RULES := true
+# Stack GPS device-specific (gps/core, gps/utils, gps/loc_api/*) masih memakai
+# LOCAL_COPY_HEADERS, yang jadi hard error di Android 11
+# (build/make/core/shared_library.mk:59-62). Flag ini menurunkannya kembali
+# jadi warning. Konversi ke header_libs Soong adalah pekerjaan tersendiri.
+BUILD_BROKEN_USES_BUILD_COPY_HEADERS := true
 
 # Architecture
 TARGET_BOARD_SUFFIX := _32

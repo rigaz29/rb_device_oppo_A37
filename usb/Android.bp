@@ -21,9 +21,10 @@ cc_binary {
     shared_libs: [
         "libbase",
         "libcutils",
+        // libhidltransport + libhwbinder dilebur ke libhidlbase di Android 11
+        // dan visibility-nya dibatasi ke :__subpackages__
+        // (system/libhidl/Android.bp:113-119, system/libhwbinder/Android.bp:64-69).
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "libutils",
         "libhardware",
         "android.hardware.usb@1.0",
