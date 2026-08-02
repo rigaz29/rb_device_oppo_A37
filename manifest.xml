@@ -262,15 +262,39 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <hal format="hidl">
-        <name>vendor.lineage.trust</name>
-        <transport>hwbinder</transport>
-        <version>1.0</version>
-        <interface>
-            <name>IUsbRestrict</name>
-            <instance>default</instance>
-        </interface>
-    </hal>
+    <!-- vendor.lineage.trust: DIHAPUS. Paket vendor.lineage.trust@1.0-service
+         membawa VINTF fragment sendiri (hardware/lineage/interfaces/trust/Android.bp
+         -> vintf_fragments), dan fragment itu memakai <version>1.0</version>.
+         HalManifest::shouldAdd (system/libvintf/HalManifest.cpp:44-65) menolak
+         <hal> yang major version-nya sudah ada, sehingga deklarasi ganda membuat
+         SELURUH device manifest gagal di-parse:
+           "Cannot add manifest fragment .../vendor.lineage.trust@1.0-service.xml:
+            HAL vendor.lineage.trust has a conflict." -> "No device manifest."
+         Bandingkan dengan drm: fragment clearkey tidak punya tag <version>
+         (hanya <fqname>), jadi deklarasi paralel di sini aman. -->
+    <!-- livedisplay: paket -legacymm dan -sysfs TIDAK membawa VINTF fragment
+         (hardware/lineage/livedisplay/{legacymm,sysfs}/Android.bp), jadi setiap
+         interface harus dideklarasikan manual di sini. Yang tidak dideklarasikan
+         tidak akan bisa diambil: dengan PRODUCT_ENFORCE_VINTF_MANIFEST,
+         getTransport() mengembalikan EMPTY dan getService() langsung null
+         (system/libhidl/transport/ServiceManagement.cpp:755-771).
+
+         Hanya interface yang TERBUKTI akan register yang didaftarkan di sini —
+         mendeklarasikan HAL yang tak pernah muncul justru membuat getService()
+         menunggu (jalur vintfHwbinder + Waiter).
+
+         IPictureAdjustment  : -legacymm, via libmm-disp-apis (sudah ada di 17.1)
+         IDisplayColorCalibration : -sysfs, butuh /sys/class/graphics/fb0/rgb.
+                              mdss_livedisplay.c:797 membuat atribut rgb TANPA
+                              syarat, jadi selalu tersedia.
+         IAdaptiveBacklight  : -sysfs, butuh .../acl atau .../cabc. Kernel A37
+                              tidak punya acl, tapi cabc dibuat karena panel
+                              15399 mendeklarasikan qcom,mdss-dsi-cabc-*-command
+                              (MODE_CABC, mdss_livedisplay.c:801).
+
+         TIDAK didaftarkan karena tidak ada bukti akan register di A37:
+         IDisplayModes (butuh dukungan libmm-disp-apis), ISunlightEnhancement
+         (butuh sre/hbm), IAutoContrast (aco), IColorEnhancement, IReadingEnhancement. -->
     <hal format="hidl">
         <name>vendor.lineage.livedisplay</name>
         <transport>hwbinder</transport>
@@ -279,5 +303,13 @@
             <name>IPictureAdjustment</name>
             <instance>default</instance>
         </interface>
-    </hal>    
+        <interface>
+            <name>IDisplayColorCalibration</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IAdaptiveBacklight</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
 </manifest>
