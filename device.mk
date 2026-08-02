@@ -300,11 +300,12 @@ PRODUCT_PACKAGES += \
 # Keystore
 # keystore.msm8916 dihapus di 18.1 (Sumber: msm8916-common lineage-18.1)
 
-# Network stack — 18.1: tambah tethering in-process
+# Network stack — 18.1: InProcessNetworkStack
 # Sumber: msm8916-common lineage-18.1
+# CATATAN: com.android.tethering.inprocess dihapus — tidak ada di LOS 18.1
+# (diverifikasi: packages/modules/ tidak punya Tethering module)
 PRODUCT_PACKAGES += \
-    InProcessNetworkStack \
-    com.android.tethering.inprocess
+    InProcessNetworkStack
 
 # FM
 PRODUCT_PACKAGES += \
@@ -437,10 +438,10 @@ PRODUCT_ENFORCE_VINTF_MANIFEST_OVERRIDE := true
 
 # RRO (Runtime Resource Overlay) — wajib di Android 11
 # Sumber: msm8916-common lineage-18.1
+# CATATAN: WifiOverlay/TetheringConfigOverlay dihapus — tidak ada di
+# base tree LOS 18.1 (diverifikasi dari source). Jika build gagal
+# karena RRO, hapus juga PRODUCT_ENFORCE_RRO_TARGETS.
 PRODUCT_ENFORCE_RRO_TARGETS := *
-PRODUCT_PACKAGES += \
-    WifiOverlay \
-    TetheringConfigOverlay
 
 # Health
 # 18.1: @2.0 → @2.1 (Sumber: msm8916-common lineage-18.1)
