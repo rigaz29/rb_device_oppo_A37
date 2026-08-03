@@ -46,3 +46,14 @@ LOCAL_MODULE := libcamera_shim
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true
 include $(BUILD_SHARED_LIBRARY)
+
+# Shim untuk libril-qc-qmi-1.so. Menyediakan
+# android::AudioSystem::setErrorCallback(void(*)(int)) yang dihapus dari
+# libaudioclient di Android 11. Lihat AudioSystem_ril.cpp untuk rinciannya.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := AudioSystem_ril.cpp
+LOCAL_MODULE := libril_shim
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+LOCAL_VENDOR_MODULE := true
+include $(BUILD_SHARED_LIBRARY)

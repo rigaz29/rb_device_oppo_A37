@@ -260,7 +260,8 @@ USE_DEVICE_SPECIFIC_GPS := true
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
     /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
-    /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so
+    /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so \
+    /system/vendor/lib/libril-qc-qmi-1.so|libril_shim.so
 
 # SEpolicy
 # SELINUX_IGNORE_NEVERALLOWS masih WAJIB, dan alasannya bukan lagi

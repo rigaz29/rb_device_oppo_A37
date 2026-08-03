@@ -517,13 +517,14 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     libcnefeatureconfig \
     librmnetctl \
-    libxml2
-# libcutils_shim DIBUANG dari daftar ini: modulnya tidak pernah terdefinisi di
-# tree (nihil di seluruh Android.bp/Android.mk, dan tidak ada aturan install di
-# ninja), jadi baris ini tidak pernah menghasilkan apa pun. Yang berbahaya
-# adalah pemetaan TARGET_LD_SHIM_LIBS-nya di BoardConfig.mk, yang menyuntikkan
-# DT_NEEDED ke libril-qc-qmi-1.so sehingga rild gagal dlopen sejak boot —
-# lihat catatan lengkap di sana.
+    libxml2 \
+    libril_shim
+# libcutils_shim sebelumnya ada di daftar ini, padahal modulnya tidak pernah
+# terdefinisi di tree — jadi baris itu tidak menghasilkan apa pun sementara
+# pemetaan TARGET_LD_SHIM_LIBS-nya menyuntikkan DT_NEEDED ke blob RIL dan
+# membuat rild gagal dlopen. Diganti libril_shim, yang benar-benar dibangun
+# dari device/oppo/A37/libshims dan menyediakan simbol yang sungguh hilang
+# (android::AudioSystem::setErrorCallback). Lihat catatan di BoardConfig.mk.
 
 # Baseband Fix
 PRODUCT_PACKAGES += \
