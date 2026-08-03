@@ -47,33 +47,18 @@
     </hal>
     <hal format="hidl">
         <name>android.hardware.camera.provider</name>
-        <!-- hwbinder, BUKAN passthrough. device.mk:224-225 memasang dua-duanya:
-             @2.4-impl (library passthrough) DAN @2.4-service (service
-             binderized). Service binderized itu memanggil
-             defaultPassthroughServiceImplementation<ICameraProvider>("legacy/0")
-             (camera/provider/2.4/default/service.cpp:49) yang ujungnya
-             registerAsService() — sama seperti IRadio, pendaftaran ditolak
-             kalau transport menurut manifest bukan HWBINDER
-             (ServiceManagement.cpp:838-847):
+        <!-- TETAP passthrough. Pernah diubah jadi hwbinder (build
+             20260803_161352) untuk menghentikan restart loop
+             vendor.camera-provider-2-4, dan hasilnya layar hitam di
+             homescreen — HAL kamera pindah ke prosesnya sendiri dan sesuatu
+             di rantai itu tidak beres.
 
-               E HidlServiceManagement: Service
-                 android.hardware.camera.provider@2.4::ICameraProvider/legacy/0
-                 must be in VINTF manifest in order to register/get.
-               E LegacySupport: Could not register service ... (-2147483648)
-
-             Service-nya lalu keluar dan di-restart init tiap 5 detik selamanya
-             (65 restart dalam satu jendela log), sekaligus membanjiri log
-             dengan "libprocessgroup: AddTidToCgroup failed" karena init
-             berusaha memasukkan proses yang sedang mati ke cgroup.
-
-             Deklarasi hwbinder TIDAK memutus pemuatan HAL-nya: LegacySupport
-             memanggil getRawServiceInternal(..., getStub=true)
-             (LegacySupport.cpp:35), yang selalu menempuh jalur passthrough
-             untuk mengambil impl, lepas dari transport di manifest. Yang
-             berubah hanya pendaftarannya jadi berhasil, sehingga HAL kamera
-             berjalan di prosesnya sendiri — jalur Treble yang normal, dan
-             sama dengan ROM referensi (mereka @2.5). -->
-        <transport>hwbinder</transport>
+             Loop-nya sendiri sekarang dihentikan dari sisi lain: paket
+             @2.4-service (binderized) tidak lagi dipasang di device.mk,
+             sehingga tidak ada yang mencoba registerAsService() dan ditolak.
+             Yang dipakai hanya @2.4-impl lewat passthrough, persis seperti
+             build 20260803_140427 yang terbukti jalan. -->
+        <transport arch="32+64">passthrough</transport>
         <version>2.4</version>
         <interface>
             <name>ICameraProvider</name>

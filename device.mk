@@ -220,9 +220,23 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml
 
 # Camera
+#
+# @2.4-service (binderized) SENGAJA TIDAK dipasang; yang dipakai hanya
+# @2.4-impl lewat jalur passthrough, sesuai deklarasi passthrough di
+# manifest.xml.
+#
+# Memasang keduanya sekaligus adalah sumber restart loop 5 detik: service
+# binderized memanggil registerAsService(), yang ditolak kalau transport
+# menurut manifest bukan HWBINDER (ServiceManagement.cpp:838-847), lalu
+# service-nya keluar dan di-restart init selamanya.
+#
+# Percobaan memperbaikinya dengan mengubah transport jadi hwbinder (build
+# 20260803_161352) membuat HAL kamera pindah ke prosesnya sendiri, dan
+# hasilnya layar hitam di homescreen. Jadi jalur passthrough — yang terbukti
+# jalan di build 20260803_140427 — dipertahankan, dan loop-nya dihentikan
+# dengan tidak memasang service binderized-nya sama sekali.
 PRODUCT_PACKAGES += \
     android.hardware.camera.provider@2.4-impl \
-    android.hardware.camera.provider@2.4-service \
     camera.device@1.0-impl \
     libshim_camera \
     libcamera_shim \
