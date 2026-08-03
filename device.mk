@@ -300,12 +300,53 @@ PRODUCT_PACKAGES += \
 # Keystore
 # keystore.msm8916 dihapus di 18.1 (Sumber: msm8916-common lineage-18.1)
 
-# Network stack — 18.1: InProcessNetworkStack
+# Network stack — 18.1: varian in-process (tanpa APEX)
 # Sumber: msm8916-common lineage-18.1
-# CATATAN: com.android.tethering.inprocess dihapus — tidak ada di LOS 18.1
-# (diverifikasi: packages/modules/ tidak punya Tethering module)
+#
+# InProcessTethering WAJIB berpasangan dengan InProcessNetworkStack.
+# Tanpa TetheringService, TetheringManager.isTetheringSupported() menunggu
+# ConditionVariable yang tidak pernah di-signal, dan itu membekukan MAIN THREAD
+# Settings saat homepage resume:
+#
+#   TetheringManager$RequestDispatcher.waitForResult(TetheringManager.java:406)
+#   TetheringManager.isTetheringSupported(TetheringManager.java:1321)
+#   settingslib.TetherUtil.isTetherAvailable(TetherUtil.java:32)
+#   TetherPreferenceController.isAvailable(TetherPreferenceController.java:115)
+#   TopLevelNetworkEntryPreferenceController.getSummary(...:74)
+#   DashboardFragment.updatePreferenceStates -> onResume
+#
+# Gejalanya di device: Settings tampil putih polos tanpa toolbar (yang terlihat
+# cuma Splash Screen window), tombol Back mati, dan "dumpsys activity" untuk
+# proses itu balas "java.io.IOException: Timeout". Sub-halaman seperti
+# DISPLAY_SETTINGS tetap normal karena tidak memanggil TetherUtil.
+#
+# Kenapa HARUS nama apex, bukan nama app-nya:
+# com.android.tethering.inprocess adalah override_apex dengan
+# base: "com.android.tethering" dan apps: ["InProcessTethering"]
+# (frameworks/base/packages/Tethering/apex/Android.bp:40-47). Menambahkannya
+# MENGGANTI isi apex dari Tethering (bersertifikat networkstack) menjadi
+# InProcessTethering (bersertifikat platform). Menambahkan modul
+# "InProcessTethering" saja tidak menggantikan apa pun — apex bawaan tetap
+# terpasang dan tidak ada yang berubah.
+#
+# Sertifikat itulah inti masalahnya. MAINLINE_NETWORK_STACK berproteksi
+# signature dan didefinisikan PlatformNetworkPermissionConfig (bersertifikat
+# platform), sehingga Tethering.apk bersertifikat networkstack tidak bisa
+# memperolehnya:
+#   E SystemServer: BOOT FAILURE starting Tethering
+#   java.lang.SecurityException: Networking module does not have permission
+#     android.permission.MAINLINE_NETWORK_STACK
+#     at ConnectivityModuleConnector.checkModuleServicePermission(...:291)
+# Layanan tethering gagal start, lalu semua pemanggilan TetheringManager
+# menggantung sampai timeout.
+#
+# Pasangan kanoniknya terlihat di build/make/target/product/go_defaults_common.mk:40-43
+# (InProcessNetworkStack + com.android.tethering.inprocess). msm8916-common
+# mendapatkannya otomatis lewat common_full_go_phone.mk; device ini memakai
+# common_full_phone.mk sehingga harus dideklarasikan eksplisit.
 PRODUCT_PACKAGES += \
-    InProcessNetworkStack
+    InProcessNetworkStack \
+    com.android.tethering.inprocess
 
 # FM
 PRODUCT_PACKAGES += \
