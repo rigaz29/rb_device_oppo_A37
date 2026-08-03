@@ -13,6 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Sertakan jam-menit-detik di nama build, bukan cuma tanggal, supaya beberapa
+# build dalam satu hari bisa dibedakan:
+#   lineage-18.1-20260803-UNOFFICIAL-rigaz29-A37.zip
+#   -> lineage-18.1-20260803_004500-UNOFFICIAL-rigaz29-A37.zip
+# Sakelar ini dibaca vendor/lineage/config/common.mk:270 sehingga HARUS
+# disetel sebelum baris inherit common_full_phone.mk di bawah.
+#
+# Tanpa ini, dua build pada hari yang sama menghasilkan nama file yang sama
+# dan yang kedua menimpa yang pertama — persis yang terjadi pada build
+# 2 Agu: mka bacon menulis ke inode yang sama sehingga ROM lama hilang
+# beserta checksum-nya.
+LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
+
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_k.mk)
