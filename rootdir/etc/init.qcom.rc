@@ -232,56 +232,42 @@ service qseecomd /system/vendor/bin/qseecomd
    group root
    writepid /dev/cpuset/system-background/tasks
 
-service time_daemon /system/vendor/bin/time_daemon
-   capabilities SYS_TIME
-   class late_start
-   # gid utama HARUS net_raw (3004), uid HARUS system (1000).
-   #
-   # Biner ini menurunkan hak aksesnya sendiri. Dibongkar dari .text-nya
-   # (Thumb-2, stripped):
-   #
-   #   0x1b3c  movw r0, #3004   ; F640 30BC  -> setgid(AID_NET_RAW)
-   #   0x1b4e  mov.w r0, #1000  ; F44F 707A  -> setuid(AID_SYSTEM)
-   #
-   # setgid(gid) hanya lolos tanpa CAP_SETGID kalau gid tujuan sama dengan
-   # gid nyata/efektif/saved. Baris "capabilities" di atas memangkas bounding
-   # set jadi hanya CAP_SYS_TIME (capabilities.cpp:180-203 SetCapsForExec ->
-   # DropBoundingSet), sehingga proses root sekalipun kehilangan CAP_SETGID.
-   # Akibatnya baik root:root (gid 0) maupun system:system (gid 1000)
-   # sama-sama gagal karena keduanya bukan 3004:
-   #
-   #   E QC-time-services: Error changing gid:-1
-   #   E QC-time-services: Time-services exiting
-   #
-   # lalu keluar status 255 dan di-restart init tiap 5 detik selamanya.
-   #
-   # Dengan gid utama net_raw, setgid(3004) jadi no-op yang lolos; setuid(1000)
-   # juga no-op karena uid sudah system. Karena uid tidak pernah berpindah dari
-   #/ke root, CAP_SYS_TIME tetap terbawa lewat ambient set sehingga
-   # settimeofday() tetap bisa dipakai.
-   #
-   # net_raw memang yang dibutuhkan: daemon ini bicara ke modem lewat socket
-   # AF_MSM_IPC — lihat allowxperm msm_sock_ipc_ioctls di
-   # sepolicy-legacy/common/time_daemon.te.
-   #
-   # system tetap dipasang sebagai grup tambahan untuk /data/time
-   # ("mkdir /data/time/ 0700 system system" di baris 80 file ini; uid system
-   # sudah cocok sebagai pemilik, ini sekadar jaring pengaman).
-   user system
-   group net_raw system
-   # seclabel u:object_r:time_daemon_exec:s0 DIBUANG.
-   # Itu label FILE (exec type), bukan domain. seclabel menimpa transisi domain
-   # otomatis, sehingga prosesnya berjalan dengan konteks tak sah dan logcat
-   # dibanjiri denial seperti:
-   #   avc: denied { entrypoint } for comm="init" path=".../time_daemon"
-   #     scontext=u:object_r:time_daemon_exec:s0
-   #     tcontext=u:object_r:time_daemon_exec:s0 tclass=file
-   # Perhatikan scontext-nya exec type — itu tandanya.
-   # Tanpa baris ini init memakai transisi otomatis dari
-   # init_daemon_domain(time_daemon) di
-   # device/qcom/sepolicy-legacy/common/time_daemon.te:7, dan file_contexts
-   # sudah melabeli binernya time_daemon_exec dengan benar.
-   writepid /dev/cpuset/system-background/tasks
+# service time_daemon DIBUANG SELURUHNYA.
+#
+# Riwayat lengkapnya, karena mahal didapat:
+#
+# 1. Semula ada "seclabel u:object_r:time_daemon_exec:s0" — itu label FILE
+#    (exec type), bukan domain, sehingga prosesnya berjalan dengan konteks tak
+#    sah dan logcat dibanjiri denial "avc: denied { entrypoint } ... scontext=
+#    u:object_r:time_daemon_exec:s0". Dihapus; init lalu memakai transisi
+#    otomatis dari init_daemon_domain(time_daemon) di
+#    device/qcom/sepolicy-legacy/common/time_daemon.te:7. Denial 605 -> 68.
+#
+# 2. Setelah itu ketahuan daemon-nya sendiri keluar status 255 tiap 5 detik:
+#      E QC-time-services: Error changing gid:-1
+#      E QC-time-services: Time-services exiting
+#    Sebabnya baris "capabilities SYS_TIME" memangkas bounding set jadi hanya
+#    CAP_SYS_TIME (capabilities.cpp:180-203 SetCapsForExec -> DropBoundingSet),
+#    sehingga proses root pun kehilangan CAP_SETGID.
+#
+# 3. Gid tujuannya dibongkar dari .text biner (stripped, Thumb-2) dengan
+#    memetakan stub PLT ke relokasi R_ARM_JUMP_SLOT lalu memindai .text per
+#    2 byte untuk BL/BLX Thumb yang menuju stub itu:
+#      0x1b3c  movw r0, #3004   -> setgid(AID_NET_RAW)
+#      0x1b4e  mov.w r0, #1000  -> setuid(AID_SYSTEM)
+#    Jadi baik root:root maupun system:system sama-sama gagal; yang benar
+#    "user system" + "group net_raw system".
+#
+# 4. Dengan konfigurasi itu daemon-nya AKHIRNYA jalan — dan device jadi reboot
+#    sendiri ke recovery sekitar semenit setelah boot. Satu-satunya perubahan
+#    antara build yang stabil (20260803_140427) dan yang reboot
+#    (20260803_150414) adalah baris "group" tersebut, jadi justru
+#    keberhasilannya yang merusak.
+#
+# Kesimpulan: ATS Qualcomm ini tidak kompatibel dengan Android 11 di device
+# ini. Fungsinya (sinkronisasi jam AP dengan jam modem) sudah digantikan NTP
+# dan NITZ, dan ROM LineageOS 18.1 A37 yang beredar juga tidak menjalankannya
+# sama sekali. mkdir /data/time di baris 80 dibiarkan — tidak berbahaya.
 
 service ppd /system/vendor/bin/mm-pp-daemon
     class late_start
