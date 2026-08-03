@@ -61,7 +61,12 @@ TARGET_CPU_VARIANT := cortex-a53
 TARGET_USES_64_BIT_BINDER := true
 
 # Kernel
-BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 earlyprintk ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
+# earlyprintk WAJIB pakai argumen di arm64: arch/arm64/kernel/early_printk.c:143
+# mencetak "No earlyprintk arguments passed." lalu return kalau kosong, jadi
+# bentuk telanjang "earlyprintk" selama ini tidak melakukan apa pun.
+# msm_hsl_uart ada di tabel earlycon_match (early_printk.c:109) dan 0x78b0000
+# adalah alamat blsp1_uart2 (msm8916.dtsi:485-487).
+BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 earlyprintk=msm_hsl_uart,0x78b0000 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
