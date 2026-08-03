@@ -72,14 +72,29 @@ TARGET_USES_64_BIT_BINDER := true
 #
 # Nilainya kecil untuk kita: shell serial hanya berguna kalau pad UART
 # benar-benar disolder. Diagnostik yang sesungguhnya tetap ada:
-#   - earlyprintk=msm_hsl_uart,0x78b0000 masih jalan, karena earlyprintk
-#     memetakan alamat fisik UART langsung dan tidak bergantung pada console=
 #   - ramoops tetap menangkap seluruh kernel log dan logcat terakhir
 #
 # CONFIG_SERIAL_MSM_HSL dan node DTS blsp1_uart2 sengaja TETAP menyala, jadi
 # kalau nanti butuh console serial cukup tambahkan lagi console=ttyHSL0 di sini
 # tanpa perlu rebuild kernel.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 earlyprintk=msm_hsl_uart,0x78b0000 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
+#
+# DUA PARAMETER DEBUG DIBUANG setelah fase bring-up selesai:
+#
+#   msm_rtb.filter=0x237
+#       Percuma sekarang — CONFIG_MSM_RTB sudah dimatikan di defconfig, jadi
+#       parameter ini akan diabaikan diam-diam. Dibuang supaya tidak
+#       menyesatkan.
+#
+#   earlyprintk=msm_hsl_uart,0x78b0000
+#       Setiap pesan boot awal dikirim lewat UART 115200 baud dan MEMBLOKIR
+#       sampai terkirim, jadi biayanya nyata di fase paling awal. Hanya
+#       berguna kalau device gagal boot sebelum pstore siap — di luar itu
+#       ramoops sudah cukup.
+#
+# Untuk menghidupkannya lagi saat mendiagnosis bootloop: kembalikan
+# earlyprintk di sini, dan msm_rtb.filter hanya bermakna kalau CONFIG_MSM_RTB
+# ikut dinyalakan lagi di defconfig.
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
@@ -124,11 +139,27 @@ TARGET_USES_MKE2FS := true
 BOARD_ROOT_EXTRA_FOLDERS := firmware persist
 
 # Dexpreopt
+#
+# Precompile PENUH: semua aplikasi sistem dikompilasi di sini, bukan di device.
+#
+# Sebelumnya hanya boot image + system_server yang di-preopt
+# (WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := true), sehingga seluruh
+# aplikasi sistem dikompilasi dex2oat DI DEVICE pada boot pertama. Di Cortex-A53
+# 4 inti dengan RAM 2 GB itu membuat boot pertama setelah flash sangat lama —
+# terkonfirmasi di device: boot pertama lambat sekali, boot kedua cepat karena
+# hasil kompilasinya sudah tersimpan di /data.
+#
+# Ruangnya ada: partisi system 2.859.466.752 B (2727 MiB), terpakai 1088 MiB,
+# jadi 1639 MiB menganggur — dan ruang partisi system tidak bisa dipakai untuk
+# apa pun selain system.
+#
+# Konsekuensinya: system image dan ZIP membesar (perkiraan kasar 300-800 MB),
+# dan build di host jauh lebih lama karena dex2oat mengerjakan semuanya.
 ifeq ($(HOST_OS),linux)
   ifneq ($(TARGET_BUILD_VARIANT),eng)
       WITH_DEXPREOPT := true
-      WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := true
-      DONT_DEXPREOPT_PREBUILTS := true
+      WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := false
+      DONT_DEXPREOPT_PREBUILTS := false
       USE_DEX2OAT_DEBUG := false
       WITH_DEXPREOPT_DEBUG_INFO := false
   endif
