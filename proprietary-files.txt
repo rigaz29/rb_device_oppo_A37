@@ -4,9 +4,20 @@ vendor/lib/libimsmedia_jni.so
 -vendor/app/ims/ims.apk
 
 # Radio IMS
-bin/imscmservice:vendor/bin/imscmservice
-bin/imsdatadaemon:vendor/bin/imsdatadaemon
-bin/imsqmidaemon:vendor/bin/imsqmidaemon
+# Ketiga daemon IMS DIBUANG: ber-ELF 64-bit dengan interpreter
+# /system/bin/linker64, sedangkan ROM ini TARGET_ARCH := arm / armeabi-v7a dan
+# hanya punya /system/bin/linker 32-bit. Jadi tidak akan pernah bisa
+# dieksekusi — init hanya mengulang tiap 5 detik selamanya:
+#   E init: cannot execv('/system/vendor/bin/imsqmidaemon'). ...
+#           No such file or directory
+# (ENOENT-nya menunjuk interpreternya, bukan binernya; binernya ada 120.464 B.)
+# Audit seluruh ROM: hanya ketiga file inilah biner 64-bit yang terpasang.
+#
+# Library lib-ims*/libims*_jni (15 buah) DIPERTAHANKAN — semuanya 32-bit, dan
+# pemindaian DT_NEEDED menunjukkan mereka hanya saling merujuk sesama IMS,
+# tidak ada konsumen di luar (rild maupun framework tidak menautnya). Sama
+# halnya ims.apk, imscmlibrary.jar, dan imscm.xml: inert, tapi membuangnya
+# adalah penghematan ruang, bukan perbaikan bug.
 etc/permissions/imscm.xml:vendor/etc/permissions/imscm.xml
 etc/permissions/qti_permissions.xml:vendor/etc/permissions/qti_permissions.xml
 -framework/imscmlibrary.jar:vendor/framework/imscmlibrary.jar

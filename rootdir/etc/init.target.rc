@@ -53,23 +53,28 @@ service vm_bms /system/vendor/bin/vm_bms
     user root
     group root wakelock
 
-service imsqmidaemon /system/vendor/bin/imsqmidaemon
-    class main
-    user system
-    socket ims_qmid stream 0660 system radio
-    group radio net_raw log diag oem_2950
-    writepid /dev/cpuset/system-background/tasks
-
-service imsdatadaemon /system/vendor/bin/imsdatadaemon
-    class main
-    user system
-    socket ims_datad stream 0660 system radio
-    group system wifi radio inet net_raw log diag net_admin oem_2950
-    writepid /dev/cpuset/system-background/tasks
-    disabled
-
-on property:sys.ims.QMI_DAEMON_STATUS=1
-    start imsdatadaemon
+# service imsqmidaemon / imsdatadaemon DIBUANG, berikut pemicu
+# "on property:sys.ims.QMI_DAEMON_STATUS=1 -> start imsdatadaemon".
+#
+# Ketiga daemon IMS ber-ELF 64-bit dengan interpreter /system/bin/linker64,
+# sedangkan ROM ini TARGET_ARCH := arm / armeabi-v7a dan hanya punya
+# /system/bin/linker 32-bit. init mengulangnya tiap 5 detik selamanya:
+#
+#   E init: cannot execv('/system/vendor/bin/imsqmidaemon'). ...
+#           No such file or directory
+#
+# ENOENT itu menunjuk interpreternya, bukan binernya — binernya ada, 120.464 B.
+# Audit seluruh ROM: hanya ketiga file IMS inilah biner 64-bit yang terpasang.
+#
+# imsdatadaemon sebenarnya sudah "disabled" dan hanya dipicu properti yang
+# di-set imsqmidaemon, jadi praktis yang berputar cuma imsqmidaemon. Keduanya
+# tetap dibuang supaya tidak ada service yang menunjuk biner mati, dan pemicu
+# propertinya ikut dibuang agar tidak menunjuk service yang tidak ada lagi.
+#
+# Library lib-ims* (15 buah, semuanya 32-bit) beserta ims.apk dan
+# imscmlibrary.jar DIPERTAHANKAN: pemindaian DT_NEEDED menunjukkan mereka
+# hanya saling merujuk sesama IMS, tidak ada konsumen di luar. IMS/VoLTE
+# memang tidak pernah hidup sejak awal karena daemonnya tidak pernah jalan.
 
 on post-fs
     chmod 0222 /sys/kernel/debug/tracing/trace_marker
