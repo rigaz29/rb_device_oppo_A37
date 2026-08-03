@@ -200,8 +200,18 @@ lib/vendor.qti.hardware.iop@1.0.so
 lib/vendor.qti.hardware.iop@2.0.so
 vendor/bin/adsprpcd
 vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti
-vendor/bin/hw/android.hardware.drm@1.0-service.widevine
-vendor/bin/hw/android.hardware.drm@1.1-service.widevine
+# Widevine DIBUANG. Kedua service HIDL-nya gagal link dan di-restart init
+# tiap 5 detik selamanya:
+#   @1.0-service.widevine -> cannot locate symbol _ZTTN5wvdrm...WVDrmFactoryE
+#                            (pasangannya libwvhidl.so versi 1.1, tidak cocok)
+#   @1.1-service.widevine -> libwvhidl.so butuh simbol protobuf lama
+# libwvhidl.so menaut ke libprotobuf-cpp-lite.so era protobuf 3.0-beta:
+# 12 simbol hilang (empty_string_, InitEmptyString, Arena::AllocateAligned,
+# CodedOutputStream::VarintSize64, LazyStringOutputStream, dst). ABI-nya jauh
+# dari libprotobuf-cpp-lite.so di pohon ini, jadi tidak bisa di-shim seperti
+# libril_shim. libwvdrmengine.so (plugin legacy) DIPERTAHANKAN tapi juga butuh
+# protobuf lama yang sama — Widevine baru bisa hidup kalau blob
+# libprotobuf-cpp-lite.so seangkatan ikut ditambahkan.
 vendor/bin/hw/vendor.qti.hardware.perf@1.0-service
 vendor/bin/irsc_util
 vendor/bin/mm-pp-daemon
@@ -215,8 +225,6 @@ vendor/bin/vm_bms
 vendor/etc/data/dsi_config.xml
 vendor/etc/data/netmgr_config.xml
 vendor/etc/init/android.hardware.bluetooth@1.0-service-qti.rc
-vendor/etc/init/android.hardware.drm@1.0-service.widevine.rc
-vendor/etc/init/android.hardware.drm@1.1-service.widevine.rc
 vendor/etc/init/vendor.qti.hardware.perf@1.0-service.rc
 vendor/etc/perf/perfboostsconfig.xml
 vendor/etc/permissions/qcnvitems.xml
@@ -351,7 +359,6 @@ vendor/lib/libssd.so
 vendor/lib/libstlport.so
 vendor/lib/libsystem_health_mon.so
 vendor/lib/libuiblur.so
-vendor/lib/libwvhidl.so
 vendor/lib/libxml.so
 vendor/lib/mediadrm/libwvdrmengine.so
 vendor/lib/soundfx/libqcbassboost.so

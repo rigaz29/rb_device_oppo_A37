@@ -235,8 +235,21 @@ service qseecomd /system/vendor/bin/qseecomd
 service time_daemon /system/vendor/bin/time_daemon
    capabilities SYS_TIME
    class late_start
-   user root
-   group root
+   # system:system, BUKAN root:root. time_daemon memanggil setgid() lalu
+   # setuid() ke AID_SYSTEM sendiri, dan direktori kerjanya dibuat
+   # "mkdir /data/time/ 0700 system system" di baris 80 file ini.
+   # Karena baris "capabilities" di atas memangkas bounding set jadi hanya
+   # CAP_SYS_TIME (capabilities.cpp:180-203 SetCapsForExec ->
+   # DropBoundingSet), proses root pun kehilangan CAP_SETGID, sehingga
+   # setgid() gagal EPERM:
+   #   E QC-time-services: Error changing gid:-1
+   #   E QC-time-services: Time-services exiting
+   # lalu keluar status 255 dan di-restart init tiap 5 detik selamanya.
+   # Dengan user/group system, setgid/setuid ke AID_SYSTEM jadi no-op (gid
+   # tujuan sama dengan gid nyata) sehingga lolos tanpa CAP_SETGID, dan
+   # CAP_SYS_TIME tetap terbawa lewat ambient set.
+   user system
+   group system
    # seclabel u:object_r:time_daemon_exec:s0 DIBUANG.
    # Itu label FILE (exec type), bukan domain. seclabel menimpa transisi domain
    # otomatis, sehingga prosesnya berjalan dengan konteks tak sah dan logcat
