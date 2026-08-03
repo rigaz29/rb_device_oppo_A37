@@ -637,11 +637,33 @@ PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 # benar-benar dipakai saat boot ditentukan init/init_msm8916.cpp
 # (set_device_dalvik_properties), karena vendor_load_properties() dijalankan
 # SETELAH /system/build.prop dibaca oleh init dan dalvik.vm.* bukan properti
-# ro. sehingga boleh ditimpa. Sebelumnya kedua tempat ini berbeda (128m/256m
-# vs 256m/512m) sehingga isi build.prop menyesatkan. Sekarang keduanya sama
-# untuk A37 yang RAM-nya 2GB + zram LZ4 256 MB.
-# heapgrowthlimit 192m (bukan 256m): app pakai lebih sedikit RAM per-proses,
-# sehingga lebih banyak app bisa tetap di background sebelum LMK/swap.
+# ro. sehingga boleh ditimpa.
+#
+# KEDUA TEMPAT INI TIDAK SAMA, dan yang berlaku adalah init_msm8916.cpp.
+# Diverifikasi dengan membandingkan build.prop hasil build terhadap getprop di
+# device (build 20260803_183338):
+#
+#   properti              build.prop   getprop di device
+#   heapstartsize         16m          16m    <- kebetulan sama
+#   heapgrowthlimit       192m         256m
+#   heapsize              384m         512m
+#   heapminfree           4m           2m
+#   heapmaxfree           6m           8m
+#
+# Jadi empat dari enam nilai di bawah TIDAK PERNAH dipakai — mereka hanya
+# mengisi build.prop, lalu ditimpa set_device_dalvik_properties() saat boot.
+# Nilai yang benar-benar berjalan ada di init/init_msm8916.cpp:125-134.
+#
+# Komentar sebelumnya di sini mengklaim "sekarang keduanya sama" dan
+# menjelaskan alasan memilih 192m. Klaim itu salah dan sudah dibuang: siapa pun
+# yang membaca build.prop akan menyimpulkan device berjalan dengan setelan yang
+# sebenarnya tidak dipakai.
+#
+# Sengaja TIDAK disamakan atas keputusan pengguna. Kalau suatu saat mau
+# disamakan, ubah init_msm8916.cpp — bukan blok di bawah ini, karena yang di
+# bawah kalah. Mana nilai yang lebih baik untuk 2GB belum diuji: growth limit
+# lebih rendah membuat lebih banyak app bertahan di background, tapi menambah
+# tekanan GC per app, dan keduanya sama-sama terasa sebagai lag.
 PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.heapstartsize=16m \
     dalvik.vm.heapgrowthlimit=192m \
