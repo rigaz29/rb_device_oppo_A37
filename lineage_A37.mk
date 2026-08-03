@@ -26,6 +26,23 @@
 # beserta checksum-nya.
 LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 
+# USB debugging menyala sejak boot pertama, tanpa dialog otorisasi.
+#
+# Sakelar resmi LineageOS (vendor/lineage/config/common.mk:20-22) yang menyetel
+# ro.adb.secure=0. Efek berantainya: post_process_props.py:43-50 melihat
+# ro.adb.secure != 1 lalu menambahkan "adb" ke persist.sys.usb.config, sehingga
+# adb hidup sejak awal DAN tidak meminta konfirmasi kunci RSA.
+#
+# Ini penting saat bring-up: kalau layar hitam atau UI membeku, dialog "Allow
+# USB debugging" tidak bisa ditekan sehingga adb jadi tidak berguna persis ketika
+# paling dibutuhkan.
+#
+# HARUS DIBUANG sebelum rilis publik — tanpa otorisasi, siapa pun yang mencolok
+# USB mendapat shell adb, dan di userdebug "adb root" juga langsung jalan.
+#
+# Sama seperti sakelar di atas, harus disetel sebelum inherit common_full_phone.mk.
+WITH_ADB_INSECURE := true
+
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_k.mk)
