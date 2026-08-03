@@ -1,7 +1,24 @@
 # IMS -abhishek_hex-edit 
 vendor/lib/libimscamera_jni.so
 vendor/lib/libimsmedia_jni.so
--vendor/app/ims/ims.apk
+# ims.apk DIBUANG: menjatuhkan proses com.android.phone 45 kali dalam satu
+# jendela log.
+#   E AndroidRuntime: Process: com.android.phone
+#   FATAL EXCEPTION: main
+#   java.lang.IllegalAccessError: Method 'void java.lang.System.arraycopy(
+#     byte[], int, byte[], int, int)' is inaccessible to class
+#     'org.codeaurora.ims.ImsSenderRxr'
+#     at org.codeaurora.ims.ImsService.onCreate(ImsService.java:188)
+# Overload itu private di Android 11 (libcore .../java/lang/System.java:515,
+# "Do not remove or change the signature" — disimpan hanya untuk jalur
+# intrinsik runtime), sedangkan APK ini dibangun untuk Android 5.1 saat masih
+# bisa diakses. Tidak bisa diperbaiki tanpa mengompilasi ulang APK-nya.
+# ImsService-nya berjalan DI DALAM proses com.android.phone, jadi setiap crash
+# menjatuhkan telepon, bukan sekadar dirinya sendiri.
+# Tumpukan IMS memang sudah mati sejak ketiga daemonnya dibuang (64-bit di ROM
+# 32-bit), jadi APK ini crash berulang untuk sesuatu yang tidak bisa berfungsi.
+# imscmlibrary.jar + imscm.xml + 15 library lib-ims* dibiarkan: inert, tidak
+# dieksekusi siapa pun setelah APK-nya hilang.
 
 # Radio IMS
 # Ketiga daemon IMS DIBUANG: ber-ELF 64-bit dengan interpreter
@@ -16,8 +33,11 @@ vendor/lib/libimsmedia_jni.so
 # Library lib-ims*/libims*_jni (15 buah) DIPERTAHANKAN — semuanya 32-bit, dan
 # pemindaian DT_NEEDED menunjukkan mereka hanya saling merujuk sesama IMS,
 # tidak ada konsumen di luar (rild maupun framework tidak menautnya). Sama
-# halnya ims.apk, imscmlibrary.jar, dan imscm.xml: inert, tapi membuangnya
-# adalah penghematan ruang, bukan perbaikan bug.
+# halnya imscmlibrary.jar dan imscm.xml: inert, tapi membuangnya adalah
+# penghematan ruang, bukan perbaikan bug.
+#
+# ims.apk sendiri MENYUSUL DIBUANG setelah terbukti menjatuhkan
+# com.android.phone — lihat catatan di bagian atas file ini.
 etc/permissions/imscm.xml:vendor/etc/permissions/imscm.xml
 etc/permissions/qti_permissions.xml:vendor/etc/permissions/qti_permissions.xml
 -framework/imscmlibrary.jar:vendor/framework/imscmlibrary.jar
