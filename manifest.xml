@@ -1,6 +1,36 @@
 <!-- 18.1: target-level="legacy" untuk device shipping API 19.
      Sumber: msm8916-common lineage-18.1 manifest.xml -->
 <manifest version="1.0" type="device" target-level="legacy">
+    <!-- Jalur HIDL agar proses VENDOR bisa memakai kamera. Yang mendaftarkannya
+         justru cameraserver sendiri: CameraService.cpp:174 memanggil
+         HidlCameraService::getInstance(this)->registerAsService().
+
+         Tanpa deklarasi ini pendaftarannya ditolak sejak boot:
+
+           E HidlServiceManagement: Service
+             android.frameworks.cameraservice.service@2.1::ICameraService/default
+             must be in VINTF manifest in order to register/get.
+           E CameraService: onFirstRef: Failed to register default
+             android.frameworks.cameraservice.service@1.0
+
+         Versinya 2.1, bukan 2.0 maupun 1.0 seperti tertulis di pesan ALOGE itu
+         (string usang di CameraService.cpp:176) — HidlCameraService.h:45
+         memakai frameworks::cameraservice::service::V2_1::ICameraService.
+
+         Perlu dideklarasikan di manifest DEVICE karena manifest framework build
+         ini tidak memuatnya sama sekali (nol kemunculan di
+         system/etc/vintf/manifest.xml, dan tidak ada fragment-nya). ROM
+         referensi menaruhnya di sini juga. -->
+    <hal format="hidl">
+        <name>android.frameworks.cameraservice.service</name>
+        <transport>hwbinder</transport>
+        <version>2.1</version>
+        <interface>
+            <name>ICameraService</name>
+            <instance>default</instance>
+        </interface>
+        <fqname>@2.1::ICameraService/default</fqname>
+    </hal>
     <!-- Audio: 5.0 → 6.0 (Sumber: msm8916-common lineage-18.1) -->
     <hal format="hidl">
         <name>android.hardware.audio</name>
