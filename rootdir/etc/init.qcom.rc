@@ -235,21 +235,40 @@ service qseecomd /system/vendor/bin/qseecomd
 service time_daemon /system/vendor/bin/time_daemon
    capabilities SYS_TIME
    class late_start
-   # system:system, BUKAN root:root. time_daemon memanggil setgid() lalu
-   # setuid() ke AID_SYSTEM sendiri, dan direktori kerjanya dibuat
-   # "mkdir /data/time/ 0700 system system" di baris 80 file ini.
-   # Karena baris "capabilities" di atas memangkas bounding set jadi hanya
-   # CAP_SYS_TIME (capabilities.cpp:180-203 SetCapsForExec ->
-   # DropBoundingSet), proses root pun kehilangan CAP_SETGID, sehingga
-   # setgid() gagal EPERM:
+   # gid utama HARUS net_raw (3004), uid HARUS system (1000).
+   #
+   # Biner ini menurunkan hak aksesnya sendiri. Dibongkar dari .text-nya
+   # (Thumb-2, stripped):
+   #
+   #   0x1b3c  movw r0, #3004   ; F640 30BC  -> setgid(AID_NET_RAW)
+   #   0x1b4e  mov.w r0, #1000  ; F44F 707A  -> setuid(AID_SYSTEM)
+   #
+   # setgid(gid) hanya lolos tanpa CAP_SETGID kalau gid tujuan sama dengan
+   # gid nyata/efektif/saved. Baris "capabilities" di atas memangkas bounding
+   # set jadi hanya CAP_SYS_TIME (capabilities.cpp:180-203 SetCapsForExec ->
+   # DropBoundingSet), sehingga proses root sekalipun kehilangan CAP_SETGID.
+   # Akibatnya baik root:root (gid 0) maupun system:system (gid 1000)
+   # sama-sama gagal karena keduanya bukan 3004:
+   #
    #   E QC-time-services: Error changing gid:-1
    #   E QC-time-services: Time-services exiting
+   #
    # lalu keluar status 255 dan di-restart init tiap 5 detik selamanya.
-   # Dengan user/group system, setgid/setuid ke AID_SYSTEM jadi no-op (gid
-   # tujuan sama dengan gid nyata) sehingga lolos tanpa CAP_SETGID, dan
-   # CAP_SYS_TIME tetap terbawa lewat ambient set.
+   #
+   # Dengan gid utama net_raw, setgid(3004) jadi no-op yang lolos; setuid(1000)
+   # juga no-op karena uid sudah system. Karena uid tidak pernah berpindah dari
+   #/ke root, CAP_SYS_TIME tetap terbawa lewat ambient set sehingga
+   # settimeofday() tetap bisa dipakai.
+   #
+   # net_raw memang yang dibutuhkan: daemon ini bicara ke modem lewat socket
+   # AF_MSM_IPC — lihat allowxperm msm_sock_ipc_ioctls di
+   # sepolicy-legacy/common/time_daemon.te.
+   #
+   # system tetap dipasang sebagai grup tambahan untuk /data/time
+   # ("mkdir /data/time/ 0700 system system" di baris 80 file ini; uid system
+   # sudah cocok sebagai pemilik, ini sekadar jaring pengaman).
    user system
-   group system
+   group net_raw system
    # seclabel u:object_r:time_daemon_exec:s0 DIBUANG.
    # Itu label FILE (exec type), bukan domain. seclabel menimpa transisi domain
    # otomatis, sehingga prosesnya berjalan dengan konteks tak sah dan logcat
