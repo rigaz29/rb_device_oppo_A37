@@ -517,8 +517,13 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     libcnefeatureconfig \
     librmnetctl \
-    libxml2 \
-    libcutils_shim
+    libxml2
+# libcutils_shim DIBUANG dari daftar ini: modulnya tidak pernah terdefinisi di
+# tree (nihil di seluruh Android.bp/Android.mk, dan tidak ada aturan install di
+# ninja), jadi baris ini tidak pernah menghasilkan apa pun. Yang berbahaya
+# adalah pemetaan TARGET_LD_SHIM_LIBS-nya di BoardConfig.mk, yang menyuntikkan
+# DT_NEEDED ke libril-qc-qmi-1.so sehingga rild gagal dlopen sejak boot —
+# lihat catatan lengkap di sana.
 
 # Baseband Fix
 PRODUCT_PACKAGES += \

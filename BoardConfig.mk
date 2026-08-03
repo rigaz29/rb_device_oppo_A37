@@ -237,11 +237,30 @@ USE_DEVICE_SPECIFIC_GPS := true
 # oleh libmmcamera2_stats_modules.so di proses yang sama).
 # Diverifikasi: dengan libshim_camera.so, simbol libmmcamera2_stats_algorithm.so
 # yang tak terpenuhi = 0.
+# CATATAN: pemetaan libril-qc-qmi-1.so|libcutils_shim.so DIBUANG.
+#
+# TARGET_LD_SHIM_LIBS bekerja dengan MENYUNTIKKAN DT_NEEDED ke blob. Karena
+# modul libcutils_shim tidak pernah ada di tree ini (dicari di seluruh
+# Android.bp/Android.mk: nihil, dan tidak ada aturan install di ninja),
+# penyuntikan itu membuat blob bergantung pada library yang tidak pernah
+# terpasang, sehingga rild gagal total sejak boot:
+#
+#   E RILD: dlopen failed: library "libcutils_shim.so" not found:
+#           needed by /system/vendor/lib/libril-qc-qmi-1.so
+#
+# Akibat berantainya: IRadio tidak pernah register, lalu com.android.phone
+# menggantung di IRadio.getService() saat PhoneGlobals.onCreate dan kena ANR
+# berulang (Reason: Broadcast of LOCKED_BOOT_COMPLETED), lalu di-kill "bg anr".
+#
+# Shim-nya memang tidak dibutuhkan: property_get dan property_set MASIH
+# diekspor libcutils.so di build ini (diverifikasi dengan llvm-readelf
+# --dyn-syms), dan seluruh simbol UND non-libc milik blob itu ditemukan di
+# library yang terpasang. ROM LineageOS 18.1 A37 yang beredar juga tidak
+# memuat libcutils_shim.so sama sekali.
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
     /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
-    /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so \
-    /system/vendor/lib/libril-qc-qmi-1.so|libcutils_shim.so
+    /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so
 
 # SEpolicy
 # SELINUX_IGNORE_NEVERALLOWS masih WAJIB, dan alasannya bukan lagi
