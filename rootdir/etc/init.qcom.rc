@@ -237,7 +237,18 @@ service time_daemon /system/vendor/bin/time_daemon
    class late_start
    user root
    group root
-   seclabel u:object_r:time_daemon_exec:s0
+   # seclabel u:object_r:time_daemon_exec:s0 DIBUANG.
+   # Itu label FILE (exec type), bukan domain. seclabel menimpa transisi domain
+   # otomatis, sehingga prosesnya berjalan dengan konteks tak sah dan logcat
+   # dibanjiri denial seperti:
+   #   avc: denied { entrypoint } for comm="init" path=".../time_daemon"
+   #     scontext=u:object_r:time_daemon_exec:s0
+   #     tcontext=u:object_r:time_daemon_exec:s0 tclass=file
+   # Perhatikan scontext-nya exec type — itu tandanya.
+   # Tanpa baris ini init memakai transisi otomatis dari
+   # init_daemon_domain(time_daemon) di
+   # device/qcom/sepolicy-legacy/common/time_daemon.te:7, dan file_contexts
+   # sudah melabeli binernya time_daemon_exec dengan benar.
    writepid /dev/cpuset/system-background/tasks
 
 service ppd /system/vendor/bin/mm-pp-daemon
