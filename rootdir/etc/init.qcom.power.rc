@@ -34,6 +34,31 @@ on enable-low-power
     write /sys/devices/system/cpu/cpufreq/interactive/InStreamFreq 0
     write /sys/devices/system/cpu/cpu0/cpufreq/interactive/io_is_busy 1
 
+    # Serahkan boost/boostpulse ke HAL power.
+    #
+    # vendor.power-hal-1-0 berjalan sebagai user system (rc bawaan
+    # android.hardware.power@1.0-service), sedangkan kedua node ini dibuat
+    # kernel dengan pemilik root:
+    #   boostpulse  __ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_sys)
+    #               cpufreq_interactive.c:1409 — write-only, hanya root
+    #   boost       gov_sys_pol_attr_rw -> 0644 — juga hanya root yang bisa tulis
+    #
+    # Tanpa chown ini power.c gagal di setiap hint:
+    #   E PowerHAL: open /sys/devices/system/cpu/cpufreq/interactive/boostpulse:
+    #               Permission denied
+    # (73 kali dalam satu jendela log). Ini murni masalah DAC — sisi SELinux
+    # sudah ditangani di sepolicy/hal_power_default.te lewat
+    # sysfs_devices_system_cpu:file { open write }.
+    #
+    # Ditaruh setelah scaling_governor diset "interactive" karena direktori
+    # tunables-nya baru muncul ketika governor itu aktif. Pada mode charger
+    # (trigger di bawah memakai powersave) direktorinya hilang lagi dan chown
+    # ini tidak berlaku — power.c sudah menoleransi ENOENT untuk kondisi itu.
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boost
+    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boost
+    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+    chmod 0220 /sys/devices/system/cpu/cpufreq/interactive/boostpulse
+
     # enable thermal core_control now
     write /sys/kernel/msm_thermal/zone0 "1152000 64 61"
     write /sys/kernel/msm_thermal/zone1 "1094400 68 65"

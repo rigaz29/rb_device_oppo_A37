@@ -40,7 +40,8 @@
  *
  * Yang dipakai:
  *   boost      - sustained boost; 1 menahan frekuensi tinggi sampai ditulis 0
- *   boostpulse - pulse sepanjang boostpulse_duration (60 ms, diset init.qcom.power.rc)
+ *   boostpulse - pulse sepanjang boostpulse_duration (120 ms; init.qcom.power.rc
+ *                menulis 120000 us ke boostpulse_duration)
  *
  * Parameter cpu_boost di bawah /sys/module/cpu_boost/parameters sengaja TIDAK
  * dipakai di sini:
