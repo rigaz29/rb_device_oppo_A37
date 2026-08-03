@@ -287,14 +287,32 @@
          IDisplayColorCalibration : -sysfs, butuh /sys/class/graphics/fb0/rgb.
                               mdss_livedisplay.c:797 membuat atribut rgb TANPA
                               syarat, jadi selalu tersedia.
-         IAdaptiveBacklight  : -sysfs, butuh .../acl atau .../cabc. Kernel A37
-                              tidak punya acl, tapi cabc dibuat karena panel
-                              15399 mendeklarasikan qcom,mdss-dsi-cabc-*-command
-                              (MODE_CABC, mdss_livedisplay.c:801).
+         IAdaptiveBacklight  : DICABUT. Sempat ditambahkan dengan alasan panel
+                              15399 punya qcom,mdss-dsi-cabc-*-command sehingga
+                              node cabc akan dibuat. Alasan itu SALAH: driver
+                              LiveDisplay hanya membaca properti bernamespace
+                              cm,mdss-livedisplay-* (mdss_livedisplay.c:671-682),
+                              yaitu cm,mdss-livedisplay-cabc-cmd dan
+                              cm,mdss-livedisplay-cabc-ui-value. DTS A37 tidak
+                              punya satu pun properti cm,* itu — terverifikasi
+                              dari DTB hasil kompilasi. Jadi MODE_CABC tidak
+                              pernah aktif, node cabc tidak pernah ada, acl juga
+                              tidak ada, sehingga AdaptiveBacklight::isSupported()
+                              selalu false dan servisnya TIDAK PERNAH register.
+                              Akibatnya di device: getService() menempuh jalur
+                              vintfHwbinder + Waiter dan menggantung, thread
+                              system_server ikut tertahan, lalu Watchdog
+                              (Watchdog.java:79, DEFAULT_TIMEOUT 60 detik)
+                              membunuh system_server → device reboot ~1 menit
+                              setelah masuk homescreen.
 
          TIDAK didaftarkan karena tidak ada bukti akan register di A37:
-         IDisplayModes (butuh dukungan libmm-disp-apis), ISunlightEnhancement
-         (butuh sre/hbm), IAutoContrast (aco), IColorEnhancement, IReadingEnhancement. -->
+         IAdaptiveBacklight, IDisplayModes (butuh dukungan libmm-disp-apis),
+         ISunlightEnhancement (butuh sre/hbm), IAutoContrast (aco),
+         IColorEnhancement, IReadingEnhancement.
+
+         Sebagai pembanding, ROM LineageOS 18.1 A37 yang beredar juga hanya
+         mendeklarasikan IDisplayColorCalibration + IPictureAdjustment. -->
     <hal format="hidl">
         <name>vendor.lineage.livedisplay</name>
         <transport>hwbinder</transport>
@@ -305,10 +323,6 @@
         </interface>
         <interface>
             <name>IDisplayColorCalibration</name>
-            <instance>default</instance>
-        </interface>
-        <interface>
-            <name>IAdaptiveBacklight</name>
             <instance>default</instance>
         </interface>
     </hal>
