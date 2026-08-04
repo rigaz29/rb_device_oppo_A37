@@ -101,6 +101,13 @@ BOARD_RAMDISK_OFFSET := 0x01000000
 BOARD_KERNEL_PAGESIZE := 2048
 BOARD_KERNEL_OFFSET := 0x00008000
 BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+
+# Kalau init mati fatal, boot ke recovery — jangan menggantung di logo OPPO.
+# Ini alat diagnosis utama Fase 9: stuck di logo TANPA reboot ke recovery berarti
+# bukan init yang fatal (tersangka jadi kernel panic atau init macet menunggu),
+# sedangkan reboot ke recovery berarti init fatal dan alasannya ada di ramoops.
+# Percobaan 19.1 yang lama sudah memakainya; dipertahankan.
+BOARD_KERNEL_CMDLINE += androidboot.init_fatal_reboot_target=recovery
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset 0x01000000 --tags_offset 0x00000100
 BOARD_KERNEL_IMAGE_NAME := Image
 TARGET_KERNEL_SOURCE := kernel/oppo/msm8939

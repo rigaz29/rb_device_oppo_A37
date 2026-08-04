@@ -57,7 +57,7 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_k.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_l.mk)
 $(call inherit-product, device/oppo/A37/device.mk)
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
@@ -91,10 +91,16 @@ TARGET_OTA_ASSERT_DEVICE := A37,a37,a37f,A37f,A37fw,a37fw,A37m,a37m,msm8916,msm8
 # Must define platform variant before including any common things
 TARGET_BOARD_PLATFORM_VARIANT := msm8916
 
-# Device pertama kali rilis dengan Android 4.4 (API 19).
-# product_launched_with_k.mk sudah menyetel ini, tapi deklarasi eksplisit
+# Device pertama kali rilis dengan Android 5.1.1 (API 22) — terbaca di fingerprint
+# stok yang dipakai ROM referensi: OPPO/A37fw/A37f:5.1.1/LMY47V/1519717163.
+# Dipakai 21 ("launched with L") mengikuti ROM referensi 19.1 A37 dan device tree
+# a6010; 19 (KitKat) yang diwarisi dari 18.1 memang keliru secara fakta.
+# product_launched_with_l.mk sudah menyetel ini, tapi deklarasi eksplisit
 # memastikan FCM legacy target tetap benar meskipun inherit order berubah.
-PRODUCT_SHIPPING_API_LEVEL := 19
+#
+# ⚠️ INERT secara fungsi — seluruh gerbang di tree 19.1 ada di ambang 26/27/28/30/31,
+# tidak ada satu pun antara 19 dan 21. Lihat catatan di device.mk.
+PRODUCT_SHIPPING_API_LEVEL := 21
 
 TARGET_VENDOR := Oppo
 PRODUCT_DEVICE := A37

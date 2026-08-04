@@ -472,9 +472,48 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/sec_config:$(TARGET_COPY_OUT_VENDOR)/etc/sec_config
 
-# First api level, device has been commercially launched
+# First api level, device has been commercially launched.
+#
+# Dinaikkan 19 -> 21 di 19.1. A37f dirilis dengan Android 5.1.1 — terbaca di
+# fingerprint stok yang dipakai ROM referensi:
+# OPPO/A37fw/A37f:5.1.1/LMY47V/1519717163. Nilai 19 (KitKat) yang diwarisi dari
+# 18.1 memang keliru secara fakta.
+#
+# ⚠️ Perubahan ini INERT secara fungsi, jangan dikira memperbaiki sesuatu:
+# seluruh gerbang first_api_level / PRODUCT_SHIPPING_API_LEVEL di tree 19.1 ada
+# di ambang 26, 27, 28, 30, dan 31 (build/make/core/config.mk:628,683,708;
+# system/core/init/ueventd.cpp:272) — tidak ada satu pun di antara 19 dan 21.
+# Diubah demi kebenaran fakta dan paritas dengan ROM referensi, bukan efek.
+#
+# Baris ini sendiri akan dibuang post_process_props.py ("disallowed key") persis
+# seperti di ROM referensi; nilai efektifnya datang dari PRODUCT_SHIPPING_API_LEVEL
+# di lineage_A37.mk.
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.product.first_api_level=19
+    ro.product.first_api_level=21
+
+# Gerbang W1/W2 (repopick 320591 system/bpf + 320592 system/netd).
+# Kernel 3.10 tidak punya syscall bpf, dan A12 membuang gerbang versi kernel yang
+# masih ada di A11. Kedua patch membaca properti ini dan default-nya `true`, jadi
+# TANPA baris ini keduanya tidak berpengaruh apa pun dan bpfloader tetap
+# menggagalkan boot. Terverifikasi di source hasil patch:
+# system/bpf/bpfloader/BpfLoader.cpp:115 dan system/netd/server/Controllers.cpp:280.
+# ROM referensi 19.1 A37 menyetelnya sama.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.kernel.ebpf.supported=false
+
+# Mode low-RAM. Perangkat 2 GB; ROM referensi 19.1 A37 yang terbukti boot
+# menyetel ro.config.low_ram=true di build.prop.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.config.low_ram=true
+
+# lmkd: kernel 3.10 tidak punya PSI (baru ada di 4.20+). Tanpa ini lmkd mencoba
+# PSI dulu di init_monitors() lalu baru jatuh ke vmpressure; menyetelnya eksplisit
+# memangkas percobaan yang pasti gagal. Nilai sama dengan ROM referensi.
+# Sumber tekanan memorinya CONFIG_MEMCG=y + in-kernel LMK mati — terverifikasi di
+# .config kernel branch lineage-19.1 (Fase 1.4).
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.lmk.use_psi=false \
+    ro.lmk.use_new_strategy=false
 
 # Properti baru 18.1 (Sumber: msm8916-common lineage-18.1 + a6000 ref)
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -564,9 +603,24 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/keylayout/synaptics-s3203.kl:system/usr/keylayout/synaptics-s3203.kl \
     $(LOCAL_PATH)/keylayout/qpnp_pon.kl:system/usr/keylayout/qpnp_pon.kl
 
-# Storage
+# Storage — penyesuaian Android 12.
+#
+# A12 menyalakan casefold pada penyimpanan teremulasi secara default lewat
+# build/make/target/product/emulated_storage.mk. ext4 di kernel 3.10 TIDAK punya
+# dukungan casefold sama sekali, jadi default itu harus dibatalkan di sini.
+# Pola diambil dari acroreiser/android_device_lenovo_a6010 lineage-19.1 (msm8916,
+# kernel 3.10 yang sama) dan cocok dengan ROM referensi 19.1 A37 yang terbukti
+# boot: external_storage.casefold.enabled=0 dan sdcardfs.enabled=0 di build.prop.
+#
+# ro.sys.sdcardfs=true era 18.1 dibuang: di A12 sakelarnya
+# external_storage.sdcardfs.enabled, dan ROM referensi menyetelnya 0 (pakai FUSE).
+PRODUCT_QUOTA_PROJID := 1
+PRODUCT_FS_CASEFOLD := 0
+
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.sys.sdcardfs=true
+    external_storage.projid.enabled=1 \
+    external_storage.casefold.enabled=0 \
+    external_storage.sdcardfs.enabled=0
 
 # Permissions
 PRODUCT_COPY_FILES += \
