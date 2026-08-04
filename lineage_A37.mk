@@ -37,17 +37,51 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # USB debugging" tidak bisa ditekan sehingga adb jadi tidak berguna persis ketika
 # paling dibutuhkan.
 #
-# HARUS DIBUANG sebelum rilis publik — tanpa otorisasi, siapa pun yang mencolok
-# USB mendapat shell adb, dan di userdebug "adb root" juga langsung jalan.
+# DIMATIKAN untuk rilis publik. Tanpa otorisasi, siapa pun yang mencolok USB
+# mendapat shell adb tanpa persetujuan pemilik device.
+#
+# Dengan baris ini dikomentari, common.mk:25 menyetel ro.adb.secure=1 sehingga
+# dialog "Allow USB debugging" kembali muncul dan kunci RSA harus disetujui
+# manual.
+#
+# PERHATIAN: ini TIDAK menutup "adb root". Itu ditentukan varian build
+# (ro.debuggable=1 pada userdebug), bukan oleh sakelar ini. Untuk menutupnya,
+# bangun dengan varian user.
+#
+# Nyalakan lagi (uncomment) kalau kembali ke fase bring-up: saat layar hitam
+# atau UI membeku, dialog otorisasi tidak bisa ditekan sehingga adb jadi tidak
+# berguna persis ketika paling dibutuhkan.
 #
 # Sama seperti sakelar di atas, harus disetel sebelum inherit common_full_phone.mk.
-WITH_ADB_INSECURE := true
+# WITH_ADB_INSECURE := true
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_k.mk)
 $(call inherit-product, device/oppo/A37/device.mk)
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+
+# CATATAN DynamicSystemInstallationService — JANGAN coba filter-out di sini.
+#
+# DSU mensyaratkan partisi dinamis; BoardConfig.mk tidak punya
+# PRODUCT_USE_DYNAMIC_PARTITIONS maupun BOARD_SUPER_PARTITION, jadi device ini
+# berpartisi statis dan DSU tidak akan pernah berfungsi. Prosesnya tetap
+# dijalankan tiap boot ("Start proc com.android.dynsystem"), memakai 184 KB.
+#
+# Percobaan membuangnya dengan
+#   PRODUCT_PACKAGES := $(filter-out DynamicSystemInstallationService,$(PRODUCT_PACKAGES))
+# di sini TIDAK BEKERJA — sudah diuji, APK-nya tetap terpasang.
+#
+# Sebabnya PRODUCT_PACKAGES tidak diselesaikan dengan aturan make biasa:
+# _expand-inherited-values (build/make/core/node_fns.mk:148) menggabungkan nilai
+# dari SELURUH node dalam graf inherit setelah tiap node di-include. Paketnya
+# disumbang build/make/target/product/base_system.mk:82, jadi menghapusnya dari
+# nilai node daun tidak berpengaruh — sumbangan leluhurnya digabungkan setelah
+# itu.
+#
+# Satu-satunya jalan yang benar-benar bekerja adalah modul lain yang memakai
+# LOCAL_OVERRIDES_PACKAGES / "overrides" di Android.bp. Untuk 184 KB, itu tidak
+# sepadan; dibiarkan saja.
 
 # Assert
 # A37/A37m ikut didaftarkan: PRODUCT_DEVICE memang "A37", dan varian A37m

@@ -94,7 +94,12 @@ on post-fs-data
     write /sys/block/mmcblk0/queue/scheduler deadline
     write /sys/block/mmcblk0/queue/add_random 0
     write /sys/block/mmcblk0/queue/nr_requests 256
-    write /sys/block/mmcblk0/queue/read_ahead_kb 512
+    # Cukup satu baris. queue/read_ahead_kb dan bdi/read_ahead_kb menulis field
+    # yang SAMA — blk-sysfs.c:116 menyetel q->backing_dev_info.ra_pages dan
+    # backing-dev.c:169 menyetel bdi->ra_pages, dan untuk perangkat blok
+    # keduanya backing_dev_info yang sama. Baris "queue/read_ahead_kb 512" yang
+    # dulu ada di sini langsung ditimpa baris berikutnya, jadi tidak pernah
+    # berlaku — dibuang supaya tidak menyesatkan.
     write /sys/block/mmcblk0/bdi/read_ahead_kb 128
 
 on charger
@@ -132,5 +137,5 @@ on property:sys.boot_completed=1
     write /sys/block/mmcblk0/queue/scheduler noop
     write /sys/block/mmcblk0/queue/rq_affinity 0
     write /sys/block/mmcblk0/queue/nr_requests 128
-    write /sys/block/mmcblk0/queue/read_ahead_kb 256
+    # Satu baris saja — lihat catatan read_ahead_kb di blok sebelumnya.
     write /sys/block/mmcblk0/bdi/read_ahead_kb 128
