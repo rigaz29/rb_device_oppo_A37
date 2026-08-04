@@ -334,6 +334,13 @@ BOARD_GLOBAL_CFLAGS += -DCAMERA_VENDOR_L_COMPAT
 BOARD_GLOBAL_CFLAGS += -DCONFIG_OPPO_CAMERA_51
 USE_DEVICE_SPECIFIC_CAMERA := true
 TARGET_HAS_LEGACY_CAMERA_HAL1 := true
+# Menyalakan qti_camera_device_defaults: -DQTI_CAMERA_DEVICE +
+# vendor.qti.hardware.camera.device@1.0 pada libcameraservice. Dibutuhkan patch
+# HAL1 retiredtab frameworks/av 0004; antarmukanya ada di tree
+# (vendor/qcom/opensource/interfaces/camera/device/1.0/Android.bp:4) dan HAL1 CAF
+# A37 memakai QDataCallback. Definisi Soong-nya dikembalikan di vendor/lineage
+# (revert f224255c) — lihat tools/apply-legacy-patches.sh.
+TARGET_USES_QTI_CAMERA_DEVICE := true
 TARGET_PROCESS_SDK_VERSION_OVERRIDE := \
 	/system/bin/mediaserver=22 \
 	/system/vendor/bin/mm-qcamera-daemon=22
