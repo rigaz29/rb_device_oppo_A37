@@ -119,15 +119,38 @@ on property:sys.boot_completed=1
     write /sys/module/process_reclaim/parameters/enable_process_reclaim 1
     write /sys/module/process_reclaim/parameters/pressure_max 70
     write /sys/module/process_reclaim/parameters/swap_opt_eff 30
-    write /sys/module/lowmemorykiller/parameters/enable_adaptive_lmk 0
-    write /sys/module/lowmemorykiller/parameters/lmk_fast_run 0
     write /sys/module/process_reclaim/parameters/pressure_min 50
     write /sys/module/process_reclaim/parameters/per_swap_size 512
-    write /sys/module/lowmemorykiller/parameters/vmpressure_file_min 53059
-    # minfree lebih rendah: dengan zram LZ4 256 MB, swap murah — biarkan
-    # lebih banyak app tetap di RAM sebelum di-kill.
-    # 48,64,80,96,112,136 MB (dalam 4K pages).
-    write /sys/module/lowmemorykiller/parameters/minfree "12288,16384,20480,24576,28672,34816"
+    # EMPAT baris /sys/module/lowmemorykiller/parameters/* DIBUANG dari sini:
+    #   enable_adaptive_lmk 0
+    #   lmk_fast_run 0
+    #   vmpressure_file_min 53059
+    #   minfree "12288,16384,20480,24576,28672,34816"
+    #
+    # Keempatnya tidak pernah berlaku. defconfig:518 berbunyi
+    # "# CONFIG_ANDROID_LOW_MEMORY_KILLER is not set", dan
+    # drivers/staging/android/Makefile:11 menggantungkan lowmemorykiller.o pada
+    # config itu — modulnya tidak dibangun, jadi direktori sysfs-nya tidak ada.
+    #
+    # Yang membunuh proses di sini adalah lmkd userspace, dan ambangnya TIDAK
+    # datang dari file ini melainkan dari framework:
+    # ProcessList.java:827 updateOomLevels() menghitungnya dari ukuran RAM dan
+    # resolusi layar, lalu mengirimkannya lewat perintah soket LMK_TARGET
+    # (ProcessList.java:314-321 -> lmkd.cpp:1403).
+    #
+    # Untuk RAM 2 GB rumus skalanya jenuh —
+    #   scaleMem = (2048 - 350) / (700 - 350) = 4,85 -> dibatasi 1,0
+    # sehingga dipakai mOomMinFreeHigh sepenuhnya: 72-180 MB. Perhatikan itu
+    # LEBIH agresif daripada 48-136 MB yang diniatkan baris minfree lama, jadi
+    # membuang baris mati ini tidak mengubah apa pun ke arah mana pun.
+    #
+    # Kalau suatu saat ingin lebih banyak app bertahan di background, tuasnya
+    # ro.lmk.* (lmkd.cpp:3288-3311, semuanya belum diset di device ini), bukan
+    # baris-baris di atas.
+    #
+    # Blok process_reclaim di sekitarnya DIPERTAHANKAN — CONFIG_PROCESS_RECLAIM=y
+    # ada di defconfig dan terverifikasi di .config hasil build, jadi jalur itu
+    # nyata.
     write /proc/sys/vm/min_free_kbytes 4096
     write /proc/sys/vm/extra_free_kbytes 8192
     # CATATAN: tiga baris tuning KSM dibuang — CONFIG_KSM tidak menyala di
