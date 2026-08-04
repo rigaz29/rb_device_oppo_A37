@@ -85,6 +85,34 @@ PRODUCT_PROPERTY_OVERRIDES += \
     debug.sf.disable_backpressure=1 \
     video.accelerate.hw=1
 
+# SurfaceFlinger di Android 12 — WAJIB, tanpa ini SF crash-loop dan ROM berhenti
+# di logo OPPO (Fase 10.B).
+#
+# A12 mengganti RenderEngine default SurfaceFlinger dari GLES ke Skia:
+# RenderEngine.h:317-318 menyetel SKIA_GL_THREADED. Adreno 306 dengan driver CAF
+# lama tidak sanggup, dan SF mati dengan:
+#   F DEBUG: Abort message: 'Unable to generate SkImage. isTextureValid:1 dataspace:513'
+# empat belas kali berturut-turut di logcat -b crash.
+#
+# RenderEngine.cpp:32-44 membaca debug.renderengine.backend dan menerima
+# "gles", "threaded", "skiagl", "skiaglthreaded". Dipilih `gles` mengikuti dua
+# sumber yang sepakat: ROM referensi 19.1 A37 yang TERBUKTI boot di perangkat ini
+# (system-build.prop:134) dan device tree a6010 lineage-19.1 (device.mk:78).
+# cyanogen msm8916-common memakai `threaded`; kalau `gles` bermasalah, itu
+# alternatif pertama yang dicoba.
+#
+# Empat properti sisanya BUKAN penyebab crash — semuanya penyetelan SF untuk GPU
+# legacy yang dipunyai ROM referensi dan tidak kita punya. Ditambahkan sekaligus
+# agar konfigurasinya sepadan dengan referensi yang terbukti. ⚠️ Kalau nanti
+# muncul gejala baru di SF, keempat baris inilah yang pertama di-bisect, bukan
+# debug.renderengine.backend.
+PRODUCT_PROPERTY_OVERRIDES += \
+    debug.renderengine.backend=gles \
+    debug.sf.disable_client_composition_cache=1 \
+    debug.sf.enable_gl_backpressure=1 \
+    debug.sf.enable_planner_prediction=false \
+    debug.sf.recomputecrop=0
+
 # Screen density
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.sf.lcd_density=280 \
