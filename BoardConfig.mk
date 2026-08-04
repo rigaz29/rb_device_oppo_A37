@@ -28,6 +28,27 @@ TARGET_NO_BOOTLOADER := true
 #   ccache: error: execute_noreturn of /tmp/src/android/tc/bin/aarch64-linux-android-gcc
 # Tanpa keduanya, build memakai prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.
 
+# BARU DI 19.1. vendor/lineage/build/tasks/kernel.mk:32 menyatakan
+# TARGET_KERNEL_CLANG_COMPILE "defaults to true", dan gerbangnya di :232 adalah
+# `ifneq ($(TARGET_KERNEL_CLANG_COMPILE),false)` — jadi harus disetel EKSPLISIT
+# false, tidak cukup dibiarkan kosong.
+#
+# Tanpa ini kernel 3.10 dikompilasi clang dan mati di tahap paling awal:
+#   scripts/mod/devicetable-offsets.c:10:2: error: unexpected token at start of statement
+# Itu integrated assembler clang menolak keluaran asm bergaya gcc yang dipakai
+# kernel 3.10 untuk menurunkan offset struktur.
+#
+# Fase 1 tidak menangkap ini karena build kernel mandiri memang memanggil
+# gcc 4.9 langsung lewat CROSS_COMPILE; jalur clang hanya muncul saat kernel
+# dibangun DARI DALAM build ROM.
+#
+# Dengan flag ini, CROSS_COMPILE jatuh ke KERNEL_TOOLCHAIN_arm64
+# (vendor/lineage/config/BoardConfigKernel.mk:73) =
+# prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin — kompiler yang
+# sama persis dengan yang dipakai Fase 1 dan dengan kernel ROM referensi
+# (gcc 4.9.x 20150123). a6010 lineage-19.1 memakai flag yang sama.
+TARGET_KERNEL_CLANG_COMPILE := false
+
 # Temp build fix
 # BUILD_BROKEN_PHONY_TARGETS dibuang: obsolete di Android 11, KATI_obsolete_var
 # di build/make/core/board_config.mk membuatnya jadi hard error. Daftar
@@ -48,6 +69,25 @@ BUILD_BROKEN_DUP_RULES := true
 # (build/make/core/shared_library.mk:59-62). Flag ini menurunkannya kembali
 # jadi warning. Konversi ke header_libs Soong adalah pekerjaan tersendiri.
 BUILD_BROKEN_USES_BUILD_COPY_HEADERS := true
+
+# BARU DI 19.1. Android 12 menolak prebuilt ELF di PRODUCT_COPY_FILES:
+#   out/.../system/lib/libFileMux.so: error: found ELF prebuilt in
+#   PRODUCT_COPY_FILES, use cc_prebuilt_binary / cc_prebuilt_library_shared instead.
+#
+# Pemeriksaannya (build/make/core/Makefile:74-76) kena pada SETIAP pasangan
+# PRODUCT_COPY_FILES yang tujuannya memuat komponen path `bin`, `lib`, atau
+# `lib64` — tidak peduli partisi. Di A37-vendor.mk itu 291 dari 320 blob.
+# Ninja berhenti di kegagalan pertama, jadi log hanya menyebut libFileMux.so;
+# memperbaikinya satu per satu cuma memunculkan yang berikutnya.
+#
+# Mengonversi 291 blob ke cc_prebuilt_library_shared bukan pekerjaan yang
+# sepadan untuk ROM legacy ini. a6010 lineage-19.1 memakai flag yang sama.
+#
+# CATATAN: ini BERBEDA dari `check_elf_files: false` yang sudah dipakai delapan
+# modul prebuilt di vendor/oppo/A37/Android.bp. Yang itu mematikan pemeriksaan
+# dependensi ELF untuk modul Soong; yang ini soal jalur PRODUCT_COPY_FILES.
+# Keduanya tidak saling menggantikan.
+BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 
 # Architecture
 TARGET_BOARD_SUFFIX := _32

@@ -149,8 +149,16 @@ sp<SensorEventQueue> SensorManager::createEventQueue()
 
     Mutex::Autolock _l(mLock);
     while (assertStateLocked() == NO_ERROR) {
+        // Android 12 menambah parameter keempat `const String16& attributionTag`
+        // pada ISensorServer::createSensorEventConnection
+        // (frameworks/native/libs/sensor/include/sensor/ISensorServer.h:47-48).
+        // Dioper String16("") — tag kosong, sama artinya dengan "tanpa
+        // attribution tag". Pemanggil di hulu (SensorManager.cpp:246-247)
+        // meneruskan tag milik caller; shim ini tidak punya satu pun, dan blob
+        // lama yang memakainya memang tidak mengenal konsep itu.
         sp<ISensorEventConnection> connection =
-                mSensorServer->createSensorEventConnection(String8(""), 0, gPackageName);
+                mSensorServer->createSensorEventConnection(String8(""), 0, gPackageName,
+                                                          String16(""));
         if (connection == NULL) {
             // SensorService just died.
             ALOGE("createEventQueue: connection is NULL. SensorService died.");
