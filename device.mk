@@ -241,11 +241,34 @@ PRODUCT_PACKAGES += \
     libshim_camera \
     libcamera_shim \
     camera.msm8916 \
-    Snap
-# CATATAN: Camera2 dibuang karena packages/apps/Snap/Android.mk memakai
-# LOCAL_OVERRIDES_PACKAGES := Camera2 — apk-nya ikut dikompilasi lalu dibuang
-# lagi dari image. SnapdragonCamera dibuang karena bukan nama modul yang ada di
-# tree ini (satu-satunya modul di packages/apps/Snap adalah "Snap").
+    Camera2
+# APLIKASI KAMERA: Snap -> Camera2 di 19.1.
+#
+# Di 18.1 dipakai Snap, dan Camera2 dibuang karena packages/apps/Snap/Android.mk
+# memakai LOCAL_OVERRIDES_PACKAGES := Camera2 sehingga apk-nya ikut dikompilasi
+# lalu dibuang lagi dari image.
+#
+# Itu tidak bisa diteruskan ke 19.1: LineageOS MENGHENTIKAN Snap setelah 18.1 —
+# branch terakhir di android_packages_apps_Snap adalah lineage-18.1, tidak ada
+# 19.x. Konsekuensinya Snap memakai API yang sudah dibuang dari frameworks/base
+# 19.1 dan tidak akan pernah diperbaiki di hulu:
+#
+#   1. Ekstensi CAF pada android.hardware.Camera (CameraMetaDataCallback dkk).
+#      Ini masih bisa dikembalikan lewat repopick 318816 — sudah dilakukan, dan
+#      tetap berguna untuk camera.device@1.0-impl di atas.
+#   2. WindowManager.LayoutParams.PRIVATE_FLAG_PREVENT_POWER_KEY dan
+#      Window.clearPrivateFlags(), dipakai CameraActivity.java:2139,2142 untuk
+#      fitur tombol power sebagai shutter. KEDUANYA tidak ada di frameworks/base
+#      19.1. Dukungan framework-nya (Gerrit 289447) hanya pernah masuk ke
+#      lineage-18.0 dan tidak diteruskan justru karena Snap dihentikan.
+#
+# Mengejar Snap berarti merawat tambalan frameworks/base sendiri untuk fitur
+# yang hulu sudah tinggalkan. Camera2 ada di tree 19.1, dirawat hulu, dan tidak
+# butuh tambalan apa pun.
+#
+# Catatan: ROM referensi 19.1 A37 yang terbukti boot ternyata tidak membawa
+# aplikasi kamera sama sekali — /system/app hanya berisi CameraExtensionsProxy.
+# Jadi memasang Camera2 sudah lebih dari yang mereka lakukan, bukan kurang.
 
 
 # Permissions
