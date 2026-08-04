@@ -344,7 +344,22 @@
          mendeklarasikan HAL yang tak pernah muncul justru membuat getService()
          menunggu (jalur vintfHwbinder + Waiter).
 
-         IPictureAdjustment  : -legacymm, via libmm-disp-apis (sudah ada di 17.1)
+         IPictureAdjustment  : DICABUT DI 19.1. Di 17.1/18.1 interface ini bekerja,
+                              dilayani -service-legacymm lewat libmm-disp-apis.so
+                              (legacymm/service.cpp:28) yang menyambung ke socket
+                              pps milik /system/vendor/bin/mm-pp-daemon.
+                              Di Android 12 daemon itu TIDAK BISA JALAN sama
+                              sekali: libmm-abl.so mereferensi
+                              android::IPowerManager::asInterface(sp<IBinder>
+                              const&), simbol C++ yang lenyap ketika A12
+                              mengubah IPowerManager menjadi AIDL-generated.
+                              Terbukti di perangkat: linker menolak
+                              mm-pp-daemon 103 kali, init.svc.ppd dan
+                              init.svc.vendor.livedisplay-hal-2-0-legacymm
+                              keduanya berstatus [restarting] permanen.
+                              Servisnya tidak pernah register, jadi ini persis
+                              kasus yang sama dengan IAdaptiveBacklight di bawah
+                              — lihat penjelasan mekanismenya di sana.
          IDisplayColorCalibration : -sysfs, butuh /sys/class/graphics/fb0/rgb.
                               mdss_livedisplay.c:797 membuat atribut rgb TANPA
                               syarat, jadi selalu tersedia.
@@ -378,10 +393,6 @@
         <name>vendor.lineage.livedisplay</name>
         <transport>hwbinder</transport>
         <version>2.0</version>
-        <interface>
-            <name>IPictureAdjustment</name>
-            <instance>default</instance>
-        </interface>
         <interface>
             <name>IDisplayColorCalibration</name>
             <instance>default</instance>

@@ -269,30 +269,22 @@ service qseecomd /system/vendor/bin/qseecomd
 # dan NITZ, dan ROM LineageOS 18.1 A37 yang beredar juga tidak menjalankannya
 # sama sekali. mkdir /data/time di baris 80 dibiarkan — tidak berbahaya.
 
-service ppd /system/vendor/bin/mm-pp-daemon
-    class late_start
-    disabled
-    user system
-    socket pps stream 0660 system system
-    group system graphics
-
-on property:init.svc.surfaceflinger=stopped
-    stop ppd
-
-on property:init.svc.surfaceflinger=running
-    start ppd
-
-on property:init.svc.surfaceflinger=restarting
-    stop ppd
-
-on property:init.svc.zygote=stopped
-    stop ppd
-
-on property:init.svc.zygote=running
-    start ppd
-
-on property:init.svc.zygote=restarting
-    stop ppd
+# ppd (mm-pp-daemon) DICABUT di 19.1 — seluruh servis dan enam trigger-nya.
+#
+# libmm-abl.so mereferensi android::IPowerManager::asInterface(sp<IBinder>
+# const&). Android 12 mengubah IPowerManager menjadi AIDL-generated dan simbol
+# C++ itu tidak ada lagi di system image, jadi linker menolak binernya SETIAP
+# KALI dijalankan. Terverifikasi di perangkat: 103 kegagalan dalam 10 menit.
+#
+# Servisnya `disabled`, tapi dua trigger di bawah ini menghidupkannya, dan
+# karena ia bukan `oneshot` init me-restart-nya selamanya tiap ~5 detik:
+#     on property:init.svc.surfaceflinger=running -> start ppd
+#     on property:init.svc.zygote=running         -> start ppd
+#
+# Konsumen satu-satunya adalah livedisplay -service-legacymm lewat socket pps.
+# Servis itu ikut dicabut di device.mk, dan IPictureAdjustment dicabut dari
+# manifest.xml — tanpa itu getService(true) menggantung dan Watchdog membunuh
+# system_server tiap ~2 menit.
 
 service wcnss-service /system/vendor/bin/wcnss_service
     class late_start

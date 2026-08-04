@@ -851,8 +851,13 @@ PRODUCT_PACKAGES += \
     TimeKeep    
 
 # LiveDisplay
+# -service-legacymm DICABUT di 19.1. Ia butuh libmm-disp-apis.so yang menyambung
+# ke socket pps milik mm-pp-daemon, dan daemon itu tidak bisa di-link di Android
+# 12 (libmm-abl.so mencari android::IPowerManager::asInterface, simbol C++ yang
+# hilang saat IPowerManager jadi AIDL-generated). Servis yang tidak pernah
+# register + interface-nya terdeklarasi di manifest = getService(true)
+# menggantung selamanya dan Watchdog membunuh system_server. Lihat manifest.xml.
 PRODUCT_PACKAGES += \
-    vendor.lineage.livedisplay@2.0-service-legacymm \
     vendor.lineage.livedisplay@2.0-service-sysfs
 
 $(call inherit-product, vendor/oppo/A37/A37-vendor.mk)
