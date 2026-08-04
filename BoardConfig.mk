@@ -89,6 +89,43 @@ BUILD_BROKEN_USES_BUILD_COPY_HEADERS := true
 # Keduanya tidak saling menggantikan.
 BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 
+# WAJIB DI 19.1 — tanpa ini SELURUH /vendor/ueventd.rc (220 aturan) diabaikan.
+#
+# Gejalanya: SurfaceFlinger crash-loop, ROM berhenti di logo OPPO. Ditemukan
+# lewat logcat di perangkat:
+#   E Adreno-GSL: open(/dev/kgsl-3d0) failed: errno 13. Permission denied
+#   F DEBUG   : Abort message: 'no suitable EGLConfig found, giving up'
+# dan `ls -l /dev/kgsl-3d0` menunjukkan `crw------- root root` — nilai BAWAAN
+# ueventd, artinya aturan kita memang tidak pernah diterapkan.
+#
+# Rantai sebabnya:
+#   1. system/core/init/ueventd.cpp:271 —
+#        if (GetIntProperty("ro.product.first_api_level", 10000) <= __ANDROID_API_S__)
+#            ParseConfig({"/system/etc/ueventd.rc", "/vendor/ueventd.rc", ...});
+#        return ParseConfig({"/system/etc/ueventd.rc"});
+#      Gerbang ini BARU di Android 12; komentarnya sendiri berbunyi "TODO: Remove
+#      these legacy paths once Android S is no longer supported". Di Android 11
+#      /vendor/ueventd.rc dibaca tanpa syarat — itulah sebabnya kernel yang sama
+#      lolos saat diuji lewat AnyKernel3 di atas ROM 18.1.
+#   2. `getprop ro.product.first_api_level` di perangkat: KOSONG. Defaultnya
+#      jadi 10000, dan 10000 > 31, sehingga hanya /system/etc/ueventd.rc dibaca.
+#   3. Propertinya kosong karena build/make/core/sysprop.mk:314-316 mem-BLACKLIST
+#      ro.product.first_api_level dari system/build.prop TANPA SYARAT — bukan
+#      karena kita menyetelnya manual di device.mk.
+#   4. Dan karena split ini mati, sysprop.mk:308-313 melebur
+#      ADDITIONAL_VENDOR_PROPERTIES (yang memuat ro.product.first_api_level dari
+#      PRODUCT_SHIPPING_API_LEVEL, main.mk:292) ke dalam prop SYSTEM — lalu kena
+#      blacklist yang sama. Jadi propertinya tidak pernah sampai ke runtime.
+#
+# Dengan split menyala, ADDITIONAL_VENDOR_PROPERTIES menuju vendor/build.prop,
+# dan blacklist di jalur itu (sysprop.mk:363) hanya PRODUCT_VENDOR_PROPERTY_BLACKLIST
+# yang kosong. Propertinya lolos, gerbangnya terbuka, 220 aturan kembali terpakai.
+#
+# Diperbaiki di akarnya, bukan dengan chmod /dev/kgsl-3d0 di init.rc: kgsl hanya
+# korban pertama. 219 aturan lain — audio, kamera, sensor, RIL — sama-sama
+# terbuang, dan menambalnya satu per satu berarti menunggu ranjau berikutnya.
+BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
+
 # Architecture
 TARGET_BOARD_SUFFIX := _32
 TARGET_ARCH := arm
