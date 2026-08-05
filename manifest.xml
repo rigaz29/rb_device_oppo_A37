@@ -243,11 +243,17 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <hal format="hidl">
-        <name>vendor.qti.hardware.iop</name>
-        <transport arch="32+64">passthrough</transport>
-        <version>1.0</version>
-    </hal>
+    <!-- vendor.qti.hardware.iop: DIBUANG DI LOS 20 — koreksi terhadap 19.1.
+         Di 19.1 deklarasi ini hanya berjalan karena dummy android.hidl.base@1.0
+         dipasang ke /system/lib. LOS 20 menyediakan hidl.base lewat
+         hardware/lineage/compat yang masuk system_ext/lib, dan namespace
+         linker vendor TIDAK menjangkau system_ext (linkerconfig
+         contents/namespace/vendordefault.cc) — jadi impl passthrough iop
+         tidak mungkin dimuat lagi. Tidak ada konsumennya di build ini (nol
+         blob lain mereferensikan iop; ROM gt58wifi yang boot juga tidak
+         mengirimnya). Sesuai aturan 10.C: jangan deklarasikan yang tak
+         mungkin register. Blob-nya tetap terpasang (dorman, nol efek
+         runtime). -->
     <hal format="hidl">
         <name>android.hardware.drm</name>
         <transport>hwbinder</transport>
