@@ -536,6 +536,14 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.kernel.ebpf.supported=false
 
+# VNDK: tanpa snapshot VNDK, nilai 'current' (sama dengan ROM 19.1 kita —
+# system_prop.mk:65 — dan ROM gt58wifi yang boot, system-build.prop:69).
+# linkerconfig (system/linkerconfig/modules/environment.cc:27) membaca properti
+# ini; kosong = namespace VNDK tidak dibangun. Bukan BOARD_VNDK_VERSION: itu
+# ikut membangun vndk_package yang tidak dipakai non-treble 32-bit ini.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.vndk.version=current
+
 # Mode low-RAM. Perangkat 2 GB; ROM referensi 19.1 A37 yang terbukti boot
 # menyetel ro.config.low_ram=true di build.prop.
 PRODUCT_PROPERTY_OVERRIDES += \
