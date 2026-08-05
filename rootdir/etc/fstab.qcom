@@ -23,6 +23,11 @@
 # ROM LineageOS 18.1 A37 yang beredar memakai opsi yang sama.
 /dev/block/bootdevice/by-name/modem          /firmware    vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337,context=u:object_r:firmware_file:s0    wait
 
-/devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto,encryptable=userdata
+# encryptable=userdata DICABUT di 20, menyusul pencabutan enkripsi pada /data.
+# Warisan dari 19.1; ia menyuruh vold memperlakukan SD sebagai volume yang
+# terikat kunci userdata, padahal FDE sudah tidak ada. ROM jangkar gt58wifi
+# (LOS 20, boot, enforcing) memakai baris ini TANPA opsi tersebut —
+# lihat ref/evidence/ramdisk-fstab.qcom.
+/devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto
 /devices/platform/msm_hsusb*                 auto         auto    defaults                                                    voldmanaged=usb:auto
 /dev/block/zram0                             none         swap    defaults zramsize=268435456
