@@ -48,6 +48,11 @@ TARGET_NO_BOOTLOADER := true
 # sama persis dengan yang dipakai Fase 1 dan dengan kernel ROM referensi
 # (gcc 4.9.x 20150123). a6010 lineage-19.1 memakai flag yang sama.
 TARGET_KERNEL_CLANG_COMPILE := false
+# BARU DI 20. vendor/lineage/config/BoardConfigKernel.mk:33 menetapkan default
+# TARGET_KERNEL_LLVM_BINUTILS := true; dengan CLANG_COMPILE=false jalur LLVM
+# sudah tertutup, tapi a6010 dan common meghs sama-sama menyetel false eksplisit
+# (biaya nol, mencegah kejutan bila default hulu berubah).
+TARGET_KERNEL_LLVM_BINUTILS := false
 
 # Temp build fix
 # BUILD_BROKEN_PHONY_TARGETS dibuang: obsolete di Android 11, KATI_obsolete_var
@@ -316,6 +321,18 @@ TARGET_PROVIDES_LIBLIGHT := true
 BOARD_CHARGER_DISABLE_INIT_BLANK := true
 BACKLIGHT_PATH := /sys/class/leds/lcd-backlight/brightness
 
+# BARU DI 20 — Lineage Health (vendor.lineage.health-service.default).
+# Nilai dari a6010 lineage-20.0 dan meghs A37 lineage-20 (keduanya sepakat),
+# dan path-nya diverifikasi di kernel kita sendiri:
+#   qpnp-linear-charger.c:206,1672-1679 mengekspos POWER_SUPPLY_PROP_CHARGING_ENABLED
+#   (set_property + qpnp_lbc_charger_enable), :1554-1566 property_is_writeable,
+#   :3372 batt_psy bernama "battery"; power_supply_sysfs.c:148 memetakannya ke
+#   atribut sysfs "charging_enabled". CONFIG_QPNP_LINEAR_CHARGER=y di defconfig
+#   (lineageos_a37f_defconfig:334).
+TARGET_HEALTH_CHARGING_CONTROL_CHARGING_PATH := /sys/class/power_supply/battery/charging_enabled
+TARGET_HEALTH_CHARGING_CONTROL_CHARGING_ENABLED := 1
+TARGET_HEALTH_CHARGING_CONTROL_CHARGING_DISABLED := 0
+
 # Encryption
 TARGET_HW_DISK_ENCRYPTION := true
 TARGET_LEGACY_HW_DISK_ENCRYPTION := true
@@ -418,6 +435,16 @@ BOARD_WLAN_DEVICE := qcwcn
 BOARD_WPA_SUPPLICANT_DRIVER := NL80211
 BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_qcwcn
 TARGET_USES_QCOM_WCNSS_QMI := true
+# BARU DI 20 — pemblokir kati. Fork UL hardware/qcom-caf/wlan lineage-20.0-caf
+# menghilangkan gerbang `ifneq ($(QCPATH),)` yang ada di lineage-19.1-caf, jadi
+# tanpa flag ini wcnss_service menautkan libqmi_cci/libqmi_common_so/libmdmdetect
+# yang TIDAK ada sebagai modul di tree LOS 20 (kati: "missing ... (SHARED_LIBRARIES)").
+# Dengan TARGET_PROVIDES_WCNSS_QMI := true, wcnss_service dikompilasi
+# -DWCNSS_QMI_OSS + libdl — jalur yang PERSIS sama dengan build 19.1 kita
+# (di 19.1 gerbang QCPATH kosong menjatuhkannya ke WCNSS_QMI_OSS juga).
+# meghs A37 lineage-20 memakai flag yang sama (BoardConfig.mk:91) dan boot.
+# Flag ini hanya dibaca oleh hardware/qcom-caf/wlan/wcnss-service/Android.mk:15.
+TARGET_PROVIDES_WCNSS_QMI := true
 WIFI_DRIVER_FW_PATH_AP := "ap"
 WIFI_DRIVER_FW_PATH_STA := "sta"
 WPA_SUPPLICANT_VERSION := VER_0_8_X

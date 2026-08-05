@@ -267,8 +267,8 @@
             <instance>clearkey</instance>
             <instance>default</instance>
         </interface>
-        <fqname>@1.3::ICryptoFactory/clearkey</fqname>
-        <fqname>@1.3::IDrmFactory/clearkey</fqname>
+        <fqname>@1.4::ICryptoFactory/clearkey</fqname>
+        <fqname>@1.4::IDrmFactory/clearkey</fqname>
     </hal>
     <!-- wifi/hostapd/supplicant: dihapus — paket service bawa VINTF fragment.
          Sumber: msm8916-common lineage-18.1 -->
@@ -305,15 +305,13 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <hal format="hidl">
-        <name>vendor.qti.hardware.cryptfshw</name>
-        <transport>hwbinder</transport>
-        <version>1.0</version>
-        <interface>
-            <name>ICryptfsHw</name>
-            <instance>default</instance>
-        </interface>
-    </hal>
+    <!-- cryptfshw: DICABUT DI LOS 20 — koreksi terhadap 19.1. Source HAL-nya
+         (hardware/lineage/interfaces/cryptfshw + vendor/qcom/opensource/
+         interfaces/cryptfshw) tidak ada di tree LOS 20, jadi servisnya tidak
+         mungkin register. Sesuai aturan 10.C: jangan deklarasikan interface
+         yang tidak bisa register. ROM gt58wifi (LOS 20, boot, enforcing)
+         juga tidak mengirim biner cryptfshw apa pun (diverifikasi dari
+         system.img-nya). /data tetap polos karena fstab tanpa encryptable=. -->
     <hal format="hidl">
         <name>android.hardware.sensors</name>
         <transport arch="32+64">passthrough</transport>

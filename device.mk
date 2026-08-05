@@ -34,7 +34,6 @@ PRODUCT_PACKAGES += \
     android.hardware.memtrack@1.0-service \
     gralloc.msm8916 \
     hwcomposer.msm8916 \
-    libgenlock \
     libtinyxml \
     memtrack.msm8916 \
     copybit.msm8916
@@ -126,10 +125,16 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # DRM
 # clearkey @1.2 → @1.3 (Sumber: msm8916-common lineage-18.1)
+#
+# LOS 20: @1.3-service.clearkey TIDAK ADA lagi — LOS 20 menyediakan
+# android.hardware.drm@1.2- dan @1.4-service.clearkey serta varian AIDL.
+# Dipakai @1.4-service.clearkey (non-lazy), sama persis dengan biner di ROM
+# gt58wifi yang boot (/system/vendor/bin/hw/android.hardware.drm@1.4-service.clearkey).
+# fqname di manifest.xml ikut dinaikkan ke @1.4.
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.3-service.clearkey
+    android.hardware.drm@1.4-service.clearkey
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608
@@ -269,34 +274,12 @@ PRODUCT_PACKAGES += \
     libshim_camera \
     libcamera_shim \
     camera.msm8916 \
-    Camera2
-# APLIKASI KAMERA: Snap -> Camera2 di 19.1.
+    Aperture
+# APLIKASI KAMERA: Aperture di 20 (Camera2 di 19.1, Snap di 18.1).
 #
-# Di 18.1 dipakai Snap, dan Camera2 dibuang karena packages/apps/Snap/Android.mk
-# memakai LOCAL_OVERRIDES_PACKAGES := Camera2 sehingga apk-nya ikut dikompilasi
-# lalu dibuang lagi dari image.
-#
-# Itu tidak bisa diteruskan ke 19.1: LineageOS MENGHENTIKAN Snap setelah 18.1 —
-# branch terakhir di android_packages_apps_Snap adalah lineage-18.1, tidak ada
-# 19.x. Konsekuensinya Snap memakai API yang sudah dibuang dari frameworks/base
-# 19.1 dan tidak akan pernah diperbaiki di hulu:
-#
-#   1. Ekstensi CAF pada android.hardware.Camera (CameraMetaDataCallback dkk).
-#      Ini masih bisa dikembalikan lewat repopick 318816 — sudah dilakukan, dan
-#      tetap berguna untuk camera.device@1.0-impl di atas.
-#   2. WindowManager.LayoutParams.PRIVATE_FLAG_PREVENT_POWER_KEY dan
-#      Window.clearPrivateFlags(), dipakai CameraActivity.java:2139,2142 untuk
-#      fitur tombol power sebagai shutter. KEDUANYA tidak ada di frameworks/base
-#      19.1. Dukungan framework-nya (Gerrit 289447) hanya pernah masuk ke
-#      lineage-18.0 dan tidak diteruskan justru karena Snap dihentikan.
-#
-# Mengejar Snap berarti merawat tambalan frameworks/base sendiri untuk fitur
-# yang hulu sudah tinggalkan. Camera2 ada di tree 19.1, dirawat hulu, dan tidak
-# butuh tambalan apa pun.
-#
-# Catatan: ROM referensi 19.1 A37 yang terbukti boot ternyata tidak membawa
-# aplikasi kamera sama sekali — /system/app hanya berisi CameraExtensionsProxy.
-# Jadi memasang Camera2 sudah lebih dari yang mereka lakukan, bukan kurang.
+# LOS 20 menggantikan Camera2 dengan Aperture sebagai aplikasi kamera bawaan;
+# meghs A37 lineage-20 dan a6010 lineage-20.0 sama-sama memakai Aperture.
+# Modulnya ada di tree: packages/apps/Aperture/app/Android.bp:11.
 
 
 # Permissions
@@ -438,13 +421,16 @@ PRODUCT_PACKAGES += \
     fs_config_files
 
 # Encryption
-# manifest.xml mendeklarasikan vendor.qti.hardware.cryptfshw sebagai hwbinder dan
-# BoardConfig menyalakan TARGET_HW_DISK_ENCRYPTION, tapi hanya -base yang ikut
-# dibangun dan vendor tree tidak membawa prebuilt service-nya. Tanpa service ini
-# vold tidak mendapat HAL-nya saat menyiapkan /data.
-PRODUCT_PACKAGES += \
-    vendor.qti.hardware.cryptfshw@1.0-base \
-    vendor.qti.hardware.cryptfshw@1.0-service-qti.qsee
+# LOS 20: cryptfshw DICABUT — KOREKSI terhadap keputusan 19.1 "pertahankan
+# cryptfshw". Di 19.1 modul ini dibangun dari hardware/lineage/interfaces/
+# cryptfshw + vendor/qcom/opensource/interfaces/cryptfshw (terverifikasi dari
+# log build bacon4.log); KEDUANYA sudah tidak ada di tree LOS 20 (grep seluruh
+# tree: nol definisi). Mempertahankan baris di bawah menghentikan kati persis
+# seperti dummy android.hidl.base@1.0. Yang menentukan /data terenkripsi atau
+# tidak adalah `encryptable=` di fstab (§3.7), bukan ada-tidaknya HAL — fstab
+# tanpa encryptable= sudah cukup. BoardConfig tetap menyetel
+# TARGET_HW_DISK_ENCRYPTION := true (tidak dikonsumsi apa pun di LOS 20;
+# retiredtab juga mempertahankannya).
 
 # Media
 PRODUCT_COPY_FILES += \
@@ -472,8 +458,6 @@ PRODUCT_PACKAGES += \
     libOmxEvrcEnc \
     libOmxQcelp13Enc \
     libOmxVdec \
-    libOmxVdecHevc \
-    libOmxSwVencHevc \
     libOmxVenc \
     libOmxVidcCommon \
     libstagefrighthw
@@ -582,13 +566,22 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # HIDL
 # 18.1: tambah libhidltransport/libhwbinder, VINTF override, RRO
 # Sumber: msm8916-common lineage-18.1
+#
+# LOS 20: dummy android.hidl.base@1.0 / android.hidl.manager@1.0 (libhidl/)
+# DIBUANG — LineageOS 20 menyediakannya sendiri di
+# hardware/lineage/compat/Android.bp:228 dan :236, sehingga definisi milik
+# kita jadi duplikat dan menghentikan kati:
+#   base_rules.mk:338: MODULE.TARGET.SHARED_LIBRARIES.android.hidl.base@1.0
+#   already defined by hardware/lineage/compat
+#
+# Varian libhidltransport.vendor / libhwbinder.vendor juga DIBUANG: bukan
+# modul yang sah di LOS 20 (tertangkap pemeriksaan common.mk:104), dan di 19.1
+# keduanya entri mati — hanya varian polos yang terpasang ke /system/lib
+# (diverifikasi dari log build 19.1: Install .../system/lib/libhwbinder.so).
+# a6010 lineage-20.0 dan common meghs lineage-20 memakai varian polos saja.
 PRODUCT_PACKAGES += \
-    android.hidl.base@1.0 \
-    android.hidl.manager@1.0 \
     libhidltransport \
-    libhidltransport.vendor \
-    libhwbinder \
-    libhwbinder.vendor
+    libhwbinder
 
 PRODUCT_ENFORCE_VINTF_MANIFEST_OVERRIDE := true
 
@@ -603,7 +596,8 @@ PRODUCT_ENFORCE_RRO_TARGETS := *
 # 18.1: @2.0 → @2.1 (Sumber: msm8916-common lineage-18.1)
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl \
-    android.hardware.health@2.1-service
+    android.hardware.health@2.1-service \
+    vendor.lineage.health-service.default
 
 # Touchscreen
 PRODUCT_COPY_FILES += \
@@ -785,8 +779,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
     sys.use_fifo_ui=1
 
 # TextClassifier
-PRODUCT_PACKAGES += \
-    textclassifier.bundle1
+# textclassifier.bundle1 DIBUANG DI 20: modulnya tidak ada di tree LOS 20
+# (dulu pun entri mati — tidak pernah dibangun di 19.1). Model teks tetap
+# tersedia lewat external/libtextclassifier sebagai berkas.
 
 # Properties
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -815,11 +810,12 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/seccomp/mediacodec-seccomp.policy:$(TARGET_COPY_OUT_VENDOR)/etc/seccomp_policy/mediacodec.policy
 
 # Sensors
+# accelcal / AccCalibration / sensord DIBUANG DI 20: tidak ada sebagai modul
+# di tree LOS 20, dan di 19.1 pun ketiganya entri mati — tidak pernah dibangun
+# (diverifikasi dari log build 19.1). A37 tidak memakai SSP/Sensor Hub, jadi
+# sensord (daemon QTI untuk itu) memang tidak dibutuhkan.
 PRODUCT_PACKAGES += \
     android.hardware.sensors@1.0-impl \
-    accelcal \
-    AccCalibration \
-    sensord \
     calmodule.cfg \
     sensors.msm8916
 
