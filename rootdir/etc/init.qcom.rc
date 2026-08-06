@@ -45,6 +45,17 @@ on fs
     mount_all /vendor/etc/fstab.qcom
     restorecon_recursive /persist
 
+    # Fase 9 (perbaikan bootloop): node charging control harus writable oleh
+    # user system. health-service (user system) menunggu node yang bisa
+    # diakses R_OK|W_OK di constructor ChargingControl() (loop retry 100ms);
+    # sysfs power_supply dibuat 0644 root:root sehingga tanpa chmod ini
+    # access(W_OK) selalu gagal -> loop selamanya -> IChargingControl tak
+    # pernah register -> waitForDeclaredService di main thread system_server
+    # menggantung -> Watchdog membunuh system_server -> bootloop.
+    # Node ini atribut statis battery psy (qpnp-linear-charger, probe saat
+    # init kernel) sehingga sudah ada sebelum on fs. 0666: perangkat uji.
+    chmod 0666 /sys/class/power_supply/battery/charging_enabled
+
 # msm specific files that need to be created on /data
 on post-fs-data
     mkdir /data/fdAlbum 0770 camera camera

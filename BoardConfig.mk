@@ -332,6 +332,17 @@ BACKLIGHT_PATH := /sys/class/leds/lcd-backlight/brightness
 TARGET_HEALTH_CHARGING_CONTROL_CHARGING_PATH := /sys/class/power_supply/battery/charging_enabled
 TARGET_HEALTH_CHARGING_CONTROL_CHARGING_ENABLED := 1
 TARGET_HEALTH_CHARGING_CONTROL_CHARGING_DISABLED := 0
+# KOREKSI Fase 9: SUPPORTS_TOGGLE TIDAK boleh dimatikan — hulu
+# (ChargingControl.cpp) hanya mendefinisikan constructor ChargingControl()
+# di bawah #ifdef TOGGLE atau #ifdef DEADLINE; mematikan keduanya membuat
+# constructor tanpa definisi dan link gagal. Dengan TOGGLE=true, constructor
+# ber-loop menunggu node charging yang writable oleh user system — node sysfs
+# power_supply dibuat 0644 root:root (power_supply_sysfs.c:257,267), jadi
+# akses W_OK gagal dan loop tak pernah berhenti -> IChargingControl tak
+# register -> waitForDeclaredService di main thread system_server menggantung
+# -> Watchdog membunuh system_server -> bootloop. Node dibuat writable oleh
+# chmod di init.qcom.rc (on fs) — lihat komentar di sana.
+TARGET_HEALTH_CHARGING_CONTROL_SUPPORTS_BYPASS := false
 
 # Encryption
 TARGET_HW_DISK_ENCRYPTION := true
