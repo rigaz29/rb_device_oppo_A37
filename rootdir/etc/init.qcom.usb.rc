@@ -55,6 +55,14 @@ on fs
     setprop persist.adb.nonblocking_ffs 0
     setprop ro.adb.nonblocking_ffs 0
 
+    # DIAGNOSTIK (Fase 9): aktifkan adb lebih awal, langsung dari init —
+    # sebelum UsbService (yang butuh system_server jalan). Kalau hang terjadi
+    # sebelum UsbService, adb tetap bisa dipakai untuk logcat (logd sudah
+    # jalan sejak awal boot). Bila adbd apex belum aktif di fase ini,
+    # `start adbd` gagal diam-diam dan trigger ini terpicu lagi saat
+    # UsbService menyetel nilai yang sama.
+    setprop sys.usb.config mtp,adb
+
 # Following are the parameters required for usb functionality. They provide configurable options like
 # product_id/vendor id and allows specifying required functions:
 #

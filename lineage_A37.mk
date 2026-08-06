@@ -52,8 +52,10 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # atau UI membeku, dialog otorisasi tidak bisa ditekan sehingga adb jadi tidak
 # berguna persis ketika paling dibutuhkan.
 #
-# Sama seperti sakelar di atas, harus disetel sebelum inherit common_full_phone.mk.
-# WITH_ADB_INSECURE := true
+# Fase 9 (5 Agustus 2026): DINYALAKAN untuk diagnosis boot stuck. Memang
+# membuka adb tanpa otorisasi — untuk perangkat uji diterima; matikan lagi
+# sebelum rilis.
+WITH_ADB_INSECURE := true
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
