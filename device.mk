@@ -621,8 +621,11 @@ PRODUCT_PACKAGES += \
     android.hardware.vibrator@1.0-impl
 
 # RIL
+# libcnefeatureconfig dibuang 7 Agu 2026 (M4): modulnya hanya disediakan repo
+# external/connectivity fork UL yang TIDAK ADA di manifest official
+# (PLAN-OFFICIAL §1.2C/§1.5). Diverifikasi tak ada konsumen: nol blob vendor
+# menautkannya, dan zip baseline UL yang jalan tidak mengirim file-nya.
 PRODUCT_PACKAGES += \
-    libcnefeatureconfig \
     librmnetctl \
     libxml2 \
     libril_shim
