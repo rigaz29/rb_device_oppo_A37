@@ -814,6 +814,13 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # tersedia lewat external/libtextclassifier sebagai berkas.
 
 # Properties
+# PENTING (M5-RIL, 7 Agu 2026): rild Android 13 membaca vendor.rild.libpath
+# (hardware/ril/rild/rild.c:39), BUKAN rild.libpath legacy. Tanpa prop
+# vendor.* ini rild masuk jalur "no-ril" (goto done): blob CAF
+# libril-qc-qmi-1.so tak pernah dimuat, IRadio HIDL tak terdaftar, dan
+# com.android.phone loop menunggu selamanya. Dites runtime: IRadio
+# slot1/slot2+ISap terdaftar, SIM LOADED, LTE HOME by.U (51010),
+# telepon/SMS/data jalan. 16 patch T-RIL UL ternyata TIDAK diperlukan.
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.data.qmi.adb_logmask=0 \
     persist.data.target=dpm3 \
@@ -825,6 +832,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.radio.ecc_hard_1=112,911,110,122,119,120,000,118 \
     persist.radio.ecc_hard_count=1 \
     rild.libpath=/system/vendor/lib/libril-qc-qmi-1.so \
+    vendor.rild.libpath=/system/vendor/lib/libril-qc-qmi-1.so \
     ril.subscription.types=NV,RUIM \
     ro.telephony.default_network=9,1 \
     persist.data.netmgrd.qos.enable=false
