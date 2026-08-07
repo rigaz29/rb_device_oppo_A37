@@ -235,8 +235,14 @@
 
         </module>
 
-        <!-- A2dp Audio HAL -->
-        <xi:include href="/vendor/etc/a2dp_audio_policy_configuration.xml"/>
+        <!-- Bluetooth Audio HAL (software encoding via
+             android.hardware.bluetooth.audio@2.0): modul "bluetooth" dari
+             audio.bluetooth.default.so. Jangan pakai a2dp_audio_policy_configuration.xml
+             (modul "a2dp") — audio.a2dp.default.so tidak dibangun di konfigurasi
+             non-APEX ini; APM gagal load (Handle 0) dan audio tetap di speaker.
+             Ditemukan via M5 uji BT 7 Agu 2026:
+             "APM::HwModule: createDevice: could not find HW module for device 0080". -->
+        <xi:include href="/vendor/etc/bluetooth_audio_policy_configuration.xml"/>
 
         <!-- Usb Audio HAL -->
         <xi:include href="/vendor/etc/usb_audio_policy_configuration.xml"/>
