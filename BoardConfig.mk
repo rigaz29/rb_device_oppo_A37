@@ -19,6 +19,28 @@ PLATFORM_PATH := device/oppo/A37
 TARGET_BOOTLOADER_BOARD_NAME := MSM8916
 TARGET_BOARD_PLATFORM := msm8916
 TARGET_NO_BOOTLOADER := true
+
+# msm8916 sudah dicabut dari daftar platform hulu
+# (hardware/qcom-caf/common/qcom_boards.mk — tidak ada di lineage-20.0 maupun
+# lineage-21.0). Akibatnya hardware/qcom-caf/msm8916/media/Android.mk:5
+#
+#     ifeq ($(call is-board-platform-in-list, $(QCOM_BOARD_PLATFORMS)),true)
+#
+# bernilai false, sehingga mm-core/ dan libstagefrighthw/ TIDAK PERNAH
+# di-include dan enforce-product-packages-exist menolak build:
+#
+#     libOmxCore, libmm-omxcore, libstagefrighthw
+#
+# Di proyek 20 masalah ini tidak muncul karena media di-pin ke
+# lineage-19.0-caf-msm8916, yang belum punya gerbang tersebut. Untuk 21 kita
+# memakai lineage-21.0-caf-msm8916 yang sudah bergerbang, jadi platform-nya
+# perlu dideklarasikan ulang di sini.
+#
+# Radius dampaknya diukur, bukan diduga: QCOM_BOARD_PLATFORMS hanya dipakai di
+# SATU titik gerbang di seluruh repo yang kita build — baris media di atas.
+# audio/ dan display/ tidak memakainya sama sekali. qcom_boards.mk memakai '+='
+# saja (tidak ada ':=' yang bisa menimpa), jadi urutan include tidak jadi soal.
+QCOM_BOARD_PLATFORMS += msm8916
 # CATATAN: dua baris berikut dibuang karena menunjuk path mesin pembuat tree:
 #   TARGET_KERNEL_CROSS_COMPILE_PREFIX := aarch64-linux-android-
 #   KERNEL_TOOLCHAIN := /tmp/src/android/tc/bin

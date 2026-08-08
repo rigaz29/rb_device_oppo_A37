@@ -151,17 +151,32 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # Dipakai @1.4-service.clearkey (non-lazy), sama persis dengan biner di ROM
 # gt58wifi yang boot (/system/vendor/bin/hw/android.hardware.drm@1.4-service.clearkey).
 # fqname di manifest.xml ikut dinaikkan ke @1.4.
+#
+# LOS 21: clearkey HIDL DICABUT SELURUHNYA di Android 14. Tidak ada lagi
+# android.hardware.drm@1.x-service.clearkey di hardware/interfaces/drm/
+# (diverifikasi: nol hasil untuk "name: android.hardware.drm.*clearkey").
+# Penggantinya AIDL, di lokasi baru:
+#   frameworks/av/drm/mediadrm/plugins/clearkey/aidl/Android.bp:77
+#     android.hardware.drm-service.clearkey        <- dipakai (non-lazy)
+#     android.hardware.drm-service-lazy.clearkey
+# Ini kelanjutan langsung dari perpindahan @1.3 -> @1.4 di proyek 20.
+# @1.0-impl dan @1.0-service TETAP ADA di A14 dan tetap dipakai.
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.4-service.clearkey
+    android.hardware.drm-service.clearkey
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608
 
 # Trust HAL
-PRODUCT_PACKAGES += \
-    vendor.lineage.trust@1.0-service
+# LOS 21: DICABUT. hardware/lineage/interfaces/ tidak lagi punya direktori
+# trust/ (diverifikasi dengan ls: ada biometrics, camera, fastboot,
+# fastcharge, health, light, livedisplay, ... tanpa trust). meghs juga
+# membuangnya di device tree lineage-21 mereka ("Drop legacy trust HAL — dead").
+# Tidak ada pengganti AIDL; fiturnya diserap Trust di framework LineageOS.
+# Deklarasi manifest-nya sudah lebih dulu berupa komentar (manifest.xml,
+# blok "vendor.lineage.trust: DIHAPUS"), jadi tidak ada sisa yang menggantung.
 
 # Audio
 # 18.1: audio@5.0→@6.0, service nama baru, BT audio stack baru
@@ -431,9 +446,32 @@ PRODUCT_PACKAGES += \
 # (InProcessNetworkStack + com.android.tethering.inprocess). msm8916-common
 # mendapatkannya otomatis lewat common_full_go_phone.mk; device ini memakai
 # common_full_phone.mk sehingga harus dideklarasikan eksplisit.
-PRODUCT_PACKAGES += \
-    InProcessNetworkStack \
-    com.android.tethering.inprocess
+#
+# ===========================================================================
+# LOS 21: KEDUANYA DIBUANG. Baca ini sebelum mencoba memulihkannya.
+# ===========================================================================
+# Android 14 mencabut jalur in-process itu sendiri, bukan sekadar mengganti
+# namanya. Diverifikasi:
+#   - "com.android.tethering.inprocess" nihil di SELURUH pohon (grep *.bp/*.mk).
+#   - packages/modules/Connectivity/Tethering/apex/Android.bp tidak lagi punya
+#     override_apex maupun InProcessTethering — nol hasil.
+#   - go_defaults_common.mk A14 sudah tidak menyebut keduanya sama sekali;
+#     kutipan "baris 40-43" di atas hanya berlaku untuk A13.
+#
+# InProcessNetworkStack SENDIRI masih ada (packages/modules/NetworkStack/
+# Android.bp:456), jadi menahannya akan tetap lolos build. Justru itu jebakannya:
+# memasangnya SENDIRIAN menghasilkan persis ketidakcocokan yang jadi akar
+# masalah di atas — PlatformNetworkPermissionConfig (sertifikat platform) yang
+# mendefinisikan MAINLINE_NETWORK_STACK, berpasangan dengan apex tethering
+# bawaan yang isinya Tethering.apk bersertifikat networkstack. Itulah kombinasi
+# yang melempar SecurityException di atas. Keduanya harus sepadan, jadi
+# satu-satunya konfigurasi yang konsisten di A14 adalah pasangan bawaan:
+# NetworkStack + com.android.tethering, keduanya bersertifikat networkstack.
+#
+# ⚠️ Belum diuji di perangkat. Bug aslinya baru terlihat saat runtime (Settings
+# putih polos, TetheringManager timeout), jadi ini WAJIB dicek ulang di Fase 8.
+# Kalau gejalanya kembali, jangan pasang lagi InProcessNetworkStack sendirian —
+# akarnya sertifikat, dan A14 tidak lagi menyediakan pasangan in-process-nya.
 
 # FM
 PRODUCT_PACKAGES += \
@@ -728,8 +766,23 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # WiFi HAL
 # .legacy → regular (Sumber: msm8916-common lineage-18.1)
+#
+# LOS 21: HIDL wifi DICABUT — hardware/interfaces/wifi/ tidak punya 1.*/default
+# lagi, hanya aidl/default. Penggantinya android.hardware.wifi-service
+# (hardware/interfaces/wifi/aidl/default/Android.bp:116).
+#
+# Ini pertukaran yang aman untuk perangkat ini: layanan AIDL tetap memakai
+# libwifi-hal + libwifi-system-iface yang sama persis dengan layanan HIDL lama,
+# jadi HAL vendor di bawahnya (libwifi-hal-qcom) tidak berubah. Ia juga membawa
+# vintf_fragment sendiri, konsisten dengan manifest.xml kita yang memang sudah
+# TIDAK mendeklarasikan wifi ("wifi/hostapd/supplicant: dihapus — paket service
+# bawa VINTF fragment").
+#
+# ⚠️ Wi-Fi BERFUNGSI di ROM proyek 20; ini satu-satunya perubahan yang
+# menyentuhnya. Kalau Wi-Fi mati setelah boot pertama, curigai baris ini lebih
+# dulu, bukan kernel atau blob.
 PRODUCT_PACKAGES += \
-    android.hardware.wifi@1.0-service
+    android.hardware.wifi-service
 
 # Wifi
 PRODUCT_PACKAGES += \
