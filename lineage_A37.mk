@@ -63,7 +63,13 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 #
 # Kalau suatu saat butuh diagnosis boot stuck lagi: nyalakan sementara, bangun
 # ROM khusus untuk perangkat sendiri, dan JANGAN dibagikan.
-WITH_ADB_INSECURE := false
+#
+# ⚠️ HARUS DIKOMENTARI, BUKAN DISETEL `false`. vendor/lineage/config/common.mk:20
+# memakai `ifdef WITH_ADB_INSECURE` — dan `ifdef` di GNU Make bernilai benar
+# untuk NILAI APA PUN yang tidak kosong, termasuk string "false". Menyetelnya
+# `:= false` tetap menghasilkan ro.adb.secure=0 (terbukti di build
+# 20260808_130028: ro.adb.secure masih 0 meski flag sudah "false").
+#WITH_ADB_INSECURE := true
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
