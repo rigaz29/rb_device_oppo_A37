@@ -80,9 +80,29 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.shared=quicken \
     pm.dexopt.downgrade_after_inactive_days=10 \
     debug.sf.hw=1 \
-    debug.hwui.renderer=opengl \
     debug.sf.disable_backpressure=1 \
     video.accelerate.hw=1
+
+# debug.hwui.renderer=opengl DIBUANG di 20 — properti MATI, dan menyesatkan.
+#
+# frameworks/base/libs/hwui/Properties.cpp:198-199:
+#     rendererProperty = GetProperty(PROPERTY_RENDERER, useVulkan ? "skiavk" : "skiagl");
+#     if (rendererProperty == "skiavk") { ... }
+# Hanya "skiavk" yang dicocokkan; nilai lain -- termasuk "opengl" -- jatuh ke
+# SkiaGL. Pipeline OpenGL lama HWUI sudah dicabut sejak Android 10, jadi baris
+# ini tidak pernah berpengaruh di 19.1 maupun 20.
+#
+# Menyesatkannya: SurfaceFlinger MEMANG menghindari Skia lewat
+# debug.renderengine.backend=gles di bawah (perbaikan 10.B), sehingga baris ini
+# mudah dibaca seolah rendering aplikasi juga non-Skia. Tidak. HWUI berjalan di
+# SkiaGL, dan di Android 13 tidak ada alternatifnya.
+#
+# JANGAN tambahkan ro.hwui.render_ahead sebagai gantinya (meghs A37 lineage-20
+# dan a6010 lineage-20.0 sama-sama memakainya): properti itu juga MATI di A13.
+# Getter render_ahead() ada di Properties.cpp:42 tapi TIDAK PERNAH dipanggil;
+# anggota Properties::renderAhead tidak ada; setRenderAheadDepth/
+# mRenderAheadDepth -- mekanisme Android 11-nya -- sudah dicabut seluruhnya.
+# Diverifikasi dengan grep seluruh frameworks/base, 8 Agustus 2026.
 
 # SurfaceFlinger di Android 12 — WAJIB, tanpa ini SF crash-loop dan ROM berhenti
 # di logo OPPO (Fase 10.B).
