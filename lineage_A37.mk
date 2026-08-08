@@ -55,7 +55,15 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # Fase 9 (5 Agustus 2026): DINYALAKAN untuk diagnosis boot stuck. Memang
 # membuka adb tanpa otorisasi — untuk perangkat uji diterima; matikan lagi
 # sebelum rilis.
-WITH_ADB_INSECURE := true
+#
+# 8 Agustus 2026: DIMATIKAN. Boot, Wi-Fi, Bluetooth, dan RIL sudah terverifikasi
+# di perangkat, jadi alasan diagnosisnya gugur — sementara ROM ini mulai
+# dibagikan. Dengan `true`, siapa pun yang mencolokkan USB mendapat shell tanpa
+# dialog otorisasi RSA; itu tidak boleh ikut ke build yang beredar.
+#
+# Kalau suatu saat butuh diagnosis boot stuck lagi: nyalakan sementara, bangun
+# ROM khusus untuk perangkat sendiri, dan JANGAN dibagikan.
+WITH_ADB_INSECURE := false
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
