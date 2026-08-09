@@ -67,5 +67,14 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_PRELINK_MODULE := false
 
+# LOS 21: hardware/gps.h tidak lagi terjangkau lewat jalur include implisit.
+# Android 14 menuntutnya diminta eksplisit sebagai header library; tanpa baris
+# ini `m bacon` berhenti dengan
+#   loc_target.cpp:37:10: fatal error: 'hardware/gps.h' file not found
+# Headernya SENDIRI masih ada (hardware/libhardware/include_all/hardware/gps.h),
+# dan libhardware_headers mengekspor direktori itu serta vendor_available:true,
+# jadi sah dipakai modul vendor seperti ini.
+LOCAL_HEADER_LIBRARIES += libhardware_headers
+
 include $(BUILD_SHARED_LIBRARY)
 endif # not BUILD_TINY_ANDROID

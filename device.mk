@@ -280,8 +280,31 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     libbt-vendor \
 
-PRODUCT_COPY_FILES += \
-    prebuilts/vndk/v28/arm/arch-arm-armv7-a-neon/shared/vndk-sp/libbase.so:$(TARGET_COPY_OUT_VENDOR)/lib/libbase-v28.so
+# libbase-v28.so DIBUANG di LOS 21.
+#
+# Barisnya menyalin dari prebuilts/vndk/v28/, dan snapshot itu TIDAK ADA lagi:
+# LineageOS 21 hanya menyediakan prebuilts/vndk/v29 sampai v34 (Android 9 sudah
+# habis masa dukungannya). Akibatnya `m bacon` berhenti di menit kedua:
+#
+#   ninja: 'prebuilts/vndk/v28/arm/arch-arm-armv7-a-neon/shared/vndk-sp/libbase.so',
+#   needed by 'out/target/product/A37/system/vendor/lib/libbase-v28.so',
+#   missing and no known rule to make it
+#
+# DIBUANG, bukan dinaikkan ke v29, karena tidak ada yang memakainya. Diperiksa
+# di tiga sumbu dan ketiganya nol:
+#
+#   1. DT_NEEDED  — llvm-readelf pada SELURUH 338 berkas di proprietary/
+#                   (bukan hanya .so, termasuk vendor/bin): nol rujukan.
+#   2. dlopen     — grep string "libbase-v28" di seluruh blob: nol.
+#   3. runtime    — pada ROM LOS 20 yang berjalan, nol proses memetakannya
+#                   (grep /proc/*/maps), meski berkasnya memang terpasang.
+#
+# Blob yang benar-benar butuh libbase memakai libbase.so biasa (mis.
+# libqti-perfd.so, vendor.qti.hardware.perf@1.0-service), dan itu pustaka
+# vendor-available normal yang tetap tersedia.
+#
+# Baris ini datang dari msm8916-common tanpa komentar penjelas; di LOS 20 ia
+# ikut terkirim sebagai bobot mati 58 KB.
 
 # Permissions
 PRODUCT_COPY_FILES += \
