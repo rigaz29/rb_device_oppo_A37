@@ -109,8 +109,25 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 #
 # Cara membuatnya ulang di mesin build:
 #   cp ~/.android/adbkey.pub device/oppo/A37/adb_keys
+# ⚠️ PRODUCT_ADB_KEYS SAJA TIDAK CUKUP DI ANDROID 14 — terbukti tidak terkirim.
+#
+# build/make/target/product/security/Android.mk:14 memasang modul adb_keys ke
+# $(TARGET_ROOT_OUT) = out/target/product/A37/root/. Di A13 direktori itu jadi
+# sumber ramdisk; di A14 TIDAK. ramdisk.img dibangun dari direktori LAIN:
+#
+#   mkbootfs -n ramdisk_node_list -d .../system  out/target/product/A37/ramdisk
+#
+# Akibatnya berkasnya terbentuk di root/ lalu berhenti di situ: nol kecocokan
+# "adb_keys" di installed-files.txt, dan nol di ramdisk hasil ekstraksi boot.img.
+# Diverifikasi dengan membongkar boot.img build 20260809_133142.
+#
+# Karena itu kuncinya disalin LANGSUNG ke ramdisk lewat PRODUCT_COPY_FILES.
+# PRODUCT_ADB_KEYS tetap disetel: ia tidak berbahaya, dan mengembalikan perilaku
+# yang benar bila suatu saat hulu menyatukan kembali root/ dan ramdisk/.
 ifneq ($(wildcard device/oppo/A37/adb_keys),)
 PRODUCT_ADB_KEYS := device/oppo/A37/adb_keys
+PRODUCT_COPY_FILES += \
+    device/oppo/A37/adb_keys:$(TARGET_COPY_OUT_RAMDISK)/adb_keys
 endif
 
 # Inherit from those products. Most specific first.
