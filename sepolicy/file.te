@@ -1,1 +1,31 @@
 type proc_touchpanel, fs_type, proc_type;
+
+# sysfs_disk_stat — LOS 21.
+#
+# device/qcom/sepolicy-legacy/legacy-common/file_contexts:87-88 memberi label
+# ini pada /sys/.../block/mmcblk[0-9]/stat, tetapi TIDAK ADA yang pernah
+# mendeklarasikan tipenya — dicari di seluruh repo sepolicy-legacy: nihil.
+# Akibatnya vendor_file_contexts_test gagal:
+#
+#   libsepol.context_from_record: type sysfs_disk_stat is not defined
+#   vendor_file_contexts: line 567 has invalid context u:object_r:sysfs_disk_stat:s0
+#
+# Proyek 20 menyelesaikannya dengan MEMBUANG kedua baris label itu —
+# diverifikasi pada ROM 20 yang terpasang: /vendor/etc/selinux/
+# vendor_file_contexts tidak memuat sysfs_disk_stat sama sekali, dan tipenya
+# juga nol di vendor_sepolicy.cil.
+#
+# Di sini dipilih jalan sebaliknya: tipenya DIDEKLARASIKAN, bukan labelnya
+# dibuang. Alasannya perubahan jadi tetap berada di repo yang kita miliki —
+# membuang dua baris itu berarti menambal device/qcom/sepolicy-legacy, yakni
+# repo pihak ketiga, dan menambah satu seri patch lagi untuk penghapusan dua
+# baris.
+#
+# ⚠️ Konsekuensi yang harus dicek di Fase 5 (SELinux enforcing): dengan tipe
+# ini terdeklarasi, /sys/.../mmcblk0/stat kini berlabel sysfs_disk_stat, bukan
+# jatuh ke sysfs seperti di ROM 20. Selama SELinux masih permissive
+# (androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE) perbedaannya nol —
+# denial hanya dicatat. Begitu enforcing dinyalakan, domain yang membaca berkas
+# itu (mis. storaged/vold) butuh aturan baca eksplisit. Kalau ternyata
+# merepotkan, kembali saja ke pendekatan proyek 20.
+type sysfs_disk_stat, fs_type, sysfs_type;
