@@ -43,6 +43,12 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := camera_shim.c
 LOCAL_SHARED_LIBRARIES := libutils libgui liblog
 LOCAL_MODULE := libcamera_shim
+# LOS 21: hardware/*.h harus diminta eksplisit sebagai header library di
+# Android 14; jalur include implisitnya sudah tidak ada. Headernya sendiri masih
+# ada di hardware/libhardware/include_all/, dan libhardware_headers mengekspor
+# direktori itu dengan vendor_available:true.
+LOCAL_HEADER_LIBRARIES += libhardware_headers
+
 LOCAL_MODULE_TAGS := optional
 # BUKAN modul vendor — lihat catatan di bawah.
 include $(BUILD_SHARED_LIBRARY)

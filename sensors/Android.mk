@@ -3,6 +3,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM)
+# LOS 21: hardware/*.h harus diminta eksplisit sebagai header library di
+# Android 14; jalur include implisitnya sudah tidak ada. Headernya sendiri masih
+# ada di hardware/libhardware/include_all/, dan libhardware_headers mengekspor
+# direktori itu dengan vendor_available:true.
+LOCAL_HEADER_LIBRARIES += libhardware_headers
+
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true

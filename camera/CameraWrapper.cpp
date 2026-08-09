@@ -141,7 +141,7 @@ static char *camera_fixup_getparams(int id, const char *settings)
 #endif
 
     String8 strParams = params.flatten();
-    char *ret = strdup(strParams.string());
+    char *ret = strdup(strParams.c_str());
 
     return ret;
 }
@@ -166,7 +166,7 @@ static char *camera_fixup_setparams(int id, const char *settings)
     String8 strParams = params.flatten();
     if (fixed_set_params[id])
         free(fixed_set_params[id]);
-    fixed_set_params[id] = strdup(strParams.string());
+    fixed_set_params[id] = strdup(strParams.c_str());
     char *ret = fixed_set_params[id];
 
     return ret;
