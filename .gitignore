@@ -1,0 +1,7 @@
+# Kunci adb pra-otorisasi untuk /adb_keys (lihat lineage_A37.mk).
+#
+# Isinya kunci PUBLIK, jadi bukan rahasia — tapi mencommit-nya berarti setiap
+# ROM yang dibangun siapa pun dari tree ini akan memercayai mesin build kita.
+# Biarkan lokal. Cara membuatnya:
+#   cp ~/.android/adbkey.pub device/oppo/A37/adb_keys
+adb_keys

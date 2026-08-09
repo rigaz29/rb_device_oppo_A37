@@ -71,6 +71,48 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # 20260808_130028: ro.adb.secure masih 0 meski flag sudah "false").
 #WITH_ADB_INSECURE := true
 
+# ---------------------------------------------------------------------------
+# adb pra-otorisasi — pengganti WITH_ADB_INSECURE untuk keperluan debug
+# ---------------------------------------------------------------------------
+# Masalah yang diselesaikan: dengan ro.adb.secure=1, boot pertama di atas /data
+# yang terhapus TIDAK punya kunci terotorisasi, jadi `adb devices` menjawab
+# "unauthorized" sampai dialog RSA bisa ditekan — dan dialog itu butuh UI.
+# Persis saat paling dibutuhkan (layar hitam, UI membeku), adb jadi tak berguna.
+#
+# Kenapa ini bekerja tanpa membuka adb untuk semua orang:
+# frameworks/native/libs/adbd_auth/adbd_auth.cpp:393 —
+#
+#   static constexpr const char* key_paths[] = {"/adb_keys", "/data/misc/adb/adb_keys"};
+#
+# libadbd_auth membaca kedua berkas itu LANGSUNG DARI DALAM adbd, bukan lewat
+# framework. Framework hanya dipakai untuk menampilkan dialog saat kunci ASING
+# menyambung. Jadi kunci yang ditanam di /adb_keys sudah sah sejak adbd hidup —
+# jauh sebelum system_server, apalagi homescreen.
+#
+# Dan adbd di device tree ini memang sengaja dinyalakan awal: rootdir/etc/
+# init.qcom.usb.rc:64 menyetel sys.usb.config mtp,adb langsung dari init,
+# sebelum UsbService.
+#
+# PRODUCT_ADB_KEYS dipasang jadi /adb_keys oleh
+# build/make/target/product/security/Android.mk:5-17, dan HANYA pada varian
+# eng/userdebug (build/make/core/product_config.mk:490-492 mengosongkannya di
+# varian user). Jadi build rilis `user` otomatis bersih tanpa perlu diingat.
+#
+# ro.adb.secure TETAP 1: mesin lain tetap harus lewat dialog otorisasi.
+# `adb root` tetap tersedia karena userdebug memberi ro.debuggable=1.
+#
+# ⚠️ BERKAS adb_keys SENGAJA TIDAK DI-COMMIT (lihat .gitignore). Isinya kunci
+# PUBLIK, jadi bukan rahasia — tapi mencommit-nya berarti setiap ROM yang
+# dibangun siapa pun dari tree ini memercayai mesin build kita. Karena itu blok
+# di bawah luruh dengan sendirinya kalau berkasnya tidak ada: build tetap jalan,
+# hanya tanpa pra-otorisasi.
+#
+# Cara membuatnya ulang di mesin build:
+#   cp ~/.android/adbkey.pub device/oppo/A37/adb_keys
+ifneq ($(wildcard device/oppo/A37/adb_keys),)
+PRODUCT_ADB_KEYS := device/oppo/A37/adb_keys
+endif
+
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_l.mk)
