@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ekstensi framework compatibility matrix — OPPO A37, LineageOS 21.
+
+  KENAPA BERKAS INI ADA
+  Android 14 mencabut framework matrix untuk FCM version "legacy"
+  (hardware/interfaces/compatibility_matrices/ hanya punya 5, 6, 7, 8, 202404).
+  manifest.xml kita memakai target-level="legacy" sejak 18.1, dan di A14
+  libvintf menolaknya:
+
+    VintfObject.cpp:1014
+      ERROR: Cannot find framework matrix at FCM version legacy.
+
+  Itu FATAL untuk build ROM, bukan peringatan: check_vintf_compatible ikut
+  `droid_targets` (build/make/core/Makefile:5418) selama
+  PRODUCT_ENFORCE_VINTF_MANIFEST bernilai true.
+
+  Karena itu target-level dinaikkan ke 5 — nilai terendah yang masih punya
+  matrix di A14, jadi paling sedikit menuntut. Mulai FCM 5 checkvintf menolak
+  instance yang ada di device manifest tapi tidak dikenal matrix framework mana
+  pun, dan sepuluh HAL di bawah kena. Semuanya HAL legacy atau ekstensi vendor
+  yang memang tidak pernah masuk FCM hulu.
+
+  Perbaikan ini bukan tebakan: checkvintf sendiri yang menyarankannya —
+  "4. For device-specific HALs, add to DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE".
+
+  KENAPA BUKAN MEMATIKAN PRODUCT_ENFORCE_VINTF_MANIFEST
+  Itu jalan yang jauh lebih murah untuk ditulis dan jauh lebih mahal saat
+  dipakai. Tanpa penegakan, libhidl tidak lagi dikompilasi dengan
+  -DENFORCE_VINTF_MANIFEST, dan ServiceManagement.cpp:967-975 menjalankan
+  `sleep(1)` di SETIAP getRawServiceInternal() — bukan hanya saat retry, tapi
+  sebelum loop, untuk tiap getService() di seluruh sistem. Pada perangkat
+  dengan belasan HAL itu berarti puluhan detik tambahan saat boot.
+
+  SEMUA ENTRI WAJIB optional="true".
+  hardware/interfaces/compatibility_matrices/Android.mk:42-51 memvalidasi
+  berkas ini terhadap manifest KOSONG, jadi entri wajib akan menggagalkan
+  build.
+-->
+<compatibility-matrix version="1.0" type="framework">
+
+    <!-- Jalur HIDL kamera untuk proses vendor. Didaftarkan cameraserver
+         sendiri (CameraService.cpp:174); alasan lengkapnya ada di manifest.xml. -->
+    <hal format="hidl" optional="true">
+        <name>android.frameworks.cameraservice.service</name>
+        <version>2.1</version>
+        <interface>
+            <name>ICameraService</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+    <!-- configstore: dicabut dari FCM hulu sejak lama, tapi SurfaceFlinger
+         di build ini masih memakainya. -->
+    <hal format="hidl" optional="true">
+        <name>android.hardware.configstore</name>
+        <version>1.1</version>
+        <interface>
+            <name>ISurfaceFlingerConfigs</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+    <!-- light@2.0 (ILight). FCM 5 ke atas hanya mengenal
+         android.hardware.light ILights (AIDL/2.0 dengan nama interface
+         berbeda), sedangkan HAL perangkat ini ILight. -->
+    <hal format="hidl" optional="true">
+        <name>android.hardware.light</name>
+        <version>2.0</version>
+        <interface>
+            <name>ILight</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+    <!-- power@1.0 HIDL. manifest.xml menahannya secara sadar: perangkat ini
+         belum pindah ke power AIDL. -->
+    <hal format="hidl" optional="true">
+        <name>android.hardware.power</name>
+        <version>1.0</version>
+        <interface>
+            <name>IPower</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+    <!-- IOemHook: dipakai libril QCOM. Namanya memang sudah "deprecated" di
+         hulu, tapi blob RIL A37 masih memanggilnya — dan RIL adalah subsistem
+         yang terbukti berfungsi di proyek 20, jadi jangan dibuang. -->
+    <hal format="hidl" optional="true">
+        <name>android.hardware.radio.deprecated</name>
+        <version>1.0</version>
+        <interface>
+            <name>IOemHook</name>
+            <instance>slot1</instance>
+            <instance>slot2</instance>
+        </interface>
+    </hal>
+
+    <!-- vibrator@1.0 HIDL. -->
+    <hal format="hidl" optional="true">
+        <name>android.hardware.vibrator</name>
+        <version>1.0</version>
+        <interface>
+            <name>IVibrator</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+    <!-- Ekstensi LineageOS. Bukan HAL AOSP, jadi tidak akan pernah ada di
+         FCM hulu. -->
+    <hal format="aidl" optional="true">
+        <name>vendor.lineage.health</name>
+        <version>1</version>
+        <interface>
+            <name>IChargingControl</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>vendor.lineage.livedisplay</name>
+        <version>2.0</version>
+        <interface>
+            <name>IDisplayColorCalibration</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+    <!-- Ekstensi QCOM. -->
+    <hal format="hidl" optional="true">
+        <name>vendor.qti.hardware.perf</name>
+        <version>1.0</version>
+        <interface>
+            <name>IPerf</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+
+</compatibility-matrix>

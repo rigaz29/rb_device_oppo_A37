@@ -1,6 +1,34 @@
 <!-- 18.1: target-level="legacy" untuk device shipping API 19.
-     Sumber: msm8916-common lineage-18.1 manifest.xml -->
-<manifest version="1.0" type="device" target-level="legacy">
+     Sumber: msm8916-common lineage-18.1 manifest.xml
+
+     LOS 21: "legacy" DIGANTI jadi "5". Bukan pilihan gaya — Android 14
+     mencabut framework compatibility matrix untuk FCM version legacy
+     (hardware/interfaces/compatibility_matrices/ tinggal 5, 6, 7, 8, 202404),
+     dan libvintf menolaknya dengan tegas:
+
+       VintfObject.cpp:1014
+         ERROR: Cannot find framework matrix at FCM version legacy.
+
+     Itu menggagalkan BUILD ROM, bukan sekadar peringatan: check_vintf_compatible
+     ikut `droid_targets` (build/make/core/Makefile:5418) selama
+     PRODUCT_ENFORCE_VINTF_MANIFEST true, dan device.mk memang menyetelnya true.
+
+     Dipilih 5 karena itu nilai TERENDAH yang masih punya matrix di A14, jadi
+     paling sedikit menuntut. Konsekuensinya: mulai FCM 5 checkvintf menolak
+     instance yang ada di manifest ini tapi tak dikenal matrix framework mana
+     pun — sepuluh HAL legacy/vendor kena, dan semuanya didaftarkan sebagai
+     optional di framework_compatibility_matrix.xml. Setelah itu
+     `m check-vintf-all` COMPATIBLE.
+
+     ⚠️ CATATAN yang jujur: ROM jangkar a6000 LOS 21 tetap mengirim
+     target-level="legacy" dan boot. Jadi "legacy" masih SAH SAAT RUNTIME di
+     A14; yang menolaknya adalah pemeriksaan saat BUILD. Alternatifnya adalah
+     mematikan PRODUCT_ENFORCE_VINTF_MANIFEST, dan itu ditolak dengan alasan
+     yang diukur: tanpa penegakan, libhidl kehilangan -DENFORCE_VINTF_MANIFEST
+     dan ServiceManagement.cpp:967-975 menjalankan sleep(1) di SETIAP
+     getRawServiceInternal() — tiap getService() di seluruh sistem, bukan cuma
+     saat retry. -->
+<manifest version="1.0" type="device" target-level="5">
     <!-- Jalur HIDL agar proses VENDOR bisa memakai kamera. Yang mendaftarkannya
          justru cameraserver sendiri: CameraService.cpp:174 memanggil
          HidlCameraService::getInstance(this)->registerAsService().

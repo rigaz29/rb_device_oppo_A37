@@ -314,6 +314,13 @@ TARGET_VNDK_USE_CORE_VARIANT := true
 # HIDL
 DEVICE_MANIFEST_FILE := $(PLATFORM_PATH)/manifest.xml
 DEVICE_MATRIX_FILE := $(PLATFORM_PATH)/compatibility_matrix.xml
+# LOS 21: ekstensi matrix FRAMEWORK. Berbeda dari DEVICE_MATRIX_FILE di atas
+# (yang menyatakan apa yang device TUNTUT dari framework), berkas ini
+# menyatakan HAL device-specific mana yang boleh ADA tanpa dikenal FCM hulu.
+# Wajib sejak target-level dinaikkan dari "legacy" ke 5 — alasan lengkap ada
+# di kepala berkasnya.
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := \
+    $(PLATFORM_PATH)/framework_compatibility_matrix.xml
 PRODUCT_VENDOR_MOVE_ENABLED := true
 
 # Display
@@ -460,6 +467,24 @@ TARGET_LD_SHIM_LIBS := \
 # masing dari domain aplikasi (priv_app, untrusted_app, radio, ...).
 # Hanya 8 yang berasal dari device tree ini, semuanya dari
 # app_domain(timekeep_app) di sepolicy/timekeep_app.te:7.
+#
+# DIUKUR ULANG DI LOS 21 (Fase 5, 9 Agustus 2026): 3.970 pelanggaran, naik dari
+# ~1.500. Sebarannya per berkas sumber:
+#
+#   system/sepolicy   3.178   (2.219 private/property.te, 697 public/domain.te)
+#   device/qcom          61
+#   device/oppo          11   <- device tree ini
+#   device/lineage        4
+#
+# Dari 11 yang tercatat atas nama device tree ini, hanya SATU yang benar-benar
+# milik kita: app_domain(timekeep_app) di sepolicy/timekeep_app.te:7 — sama
+# seperti di 20. Sepuluh sisanya tercatat sebagai "line 15 of adbd.te" padahal
+# adbd.te kita cuma SATU baris; itu salah-atribusi penanda #line milik m4, dan
+# aturan sebenarnya adalah neverallow platform soal virtualizationmanager.
+# Jangan buang waktu mencarinya di berkas kita.
+#
+# Kesimpulan tidak berubah: flag ini tetap wajib. Membereskan 3.178 pelanggaran
+# milik platform-vs-QCOM-legacy bukan pekerjaan device tree ini.
 #
 # Catatan: baris di bawah ini redundan karena sepolicy-legacy juga menyetelnya,
 # tapi dipertahankan supaya niatnya eksplisit saat file itu nanti diganti.
