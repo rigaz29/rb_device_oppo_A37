@@ -493,91 +493,23 @@ TARGET_LD_SHIM_LIBS := \
 SELINUX_IGNORE_NEVERALLOWS := true
 include device/qcom/sepolicy-legacy/sepolicy.mk
 
-# ===========================================================================
-# LOS 21: batalkan m4def penambah awalan "vendor_" untuk msm8916
-# ===========================================================================
-# device/qcom/sepolicy-legacy/sepolicy.mk:27 melakukan
-# `-include device/lineage/sepolicy/qcom/sepolicy.mk`, dan berkas itu memasang
-# BOARD_SEPOLICY_M4DEFS yang mengganti nama tipe QCOM jadi berawalan vendor_.
-# Definisi m4 bersifat tekstual, jadi efeknya timpang: di
-# device/qcom/sepolicy-legacy/common/hal_gnss_qti.te
+# CATATAN sepolicy m4def (Fase 8, 9 Agustus 2026)
 #
-#   baris 29  type hal_gnss_qti, domain;        -> type vendor_hal_gnss_qti  (diganti)
-#   baris 30  type hal_gnss_qti_exec, ...       -> TIDAK diganti (token beda)
-#   baris 31  init_daemon_domain(hal_gnss_qti)  -> memakai vendor_hal_gnss_qti_exec
+# Fase 3 sempat memasang workaround di sini: BOARD_SEPOLICY_M4DEFS di-filter-out
+# supaya m4def penambah awalan "vendor_" tidak merusak sepolicy-legacy
+# (hal_gnss_qti.te:31 -> "unknown type vendor_hal_gnss_qti_exec").
 #
-# sehingga tipe dipakai tapi tidak pernah dideklarasikan:
+# Workaround itu DICABUT. Penyebabnya diperbaiki di sumbernya oleh patch UL
+# device/lineage/sepolicy "Revert 'qcom: Drop support for ultra legacy
+# platforms'" (patches/ul21/device_lineage_sepolicy/), yang mengembalikan
+# msm8916 ke DUA daftar sekaligus di qcom/sepolicy.mk:
+#   - penyertaan direktori qcom/legacy-vendor
+#   - daftar pengecualian m4def berawalan
 #
-#   hal_gnss_qti.te:31: ERROR 'unknown type vendor_hal_gnss_qti_exec'
-#   checkpolicy: error(s) encountered while parsing configuration
-#
-# Targetnya adalah menyamai apa yang ROM LOS 20 kita HASILKAN, dan itu diukur
-# dari perangkatnya sendiri, bukan disimpulkan dari makefile. Menarik
-# /vendor/etc/selinux/vendor_sepolicy.cil dari ROM 20 yang terpasang:
-#
-#   hal_gnss_qti     11 kemunculan     vendor_hal_gnss_qti      0
-#   hal_perf_default 35                vendor_hal_perf_default  0
-#   location        124                vendor_location          0
-#   sysfs_kgsl       26                vendor_sysfs_kgsl        0
-#
-# Policy yang benar-benar berjalan di perangkat ini seluruhnya TANPA awalan.
-# Jadi di LOS 20 m4def tersebut tidak pernah berlaku, dan menyetelnya kosong
-# di sini mereproduksi persis konfigurasi yang sudah terbukti boot.
-#
-# CATATAN JUJUR: mengapa LOS 20 tidak terkena belum tuntas ditelusuri —
-# device/lineage/sepolicy ada di manifest 20 maupun 21 (snippets/lineage.xml),
-# dan baris `-include`-nya ada di sepolicy-legacy branch 20 maupun 21. Jadi
-# alasan strukturalnya masih terbuka. Yang TIDAK terbuka adalah hasilnya, dan
-# itu yang dipakai sebagai acuan di sini.
-#
-# Dipulihkan di device tree, bukan dengan menambal device/lineage/sepolicy,
-# agar seri patch tidak bertambah satu repo — alasan yang sama dengan
-# konstanta kamera QCOM di frameworks/av.
-#
-# `:=` dengan filter-out, bukan menyetel ulang jadi kosong: kalau suatu saat
-# ada m4def yang datang dari sumber LAIN, ia harus tetap lolos.
-BOARD_SEPOLICY_M4DEFS := $(filter-out \
-    display_vendor_data_file=vendor_display_vendor_data_file \
-    hal_gnss_qti=vendor_hal_gnss_qti \
-    hal_keymaster_qti_exec=vendor_hal_keymaster_qti_exec \
-    hal_perf_default=vendor_hal_perf_default \
-    location_domain=vendor_location \
-    persist_block_device=vendor_persist_block_device \
-    qdisplay_service=vendor_qdisplay_service \
-    sysfs_battery_supply=vendor_sysfs_battery_supply \
-    sysfs_devfreq=vendor_sysfs_devfreq \
-    sysfs_graphics=vendor_sysfs_graphics \
-    sysfs_kgsl=vendor_sysfs_kgsl \
-    sysfs_scsi_host=vendor_sysfs_scsi_host \
-    sysfs_socinfo_sensitive=vendor_sysfs_soc_sensitive \
-    sysfs_usb_supply=vendor_sysfs_usb_supply \
-    ,$(BOARD_SEPOLICY_M4DEFS))
-
-# SATU m4def tetap WAJIB ada. device/lineage/sepolicy/qcom/vendor ikut masuk
-# BOARD_VENDOR_SEPOLICY_DIRS tanpa syarat (qcom/sepolicy.mk:21-22), dan berkas
-# location.te di sana memakai token itu:
-#
-#   get_prop(location_domain, xtra_control_prop)
-#
-# Tanpa definisi, m4 membiarkannya apa adanya dan checkpolicy menolak:
-#   location.te:2: ERROR 'unknown type location_domain'
-#
-# Dipetakan ke `location`, BUKAN `vendor_location`: yang benar-benar
-# dideklarasikan adalah device/qcom/sepolicy-legacy/common/location.te:2
-# (`type location, domain;`), sedangkan vendor_location tidak ada di mana pun
-# di pohon ini. Nilai ini sama dengan yang dipakai cabang else berkas Lineage
-# untuk platform legacy lain.
-#
-# Berkas location.te itu BARU di 21 — ia tidak ada di branch lineage-20.0
-# (diverifikasi dengan `git ls-tree`), jadi LOS 20 memang tidak pernah
-# membutuhkan definisi ini.
-BOARD_SEPOLICY_M4DEFS += location_domain=location
-#
-# Commit yang sama juga menghapus device/lineage/sepolicy/qcom/legacy-vendor.
-# Isinya cuma satu aturan,
-#   unix_socket_connect(hal_lineage_livedisplay_qti, pps, mm-pp-daemon)
-# dan A37 memakai vendor.lineage.livedisplay@2.0-service-sysfs (varian sysfs,
-# bukan qti), jadi kehilangan itu tidak berdampak pada perangkat ini.
+# Diverifikasi setelah patch terpasang: legacy-vendor kembali ada, dan
+# BOARD_SEPOLICY_M4DEFS hanya berisi location_domain=location (dari cabang else
+# berkas Lineage itu sendiri) -- persis yang dibutuhkan, tanpa campur tangan
+# kita. Membiarkan workaround lama justru menduplikasi definisi itu.
 
 # Di 18.1 BOARD_SEPOLICY_DIRS diganti BOARD_VENDOR_SEPOLICY_DIRS.
 # Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
