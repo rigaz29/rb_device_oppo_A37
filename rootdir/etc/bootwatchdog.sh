@@ -26,15 +26,43 @@
 # boot yang berakhir dengan reboot terkendali jauh lebih informatif daripada
 # yang berakhir dengan pencabutan baterai.
 #
-# MEMATIKANNYA
+# MENGATURNYA — keduanya properti persist, jadi bertahan lintas reboot dan bisa
+# diubah dari recovery tanpa membangun ulang ROM:
 #
-#   setprop persist.a37.bootwatchdog 0
+#   setprop persist.a37.bootwatchdog 0            matikan sama sekali
+#   setprop persist.a37.bootwatchdog.timeout 90   ganti batas (detik)
 #
-# Batas 300 detik dipilih karena WITH_DEXPREOPT=true di device ini, jadi tidak
-# ada dexopt besar saat boot pertama. Kalau suatu saat dexpreopt dimatikan,
-# NAIKKAN batas ini — kalau tidak, boot pertama yang sah akan diputus.
+# BATAS DEFAULT 120 DETIK — DARI PENGUKURAN, BUKAN TEBAKAN.
+#
+# Diukur dari bugreport perangkat nyata yang menjalankan LOS 20 dengan sehat
+# (report/bugreport.zip, properti ro.boottime.* dalam nanodetik):
+#
+#   timekeep         17,2 s
+#   bootanim         19,2 s
+#   wpa_supplicant   34,3 s   <- servis boot terakhir
+#
+# Jadi boot sehat di perangkat ini selesai sekitar 40 detik, dan 120 detik
+# memberi margin 3x. WITH_DEXPREOPT=true jadi tidak ada dexopt besar di boot
+# pertama; kalau dexpreopt suatu saat dimatikan, NAIKKAN batas ini.
+#
+# Kenapa tidak lebih longgar: false positive di sini MURAH — perangkat masuk
+# recovery, tempat adb hidup dan semuanya bisa dibereskan lewat properti di
+# atas. Yang mahal justru menunggu, karena setiap percobaan diagnosis menahan
+# orang di depan layar. Asimetrinya berpihak pada batas yang lebih pendek.
+#
+# Kalau boot pertama setelah flash ternyata butuh lebih dari 120 detik di eMMC
+# yang lambat, gejalanya jelas: perangkat masuk recovery padahal /data/bootfail
+# menunjukkan boot sedang berjalan normal. Naikkan lewat properti, bukan rebuild.
 
-BATAS=300
+# Nilai bukan-angka jatuh ke default. Nilai di bawah 30 detik juga ditolak:
+# `timeout 0` akan membuat loop tidak pernah berjalan dan perangkat langsung
+# reboot ke recovery — orang yang menyetel 0 hampir pasti bermaksud MEMATIKAN,
+# dan untuk itu ada persist.a37.bootwatchdog=0.
+BATAS="$(getprop persist.a37.bootwatchdog.timeout)"
+case "$BATAS" in
+    ''|*[!0-9]*) BATAS=120 ;;
+esac
+[ "$BATAS" -lt 30 ] && BATAS=120
 JEDA=5
 OUT=/data/bootfail
 
