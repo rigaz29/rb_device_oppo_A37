@@ -162,3 +162,26 @@ on property:sys.boot_completed=1
     write /sys/block/mmcblk0/queue/nr_requests 128
     # Satu baris saja — lihat catatan read_ahead_kb di blok sebelumnya.
     write /sys/block/mmcblk0/bdi/read_ahead_kb 128
+
+# ---------------------------------------------------------------------------
+# Pengaman boot — lihat rootdir/etc/bootwatchdog.sh untuk alasan lengkapnya.
+#
+# Menutup satu-satunya kelas kegagalan boot yang tidak punya penanganan
+# otomatis: kernel dan init hidup, tapi userspace menggantung. Panic sudah
+# ditangani CONFIG_PANIC_TIMEOUT=5, CPU hang oleh MSM_WATCHDOG_V2, dan init
+# FATAL oleh androidboot.init_fatal_reboot_target=recovery.
+#
+# `disabled` + start eksplisit di post-fs-data: /data harus sudah ter-mount
+# supaya jejaknya bisa ditulis, dan skripnya sendiri menolak jalan di charger
+# mode.
+#
+# ⚠️ Kalau boot terhenti SEBELUM post-fs-data, pengaman ini tidak pernah
+# terpasang. Untuk kelas itu alatnya ramoops setelah reboot hangat, bukan ini.
+service bootwatchdog /vendor/bin/bootwatchdog.sh
+    user root
+    group root
+    oneshot
+    disabled
+
+on post-fs-data
+    start bootwatchdog

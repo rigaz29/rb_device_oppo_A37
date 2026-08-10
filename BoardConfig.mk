@@ -179,7 +179,47 @@ TARGET_CPU_VARIANT := cortex-a53
 # Untuk menghidupkannya lagi saat mendiagnosis bootloop: kembalikan
 # earlyprintk di sini, dan msm_rtb.filter hanya bermakna kalau CONFIG_MSM_RTB
 # ikut dinyalakan lagi di defconfig.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
+# ⚠️ PARAMETER ramoops.* DI BAWAH SELAMA INI TIDAK BEREFEK APA PUN.
+#
+# Ditemukan 10 Agustus 2026. fs/pstore/ram.c versi kernel ini mengalokasikan
+# pdata BARU yang seluruhnya nol lalu HANYA mengisinya dari device tree:
+#
+#   ramoops_probe():
+#     pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);   /* semua nol */
+#     if (pdev->dev.of_node) ramoops_of_init(pdev);            /* DT saja */
+#     if (!pdata->mem_size || ...) { pr_err("...must be non-zero"); goto fail_out; }
+#
+# Upstream memakai `pdata = pdev->dev.platform_data`, yaitu data yang dikirim
+# ramoops_register_dummy() dari parameter modul di cmdline. Backport dukungan DT
+# di kernel ini menghapus jalur itu, dan TIDAK ADA node `ramoops` di DTS mana pun
+# — jadi probe selalu gagal dan pstore tidak pernah punya backend.
+#
+# Buktinya dari perangkat nyata yang menjalankan LOS 20 (report/bugreport.zip):
+#   incidentd: GZipSection failed to open file /sys/fs/pstore/console-ramoops
+#   incidentd: GZipSection failed to open file /sys/fs/pstore/console-ramoops-0
+#
+# Perbaikannya di kernel, bukan di sini: patches/kernel/0001 memulihkan jalur
+# platform_data (aktif hanya bila of_node NULL, jadi jalur DT tidak tersentuh).
+# Sengaja TIDAK lewat node DT supaya dt.img tetap byte-identik dengan LOS 20 yang
+# boot — menambah variabel baru ke kegagalan boot yang belum terpecahkan.
+#
+# console_size dan pmsg_size WAJIB disebut eksplisit: default keduanya
+# MIN_MEM_SIZE = 4096 (ram.c:47,55), dan 4 KB hanya menahan puluhan baris
+# terakhir. Semua ukuran harus pangkat dua — ram.c:533-543 membulatkannya ke
+# bawah tanpa memberi tahu.
+#
+#   mem_size      4 MB   total
+#   console_size  1 MB   log kernel berjalan -> /sys/fs/pstore/console-ramoops
+#   pmsg_size   256 KB   logcat terakhir     -> /sys/fs/pstore/pmsg-ramoops-0
+#   record_size 256 KB   per dump oops/panic -> dmesg-ramoops-N (sisa ~10 slot)
+#
+# ⚠️ RISIKO YANG DIAKUI: region 0x9ff00000 TIDAK dicadangkan di DTS, dan LK
+# mengisi node memory sehingga alamat itu masuk RAM yang dikelola kernel
+# (pfn_valid true -> jalur persistent_ram_vmap, ram_core.c:347). Buffer akan
+# terbentuk dan terbaca, tapi halamannya tidak dilindungi dari alokasi lain.
+# Kalau isinya nanti tampak rusak, langkah berikutnya menambahkan cadangan
+# lewat DT — dan baru saat itu dt.img boleh berubah.
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000

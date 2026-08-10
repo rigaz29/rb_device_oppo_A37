@@ -460,6 +460,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Init scripts
 PRODUCT_PACKAGES += \
+    bootwatchdog.sh \
     fstab.qcom \
     init.target.rc \
     init.qcom.rc \
