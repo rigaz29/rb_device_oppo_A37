@@ -69,7 +69,20 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # untuk NILAI APA PUN yang tidak kosong, termasuk string "false". Menyetelnya
 # `:= false` tetap menghasilkan ro.adb.secure=0 (terbukti di build
 # 20260808_130028: ro.adb.secure masih 0 meski flag sudah "false").
-#WITH_ADB_INSECURE := true
+# 10 Agustus 2026: DINYALAKAN LAGI untuk bring-up LOS 21. ROM 21 belum pernah
+# boot (stuck di logo OPPO, nol entri USB), jadi alasan diagnosis yang sama
+# seperti Fase 9 proyek 20 berlaku lagi. Diverifikasi masih didukung di LOS 21:
+# vendor/lineage/config/common.mk:26-36 masih punya cabang `ifdef
+# WITH_ADB_INSECURE`, dan build/make/tools/post_process_props.py:33-42 masih
+# menambahkan "adb" ke persist.sys.usb.config saat ro.adb.secure=0.
+#
+# Dipilih ketimbang varian eng: manfaat adb-nya sama (ro.adb.secure=0 +
+# persist.sys.usb.config=adb), tanpa ongkos eng — ro.kernel.android.checkjni=1
+# di setiap panggilan JNI dan StrictMode ekstra. Bedanya cuma `adb root` perlu
+# diketik, karena ro.secure tetap 1.
+#
+# MATIKAN LAGI sebelum ROM ini dibagikan.
+WITH_ADB_INSECURE := true
 
 # ---------------------------------------------------------------------------
 # adb pra-otorisasi — pengganti WITH_ADB_INSECURE untuk keperluan debug
