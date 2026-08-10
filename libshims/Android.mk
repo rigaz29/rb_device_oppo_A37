@@ -44,13 +44,25 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 # native:platform, jadi sebagai modul vendor ia ditolak build.
 #
 # Memindahkannya ke /system aman, dan itu dibuktikan dari perangkat yang
-# menjalankan ROM LOS 20 kita, bukan dari dokumentasi:
+# menjalankan ROM LOS 20 kita plus dari artefak build kita sendiri, bukan dari
+# dokumentasi:
 #
 #   /linkerconfig/ld.config.txt   namespace.default.isolated = false
 #                                 search.paths = /system/${LIB} … /vendor/${LIB}
-#   llvm-readelf -d libshim_camera.so
-#                                 DT_NEEDED libsensor libandroid libstagefright
-#                                 libmedia — kelimanya HANYA ada di /system/lib
+#
+#   readelf -d out/…/system/lib/libshim_camera.so   (12 DT_NEEDED terbaca)
+#     DELAPAN di antaranya ada di /system/lib dan TIDAK ADA di
+#     /system/vendor/lib: libsensor, libutils, liblog, libbinder, libandroid,
+#     libui, libstagefright, libmedia.
+#     Empat sisanya libc++/libc/libm/libdl (tersedia di kedua namespace).
+#
+#   Modul ini juga terbukti terpasang ke /system/lib, bukan /system/vendor/lib —
+#   itu hasil langsung dari membuang LOCAL_VENDOR_MODULE di bawah.
+#
+# ⚠️ Pengukuran ini diulang 10 Agustus 2026. Versi pertama komentar ini menyebut
+# `llvm-readelf`, yang TIDAK ADA di mesin build ini; perintahnya gagal dan
+# hasilnya nol yang menyesatkan. Pakai readelf/nm GNU, dan selalu sertakan uji
+# kontrol (`readelf -d <berkas> | grep -c NEEDED` harus > 0).
 #
 # Blob tetap menemukan shim: TARGET_LD_SHIM_LIBS bukan injeksi DT_NEEDED saat
 # build, melainkan cppflag LD_SHIM_LIBS ke linker, dan

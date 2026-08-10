@@ -276,8 +276,18 @@ PRODUCT_PACKAGES += \
 # PRODUCT_COPY_FILES ini akan menggagalkan build. Membuangnya aman —
 # diverifikasi dua arah, bukan diasumsikan:
 #
-#   [ -d prebuilts/vndk/v28 ]                            TIDAK ADA
-#   llvm-readelf -d atas SELURUH vendor/oppo/**/*.so      0 DT_NEEDED libbase-v28
+#   [ -d prebuilts/vndk/v28 ]                        TIDAK ADA
+#   readelf -d atas 284 berkas .so di vendor/oppo    0 DT_NEEDED libbase-v28
+#
+# ⚠️ Angka di atas hasil PENGUKURAN ULANG 10 Agustus 2026. Pemeriksaan pertama
+# memakai `llvm-readelf`, yang TIDAK ADA di mesin build ini — perintahnya gagal,
+# `grep` menghitung nol baris dari pesan error, dan hasilnya tak bisa dibedakan
+# dari "nol pemakai" yang sah. Kesimpulannya kebetulan benar, metodenya tidak.
+#
+# Mesin ini punya readelf/nm GNU, bukan varian LLVM. Setiap pemeriksaan simbol
+# atau DT_NEEDED WAJIB disertai uji kontrol yang membuktikan tool-nya membaca
+# sesuatu, misalnya:
+#   readelf -d <satu berkas> | grep -c NEEDED     -> harus > 0
 #
 # Kalau nanti ada blob yang mencarinya saat runtime, gejalanya dlopen gagal —
 # bukan build gagal. Nol pemakai di atas yang menutup kemungkinan itu.
