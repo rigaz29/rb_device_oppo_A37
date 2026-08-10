@@ -6,6 +6,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libloc_api_v02
+LOCAL_HEADER_LIBRARIES += libhardware_headers
 
 LOCAL_MODULE_TAGS := optional
 

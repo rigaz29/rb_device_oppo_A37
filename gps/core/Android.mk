@@ -5,6 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libloc_core
+LOCAL_HEADER_LIBRARIES += libhardware_headers
 LOCAL_MODULE_OWNER := qcom
 LOCAL_VENDOR_MODULE := true
 

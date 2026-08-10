@@ -140,7 +140,10 @@ TARGET_CPU_ABI2 := armeabi
 TARGET_CPU_VARIANT := cortex-a53
 
 # Binder
-TARGET_USES_64_BIT_BINDER := true
+# TARGET_USES_64_BIT_BINDER DIBUANG di LOS 21 — build/make memperingatkan
+# "has been deprecated. All devices use 64-bit binder by default now."
+# Ia sudah tidak berpengaruh apa pun; menyimpannya hanya menghasilkan
+# peringatan di setiap build.
 
 # Kernel
 # console= dan androidboot.console= DIBUANG.

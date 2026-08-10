@@ -69,7 +69,37 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # untuk NILAI APA PUN yang tidak kosong, termasuk string "false". Menyetelnya
 # `:= false` tetap menghasilkan ro.adb.secure=0 (terbukti di build
 # 20260808_130028: ro.adb.secure masih 0 meski flag sudah "false").
-#WITH_ADB_INSECURE := true
+# ⚠️⚠️ DINYALAKAN untuk bring-up LOS 21 — MATIKAN SEBELUM ROM DIBAGIKAN. ⚠️⚠️
+#
+# Alasan dinyalakan: percobaan pertama berhenti di logo OPPO tanpa satu pun entri
+# USB, dan tanpa adb tidak ada cara membaca keadaan perangkat. Diverifikasi masih
+# didukung di LOS 21 (vendor/lineage/config/common.mk:26-36, dan
+# post_process_props.py:33-42 masih menambahkan adb ke persist.sys.usb.config).
+#
+# Cara mematikan: KOMENTARI baris di bawah. Jangan setel `false` — lihat catatan
+# di atas soal `ifdef` GNU Make.
+WITH_ADB_INSECURE := true
+
+# Kunci adb build machine, supaya `adb shell` jalan tanpa dialog RSA di layar
+# yang mungkin tak pernah menyala.
+#
+# ⚠️ PRODUCT_ADB_KEYS SENDIRIAN TIDAK CUKUP di Android 14. Ia memasang ke
+# TARGET_ROOT_OUT, dan A14 tidak lagi memakai root/ sebagai sumber ramdisk —
+# jadi berkasnya dibuat tapi TIDAK PERNAH DIKIRIM. Percobaan pertama sempat
+# menyatakan fitur ini bekerja hanya karena memverifikasi berkas yang DIBUAT,
+# bukan yang ADA DI DALAM boot.img. Salinan eksplisit ke ramdisk di bawah yang
+# benar-benar bekerja.
+#
+# Verifikasinya harus sampai ke artefak yang dikirim:
+#   unzip -p <rom>.zip boot.img > /tmp/b.img && tools/qbootimg.py ... && cari /adb_keys
+#
+# Berkasnya di-gitignore: ia kunci publik, tapi mengirimkannya di ROM berarti
+# setiap ROM dari tree ini memercayai mesin build ini.
+ifneq ($(wildcard device/oppo/A37/adb_keys),)
+PRODUCT_ADB_KEYS := device/oppo/A37/adb_keys
+PRODUCT_COPY_FILES += \
+    device/oppo/A37/adb_keys:$(TARGET_COPY_OUT_RAMDISK)/adb_keys
+endif
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)

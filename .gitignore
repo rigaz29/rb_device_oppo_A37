@@ -1,0 +1,3 @@
+# Kunci publik adb mesin build. JANGAN di-commit: mengirimkannya di ROM berarti
+# setiap ROM yang dibangun dari tree ini memercayai mesin build ini.
+adb_keys

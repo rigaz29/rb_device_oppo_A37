@@ -146,22 +146,27 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # DRM
 # clearkey @1.2 → @1.3 (Sumber: msm8916-common lineage-18.1)
 #
-# LOS 20: @1.3-service.clearkey TIDAK ADA lagi — LOS 20 menyediakan
-# android.hardware.drm@1.2- dan @1.4-service.clearkey serta varian AIDL.
-# Dipakai @1.4-service.clearkey (non-lazy), sama persis dengan biner di ROM
-# gt58wifi yang boot (/system/vendor/bin/hw/android.hardware.drm@1.4-service.clearkey).
-# fqname di manifest.xml ikut dinaikkan ke @1.4.
+# LOS 21: clearkey HIDL DICABUT. Diverifikasi di tree UL 21 — hanya varian AIDL
+# yang tersisa; @1.4-service.clearkey tidak ada lagi:
+#
+#   grep -rho 'name: "android.hardware.drm[^"]*clearkey"' --include=Android.bp .
+#     android.hardware.drm-service.clearkey        ← dipakai (non-lazy)
+#     android.hardware.drm-service-lazy.clearkey
+#     android.hardware.drm@latest-service.clearkey
+#
+# @1.0-impl dan @1.0-service MASIH ADA dan tetap dipakai (dicek terpisah).
+# fqname clearkey di manifest.xml harus ikut dibuang — Fase 3.
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.4-service.clearkey
+    android.hardware.drm-service.clearkey
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608
 
-# Trust HAL
-PRODUCT_PACKAGES += \
-    vendor.lineage.trust@1.0-service
+# Trust HAL DIBUANG di LOS 21 — hardware/lineage/interfaces/ tidak punya trust/
+# lagi, termasuk di fork UL. meghs juga membuangnya di lineage-21
+# ("Drop legacy trust HAL — dead"). Tidak ada penggantinya; fiturnya hilang.
 
 # Audio
 # 18.1: audio@5.0→@6.0, service nama baru, BT audio stack baru
@@ -265,8 +270,17 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     libbt-vendor \
 
-PRODUCT_COPY_FILES += \
-    prebuilts/vndk/v28/arm/arch-arm-armv7-a-neon/shared/vndk-sp/libbase.so:$(TARGET_COPY_OUT_VENDOR)/lib/libbase-v28.so
+# Salinan libbase-v28.so DIBUANG di LOS 21.
+#
+# Snapshot VNDK v28 tidak ada lagi di tree (prebuilts/vndk/v28 hilang), jadi
+# PRODUCT_COPY_FILES ini akan menggagalkan build. Membuangnya aman —
+# diverifikasi dua arah, bukan diasumsikan:
+#
+#   [ -d prebuilts/vndk/v28 ]                            TIDAK ADA
+#   llvm-readelf -d atas SELURUH vendor/oppo/**/*.so      0 DT_NEEDED libbase-v28
+#
+# Kalau nanti ada blob yang mencarinya saat runtime, gejalanya dlopen gagal —
+# bukan build gagal. Nol pemakai di atas yang menutup kemungkinan itu.
 
 # Permissions
 PRODUCT_COPY_FILES += \
