@@ -177,7 +177,20 @@ on property:sys.boot_completed=1
 #
 # ⚠️ Kalau boot terhenti SEBELUM post-fs-data, pengaman ini tidak pernah
 # terpasang. Untuk kelas itu alatnya ramoops setelah reboot hangat, bukan ini.
-service bootwatchdog /vendor/bin/bootwatchdog.sh
+# Interpreter diberikan EKSPLISIT dan diambil dari /system/bin/sh.
+#
+# JANGAN meniru pola `service … /vendor/bin/sh …` di init.qcom.rc:209
+# (set_baseband). external/mksh/Android.bp:146 menyetel vendor_ramdisk_available
+# tapi TIDAK vendor_available, jadi tidak ada modul yang memasang /vendor/bin/sh,
+# dan tidak ada satu pun tempat di device tree atau vendor tree yang membuat
+# symlink-nya. Di perangkat nyata yang menjalankan LOS 20, service itu memang
+# gagal setiap boot:
+#
+#   init: Service 'set_baseband' (pid 372) exited with status 1
+#
+# (Kegagalan itu diwarisi dari LOS 20 dan BUKAN bagian dari perubahan ini —
+#  dicatat di sini supaya tidak jadi jebakan berikutnya.)
+service bootwatchdog /system/bin/sh /vendor/bin/bootwatchdog.sh
     user root
     group root
     oneshot
