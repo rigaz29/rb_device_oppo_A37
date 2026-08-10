@@ -1,6 +1,8 @@
-<!-- 18.1: target-level="legacy" untuk device shipping API 19.
-     Sumber: msm8916-common lineage-18.1 manifest.xml -->
-<manifest version="1.0" type="device" target-level="legacy">
+<!-- target-level="5" — terendah yang masih punya matrix di Android 14.
+     "legacy" tidak bisa dibangun: matrix FCM legacy dicabut, VintfObject.cpp:1014
+     menolak, dan check_vintf_compatible ikut droid_targets (Makefile:5418).
+     Konsekuensi runtime menaikkannya ke 5 belum pernah diuji — PLAN.md §4.6. -->
+<manifest version="1.0" type="device" target-level="5">
     <!-- Jalur HIDL agar proses VENDOR bisa memakai kamera. Yang mendaftarkannya
          justru cameraserver sendiri: CameraService.cpp:174 memanggil
          HidlCameraService::getInstance(this)->registerAsService().

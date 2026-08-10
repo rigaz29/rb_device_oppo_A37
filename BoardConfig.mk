@@ -323,6 +323,10 @@ TARGET_VNDK_USE_CORE_VARIANT := true
 # HIDL
 DEVICE_MANIFEST_FILE := $(PLATFORM_PATH)/manifest.xml
 DEVICE_MATRIX_FILE := $(PLATFORM_PATH)/compatibility_matrix.xml
+# HAL legacy/vendor yang device manifest deklarasikan tapi tidak ada di matrix
+# framework hulu (lihat framework_compatibility_matrix.xml) — wajib agar
+# check-vintf-all lolos (PLAN.md §4.6).
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := $(PLATFORM_PATH)/framework_compatibility_matrix.xml
 PRODUCT_VENDOR_MOVE_ENABLED := true
 
 # Display
@@ -461,14 +465,14 @@ TARGET_LD_SHIM_LIBS := \
 # "file_contexts device belum lengkap" — itu sudah beres (semua 18 HAL service
 # yang dideklarasikan device.mk kini berlabel).
 #
-# Alasan sebenarnya, diukur dengan `m sepolicy_neverallows` memakai override
-# SETELAH include di bawah (kalau disetel sebelum include, nilainya ditimpa
-# oleh device/qcom/sepolicy-legacy/sepolicy.mk:11 yang memaksa := true):
-# ada ~1.500 pelanggaran neverallow, hampir semuanya dari sepolicy legacy QCOM
-# dan platform, mis. 626 dari system/sepolicy/public/property.te dan 46 masing-
-# masing dari domain aplikasi (priv_app, untrusted_app, radio, ...).
-# Hanya 8 yang berasal dari device tree ini, semuanya dari
-# app_domain(timekeep_app) di sepolicy/timekeep_app.te:7.
+# Alasan sebenarnya, diukur ulang pada Fase 3 (10 Agustus 2026) dengan
+# `m sepolicy_neverallows` — flag dimatikan lewat edit sementara pada DUA sumber
+# (baris di bawah DAN device/qcom/sepolicy-legacy/sepolicy.mk:11; memakai override
+# command-line `m ... SELINUX_IGNORE_NEVERALLOWS=` TIDAK diteruskan ke Soong):
+# 3.298 pelanggaran neverallow, ~3.216 di antaranya milik system/sepolicy sendiri
+# (property.te 2.232, domain.te 828, dst.). Dari device tree ini: 16 — adbd.te 15
+# (seri adb bring-up Fase 1) + timekeep_app.te 1 (app_domain). Selebihnya:
+# qcom/sepolicy-legacy 59, device/lineage/sepolicy 7.
 #
 # Catatan: baris di bawah ini redundan karena sepolicy-legacy juga menyetelnya,
 # tapi dipertahankan supaya niatnya eksplisit saat file itu nanti diganti.
