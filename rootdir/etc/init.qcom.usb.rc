@@ -27,19 +27,6 @@
 
 on init
     write /sys/class/android_usb/android0/f_rndis/wceis 1
-
-on boot
-    write /sys/class/android_usb/android0/iSerial ${ro.serialno}
-    write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
-    write /sys/class/android_usb/android0/iProduct ${ro.product.model}
-    write /sys/class/android_usb/android0/f_rndis/manufacturer ${ro.product.manufacturer}
-    write /sys/class/android_usb/android0/f_rndis/vendorID ${ro.usb.vid}
-    setprop persist.sys.usb.config.extra none
-
-on charger
-    setprop sys.usb.config mass_storage
-
-on fs
     write /sys/class/android_usb/android0/iSerial ${ro.serialno}
     write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
     write /sys/class/android_usb/android0/iProduct ${ro.product.model}
@@ -55,13 +42,40 @@ on fs
     setprop persist.adb.nonblocking_ffs 0
     setprop ro.adb.nonblocking_ffs 0
 
-    # DIAGNOSTIK (Fase 9): aktifkan adb lebih awal, langsung dari init —
-    # sebelum UsbService (yang butuh system_server jalan). Kalau hang terjadi
-    # sebelum UsbService, adb tetap bisa dipakai untuk logcat (logd sudah
-    # jalan sejak awal boot). Bila adbd apex belum aktif di fase ini,
-    # `start adbd` gagal diam-diam dan trigger ini terpicu lagi saat
-    # UsbService menyetel nilai yang sama.
+    # DIAGNOSTIK: aktifkan gadget USB langsung dari `on init` — fase userspace
+    # PALING AWAL setelah second-stage init mulai (sebelum `late-init`/`on fs`).
+    # Begitu trigger `on property:sys.usb.config=mtp,adb` mengeksekusi
+    # `write enable 1`, host melihat perangkat USB muncul — BAHKAN TANPA adbd
+    # (gadget android_usb legacy, bukan FunctionFS murni). Itu penanda biner:
+    #
+    #   USB muncul  → init hidup setidaknya sampai `on init`; kalau adbd juga
+    #                 jalan, logcat bisa ditarik (logd jalan sejak awal).
+    #   USB tetap 0 → hang terjadi SEBELUM `on init` — kernel hang dini atau
+    #                 init hang di early-init; alatnya ramoops, bukan adb.
+    #
+    # Sebelumnya blok ini di `on fs` — dan karena build yang memuatnya masih
+    # diam tanpa USB, hang terbukti terjadi sebelum `on fs`; itulah sebabnya
+    # seluruh blok digeser ke sini.
+    #
+    # Kalau `start adbd` (dari trigger di bawah) mengeksekusi saat /system
+    # belum di-mount, adbd gagal start — tidak fatal: UsbService nanti
+    # menyetel sys.usb.config yang sama, trigger terpicu lagi, adbd jalan.
     setprop sys.usb.config mtp,adb
+
+on boot
+    write /sys/class/android_usb/android0/iSerial ${ro.serialno}
+    write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
+    write /sys/class/android_usb/android0/iProduct ${ro.product.model}
+    write /sys/class/android_usb/android0/f_rndis/manufacturer ${ro.product.manufacturer}
+    write /sys/class/android_usb/android0/f_rndis/vendorID ${ro.usb.vid}
+    setprop persist.sys.usb.config.extra none
+
+on charger
+    setprop sys.usb.config mass_storage
+
+on fs
+    # Blok gadget yang dulu di sini dipindah ke `on init` (DIAGNOSTIK di atas).
+    # `on fs` fire setelahnya, jadi tidak ada yang tersisa di fase ini.
 
 # Following are the parameters required for usb functionality. They provide configurable options like
 # product_id/vendor id and allows specifying required functions:
