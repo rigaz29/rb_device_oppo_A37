@@ -44,23 +44,41 @@ on init
 
     # DIAGNOSTIK: aktifkan gadget USB langsung dari `on init` — fase userspace
     # PALING AWAL setelah second-stage init mulai (sebelum `late-init`/`on fs`).
-    # Begitu trigger `on property:sys.usb.config=mtp,adb` mengeksekusi
-    # `write enable 1`, host melihat perangkat USB muncul — BAHKAN TANPA adbd
-    # (gadget android_usb legacy, bukan FunctionFS murni). Itu penanda biner:
+    # Penanda biner untuk boot stuck:
     #
-    #   USB muncul  → init hidup setidaknya sampai `on init`; kalau adbd juga
-    #                 jalan, logcat bisa ditarik (logd jalan sejak awal).
+    #   USB muncul  → init hidup setidaknya sampai `on init`
     #   USB tetap 0 → hang terjadi SEBELUM `on init` — kernel hang dini atau
     #                 init hang di early-init; alatnya ramoops, bukan adb.
     #
-    # Sebelumnya blok ini di `on fs` — dan karena build yang memuatnya masih
-    # diam tanpa USB, hang terbukti terjadi sebelum `on fs`; itulah sebabnya
-    # seluruh blok digeser ke sini.
+    # Sebelumnya blok ini di `on fs`; karena build yang memuatnya tetap diam
+    # tanpa USB, hang terbukti terjadi sebelum `on fs`, jadi digeser ke sini.
     #
-    # Kalau `start adbd` (dari trigger di bawah) mengeksekusi saat /system
-    # belum di-mount, adbd gagal start — tidak fatal: UsbService nanti
-    # menyetel sys.usb.config yang sama, trigger terpicu lagi, adbd jalan.
-    setprop sys.usb.config mtp,adb
+    # ⚠️ KONFIGURASINYA `mtp` SAJA — JANGAN `mtp,adb`.
+    #
+    # Fungsi `adb` berbasis FunctionFS (lihat `f_ffs/aliases adb` di atas), dan
+    # driver gadget menolak menyambung sampai adbd membuka endpoint-nya:
+    #
+    #   drivers/usb/gadget/android.c:548  ffs_function_enable()
+    #       if (!config->opened)          <- adbd belum buka /dev/usb-ffs/adb/ep0
+    #               android_disable(dev);  <- disable_depth NAIK
+    #   drivers/usb/gadget/android.c:481  android_enable()
+    #       if (--disable_depth == 0)
+    #               usb_gadget_connect(); <- tidak pernah tercapai
+    #
+    # Dan adbd di ROM ini ada di /system/apex/com.android.adbd.apex, bukan biner
+    # biasa — mustahil jalan di `on init`, sebelum apexd me-mount APEX-nya.
+    #
+    # Dengan `mtp,adb`, USB akan tetap NOL meski init sehat sempurna, sehingga
+    # pembacaan "USB nol berarti hang sebelum on init" jadi NEGATIF PALSU dan
+    # mengarahkan diagnosis ke kernel padahal init baik-baik saja.
+    #
+    # `mtp` sendirian tidak punya gerbang itu: driver ini tidak mendefinisikan
+    # mtp_function_enable sama sekali, jadi `write enable 1` langsung sampai ke
+    # usb_gadget_connect() tanpa bantuan userspace apa pun.
+    #
+    # adb tetap hidup seperti biasa: UsbService menyetel sys.usb.config ke
+    # mtp,adb setelah boot berjalan, dan trigger di bawah menjalankan adbd.
+    setprop sys.usb.config mtp
 
 on boot
     write /sys/class/android_usb/android0/iSerial ${ro.serialno}
