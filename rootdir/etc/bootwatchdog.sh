@@ -81,20 +81,34 @@ while [ "$habis" -lt "$BATAS" ]; do
     habis=$((habis + JEDA))
 done
 
-# Boot gagal. Kumpulkan apa pun yang masih terbaca, best-effort — setiap
-# perintah di bawah boleh gagal tanpa menghentikan yang lain, karena tujuan
-# akhirnya (reboot ke recovery) lebih penting daripada kelengkapan berkas.
-mkdir -p "$OUT" 2>/dev/null
-getprop ro.build.display.id  > "$OUT/build.txt"    2>/dev/null
-getprop                      > "$OUT/getprop.txt"  2>/dev/null
-dmesg                        > "$OUT/dmesg.txt"    2>/dev/null
-logcat -d -v threadtime      > "$OUT/logcat.txt"   2>/dev/null
-cat /proc/last_kmsg          > "$OUT/last_kmsg.txt" 2>/dev/null
-cp /sys/fs/pstore/*          "$OUT/"               2>/dev/null
-sync
+# Boot gagal.
+#
+# PERTAMA tulis alasannya ke /dev/kmsg. Ini yang paling penting, karena kmsg
+# ditangkap console-ramoops dan BERTAHAN lewat reboot — sementara berkas di
+# /data belum tentu bisa ditulis sama sekali (lihat di bawah). Baris ini akan
+# terbaca lagi di /sys/fs/pstore/console-ramoops setelah perangkat masuk
+# recovery.
+echo "bootwatchdog: sys.boot_completed tidak muncul dalam ${habis}s — reboot ke recovery" > /dev/kmsg 2>/dev/null
+echo "bootwatchdog: init.svc.zygote=$(getprop init.svc.zygote) init.svc.surfaceflinger=$(getprop init.svc.surfaceflinger) init.svc.adbd=$(getprop init.svc.adbd)" > /dev/kmsg 2>/dev/null
+echo "bootwatchdog: sys.usb.state=$(getprop sys.usb.state) ro.bootmode=$(getprop ro.bootmode)" > /dev/kmsg 2>/dev/null
 
-# Tinggalkan penanda supaya boot berikutnya tahu ini bukan reboot biasa.
-echo "$habis" > "$OUT/tertahan-detik.txt" 2>/dev/null
-sync
+# Sejak pengaman ini dipasang di `on init`, hang bisa terjadi SEBELUM /data
+# ter-mount. Kalau begitu, menulis ke $OUT hanya membuat berkas di tmpfs yang
+# hilang saat reboot — dan lebih buruk, ia tertimpa mount /data berikutnya.
+# Jadi dites dulu; kalau gagal, cukup kmsg di atas yang jadi jejaknya.
+if mkdir -p "$OUT" 2>/dev/null && touch "$OUT/.w" 2>/dev/null; then
+    rm -f "$OUT/.w" 2>/dev/null
+    echo "$habis"                > "$OUT/tertahan-detik.txt" 2>/dev/null
+    getprop ro.build.display.id  > "$OUT/build.txt"     2>/dev/null
+    getprop                      > "$OUT/getprop.txt"   2>/dev/null
+    dmesg                        > "$OUT/dmesg.txt"     2>/dev/null
+    logcat -d -v threadtime      > "$OUT/logcat.txt"    2>/dev/null
+    cat /proc/last_kmsg          > "$OUT/last_kmsg.txt" 2>/dev/null
+    cp /sys/fs/pstore/*          "$OUT/"                2>/dev/null
+    sync
+    echo "bootwatchdog: jejak tersimpan di $OUT" > /dev/kmsg 2>/dev/null
+else
+    echo "bootwatchdog: /data belum bisa ditulis — hang terjadi sebelum post-fs-data; jejak hanya di ramoops" > /dev/kmsg 2>/dev/null
+fi
 
 setprop sys.powerctl reboot,recovery

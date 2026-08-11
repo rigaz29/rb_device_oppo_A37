@@ -196,5 +196,22 @@ service bootwatchdog /system/bin/sh /vendor/bin/bootwatchdog.sh
     oneshot
     disabled
 
-on post-fs-data
+# Dipasang di `on init`, BUKAN post-fs-data.
+#
+# `on init` adalah fase userspace paling awal yang bisa menjalankan service:
+# second-stage init SENDIRI adalah /system/bin/init, jadi /system pasti sudah
+# ter-mount sebelum trigger ini berjalan, dan /system/bin/sh tersedia.
+#
+# Dengan begitu pengaman ini menutup setiap hang SETELAH `on init` — termasuk
+# `on fs`, `post-fs`, `post-fs-data`, sampai system_server. Sebelumnya ia hanya
+# menutup dari post-fs-data ke atas.
+#
+# Kalau hang terjadi sebelum /data ter-mount, skrip tidak bisa menulis berkas;
+# ia menulis alasannya ke /dev/kmsg supaya tertangkap console-ramoops, lalu tetap
+# reboot ke recovery.
+#
+# ⚠️ Yang tetap TIDAK tertutup: hang di first-stage init atau sebelum `on init`.
+# Di sana belum ada userspace sama sekali. Alatnya ramoops setelah reset manual
+# (tekan-tahan power — PS_HOLD, isi DDR bertahan), bukan pengaman ini.
+on init
     start bootwatchdog

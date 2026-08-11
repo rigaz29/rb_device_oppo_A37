@@ -233,6 +233,23 @@ BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
 # sedangkan reboot ke recovery berarti init fatal dan alasannya ada di ramoops.
 # Percobaan 19.1 yang lama sudah memakainya; dipertahankan.
 BOARD_KERNEL_CMDLINE += androidboot.init_fatal_reboot_target=recovery
+
+# Panic saat ada task menggantung di D state, berpasangan dengan
+# CONFIG_DETECT_HUNG_TASK=y + CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=90 di defconfig
+# kernel. Parameternya diverifikasi di kernel/hung_task.c:57 —
+# __setup("hung_task_panic=", ...).
+#
+# Disetel lewat cmdline, BUKAN CONFIG_BOOTPARAM_HUNG_TASK_PANIC, supaya bisa
+# dimatikan dengan mengganti boot.img saja tanpa membangun ulang kernel.
+#
+# Rantainya: task terblokir >90s -> panic -> CONFIG_PANIC_TIMEOUT=5 -> reboot.
+# Stack trace task yang terblokir masuk kmsg, jadi tertangkap console-ramoops
+# dan terbaca setelah perangkat hidup lagi.
+#
+# ⚠️ Reboot-nya ke boot NORMAL, bukan recovery — kernel tidak menulis BCB saat
+# panic. Yang membawa ke recovery adalah bootwatchdog.sh (userspace) dan
+# androidboot.init_fatal_reboot_target di atas (init FATAL).
+BOARD_KERNEL_CMDLINE += hung_task_panic=1
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset 0x01000000 --tags_offset 0x00000100
 BOARD_KERNEL_IMAGE_NAME := Image
 TARGET_KERNEL_SOURCE := kernel/oppo/msm8939
