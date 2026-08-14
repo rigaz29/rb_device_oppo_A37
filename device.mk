@@ -825,8 +825,23 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # WiFi HAL
 # .legacy → regular (Sumber: msm8916-common lineage-18.1)
+#
+# LOS 21: HIDL wifi DICABUT — hardware/interfaces/wifi/ tidak punya 1.*/default
+# lagi, hanya aidl/default. Penggantinya android.hardware.wifi-service
+# (hardware/interfaces/wifi/aidl/default/Android.bp:116).
+#
+# Ini pertukaran yang aman untuk perangkat ini: layanan AIDL tetap memakai
+# libwifi-hal + libwifi-system-iface yang sama persis dengan layanan HIDL lama,
+# jadi HAL vendor di bawahnya (libwifi-hal-qcom) tidak berubah. Ia juga membawa
+# vintf_fragment sendiri, konsisten dengan manifest.xml kita yang memang sudah
+# TIDAK mendeklarasikan wifi ("wifi/hostapd/supplicant: dihapus — paket service
+# bawa VINTF fragment").
+#
+# ⚠️ Wi-Fi BERFUNGSI di ROM proyek 20; ini satu-satunya perubahan yang
+# menyentuhnya. Kalau Wi-Fi mati setelah boot pertama, curigai baris ini lebih
+# dulu, bukan kernel atau blob.
 PRODUCT_PACKAGES += \
-    android.hardware.wifi@1.0-service
+    android.hardware.wifi-service
 
 # Wifi
 PRODUCT_PACKAGES += \
