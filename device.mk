@@ -164,6 +164,43 @@ PRODUCT_PACKAGES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608
 
+# ⚠️ ro.hardware.egl=adreno — WAJIB. Tanpa ini SurfaceFlinger crash-loop dan ROM
+# berhenti di logo OPPO.
+#
+# libEGL memilih driver dengan menempelkan nilai properti ke nama pustaka:
+# libEGL_${prop}.so di /vendor/lib/egl. Urutan propertinya
+# (Loader.cpp:72-76 HAL_SUBNAME_KEY_PROPERTIES):
+#
+#     persist.graphics.egl  ->  ro.hardware.egl  ->  ro.board.platform
+#
+# Dan Loader.cpp:304 BERHENTI setelah properti PERTAMA yang terisi:
+#     // Abort regardless of whether subsequent properties are set, the value
+#     // must be set correctly with the first property that has a value.
+#     break;
+#
+# Perangkat ini mengirim /vendor/lib/egl/libEGL_adreno.so (plus GLESv1_CM dan
+# GLESv2 adreno). Tanpa ro.hardware.egl, dua properti pertama kosong sehingga
+# loop jatuh ke ro.board.platform=msm8916, mencari libEGL_msm8916.so yang tidak
+# ada, lalu BERHENTI. Terlihat di logcat perangkat (report/bootfail/):
+#
+#     D libEGL: Failed to load drivers from property ro.board.platform
+#               with value msm8916
+#     F libEGL: couldn't find an OpenGL ES implementation, make sure one of
+#               persist.graphics.egl, ro.hardware.egl and ro.board.platform is set
+#     F DEBUG : pid 679, name: surfaceflinger  >>> /system/bin/surfaceflinger <<<
+#               signal 6 (SIGABRT)
+#               #06 android::renderengine::gl::GLESRenderEngine...
+#
+# SurfaceFlinger lalu di-restart init tiap ~5 detik, menyeret zygote ikut mati,
+# sehingga boot tidak pernah selesai.
+#
+# ⚠️ LOS 20 BOOT TANPA PROPERTI INI — jangan jadikan itu alasan membuangnya.
+# Perangkat LOS 20 yang berjalan pun hanya punya ro.board.platform (diperiksa di
+# bugreport-nya), jadi Android 13 masih punya jalur cadangan yang Android 14
+# cabut. Ini regresi hulu, bukan kesalahan konfigurasi lama.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.hardware.egl=adreno
+
 # Trust HAL DIBUANG di LOS 21 — hardware/lineage/interfaces/ tidak punya trust/
 # lagi, termasuk di fork UL. meghs juga membuangnya di lineage-21
 # ("Drop legacy trust HAL — dead"). Tidak ada penggantinya; fiturnya hilang.
