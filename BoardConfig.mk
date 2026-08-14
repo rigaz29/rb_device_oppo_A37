@@ -213,13 +213,34 @@ TARGET_CPU_VARIANT := cortex-a53
 #   pmsg_size   256 KB   logcat terakhir     -> /sys/fs/pstore/pmsg-ramoops-0
 #   record_size 256 KB   per dump oops/panic -> dmesg-ramoops-N (sisa ~10 slot)
 #
+# ramoops.ecc=1 — ECC Reed-Solomon 16 byte per blok 128 byte (ram.c:687
+# memetakan nilai 1 ke ecc_size 16). Ditambahkan setelah tangkapan ramoops
+# pertama dari perangkat terbaca rusak di tingkat bit: "init:" jadi "inht:",
+# "console" jadi "contzol" — galat tersebar, bukan buffer yang ter-wrap.
+#
+# ⚠️ HARUS SAMA DI KEDUA SISI. ECC mengubah TATA LETAK buffer, bukan cuma cara
+# membacanya:
+#     ram_core.c:212   prz->buffer_size -= ecc_total;
+#                      prz->par_buffer   = buffer->data + prz->buffer_size;
+# Kernel yang menulis tanpa ECC lalu dibaca kernel ber-ECC akan membuat pembaca
+# menghitung buffer_size lebih kecil, memperlakukan ekor data log sebagai
+# paritas, dan menjalankan koreksi terhadap sampah. Hasilnya lebih buruk
+# daripada tanpa ECC sama sekali.
+#
+# Karena itu parameter ini ditambahkan BERSAMAAN di device tree TWRP
+# (rigaz29/android_device_oppo_A37f, BoardConfig.mk) — recovery-lah yang membaca
+# buffer yang ditulis ROM ini. Kalau salah satu diubah, yang lain WAJIB ikut.
+#
+# Ongkosnya ~12,5% kapasitas buffer (16 byte paritas per 128 byte data), jadi
+# console_size 1 MB efektif menjadi ~896 KB. Sepadan.
+
 # ⚠️ RISIKO YANG DIAKUI: region 0x9ff00000 TIDAK dicadangkan di DTS, dan LK
 # mengisi node memory sehingga alamat itu masuk RAM yang dikelola kernel
 # (pfn_valid true -> jalur persistent_ram_vmap, ram_core.c:347). Buffer akan
 # terbentuk dan terbaca, tapi halamannya tidak dilindungi dari alokasi lain.
 # Kalau isinya nanti tampak rusak, langkah berikutnya menambahkan cadangan
 # lewat DT — dan baru saat itu dt.img boleh berubah.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=1
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
