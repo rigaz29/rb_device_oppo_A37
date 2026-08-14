@@ -42,8 +42,25 @@
 #   wpa_supplicant   34,3 s   <- servis boot terakhir
 #
 # Jadi boot sehat di perangkat ini selesai sekitar 40 detik, dan 120 detik
-# memberi margin 3x. WITH_DEXPREOPT=true jadi tidak ada dexopt besar di boot
-# pertama; kalau dexpreopt suatu saat dimatikan, NAIKKAN batas ini.
+# memberi margin 3x.
+#
+# ⚠️ ASUMSI "WITH_DEXPREOPT=true jadi tidak ada dexopt besar di boot pertama"
+# TERBUKTI SALAH, dan pengaman ini sempat MEMBUNUH BOOT YANG SEHAT karenanya.
+# dexpreopt menghilangkan dexopt APLIKASI, tapi tidak menyentuh `odrefresh` —
+# kompilasi ulang BOOT CLASSPATH ART, yang dipicu artefak APEX yang tidak cocok
+# dengan hasil build. Terukur di report/bootfail3/:
+#
+#   odrefresh: No prior cache-info file     -> kompilasi penuh, 190x dex2oat
+#   21:20:52,6 -> 21:22:14,2                = 81,5 detik
+#   celah ro.boottime odsign 15,8s -> apexd-snapshotde 98,3s cocok persis
+#
+# Boot itu sampai OnBootPhase_600 (PHASE_THIRD_PARTY_APPS_CAN_START) dan sudah
+# mem-fork com.android.launcher3 ketika dipotong di detik 120. Sehat sepenuhnya,
+# hanya lambat sekali sekali.
+#
+# Karena itu waktu selama ART mengompilasi TIDAK DIHITUNG (lihat loop di bawah).
+# Batas 120 detik dipertahankan sebagai anggaran "tidak ada kemajuan", karena
+# untuk mendeteksi hang sungguhan ia memang tepat.
 #
 # Kenapa tidak lebih longgar: false positive di sini MURAH — perangkat masuk
 # recovery, tempat adb hidup dan semuanya bisa dibereskan lewat properti di
@@ -74,11 +91,29 @@ esac
 
 [ "$(getprop persist.a37.bootwatchdog)" = "0" ] && exit 0
 
-habis=0
-while [ "$habis" -lt "$BATAS" ]; do
+# PAGU MUTLAK. Tanpa ini, dex2oat yang benar-benar menggantung membuat pengaman
+# ini menunggu selamanya — persis kegagalan yang ia ada untuk ditangkap.
+BATAS_MAKS="$(getprop persist.a37.bootwatchdog.timeout.maks)"
+case "$BATAS_MAKS" in
+    ''|*[!0-9]*) BATAS_MAKS=600 ;;
+esac
+[ "$BATAS_MAKS" -lt "$BATAS" ] && BATAS_MAKS=$((BATAS * 4))
+
+habis=0      # detik TANPA kemajuan — hanya ini yang dibandingkan dengan BATAS
+total=0      # detik sebenarnya sejak start, dibandingkan dengan pagu mutlak
+kompilasi=0  # detik yang dihabiskan ART untuk mengompilasi, untuk laporan
+while [ "$habis" -lt "$BATAS" ] && [ "$total" -lt "$BATAS_MAKS" ]; do
     [ "$(getprop sys.boot_completed)" = "1" ] && exit 0
     sleep "$JEDA"
-    habis=$((habis + JEDA))
+    total=$((total + JEDA))
+    # odsign membungkus seluruh odrefresh -> dex2oat. Dipakai getprop dan bukan
+    # pgrep/pidof karena getprop sudah pasti ada di sini, sementara ketersediaan
+    # keduanya bergantung pada toybox yang terpasang.
+    if [ "$(getprop init.svc.odsign)" = "running" ]; then
+        kompilasi=$((kompilasi + JEDA))
+    else
+        habis=$((habis + JEDA))
+    fi
 done
 
 # Boot gagal.
@@ -88,7 +123,10 @@ done
 # /data belum tentu bisa ditulis sama sekali (lihat di bawah). Baris ini akan
 # terbaca lagi di /sys/fs/pstore/console-ramoops setelah perangkat masuk
 # recovery.
-echo "bootwatchdog: sys.boot_completed tidak muncul dalam ${habis}s — reboot ke recovery" > /dev/kmsg 2>/dev/null
+echo "bootwatchdog: sys.boot_completed tidak muncul — reboot ke recovery" > /dev/kmsg 2>/dev/null
+echo "bootwatchdog: tanpa-kemajuan=${habis}s (batas ${BATAS}s) total=${total}s (pagu ${BATAS_MAKS}s) kompilasi-ART=${kompilasi}s" > /dev/kmsg 2>/dev/null
+# kompilasi-ART besar + tanpa-kemajuan kecil = pagu mutlak yang kena, artinya
+# dex2oat sendiri yang menggantung — bukan boot yang lambat.
 echo "bootwatchdog: init.svc.zygote=$(getprop init.svc.zygote) init.svc.surfaceflinger=$(getprop init.svc.surfaceflinger) init.svc.adbd=$(getprop init.svc.adbd)" > /dev/kmsg 2>/dev/null
 echo "bootwatchdog: sys.usb.state=$(getprop sys.usb.state) ro.bootmode=$(getprop ro.bootmode)" > /dev/kmsg 2>/dev/null
 
@@ -98,7 +136,10 @@ echo "bootwatchdog: sys.usb.state=$(getprop sys.usb.state) ro.bootmode=$(getprop
 # Jadi dites dulu; kalau gagal, cukup kmsg di atas yang jadi jejaknya.
 if mkdir -p "$OUT" 2>/dev/null && touch "$OUT/.w" 2>/dev/null; then
     rm -f "$OUT/.w" 2>/dev/null
-    echo "$habis"                > "$OUT/tertahan-detik.txt" 2>/dev/null
+    # $total, bukan $habis — namanya "tertahan berapa detik", jadi yang dimaksud
+    # lama sebenarnya. Rinciannya (tanpa-kemajuan vs kompilasi-ART) ada di kmsg,
+    # yang ikut terkumpul di dmesg.txt dan console-ramoops.
+    echo "$total"                > "$OUT/tertahan-detik.txt" 2>/dev/null
     getprop ro.build.display.id  > "$OUT/build.txt"     2>/dev/null
     getprop                      > "$OUT/getprop.txt"   2>/dev/null
     dmesg                        > "$OUT/dmesg.txt"     2>/dev/null
