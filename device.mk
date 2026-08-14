@@ -600,13 +600,48 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.kernel.ebpf.supported=false
 
-# VNDK: tanpa snapshot VNDK, nilai 'current' (sama dengan ROM 19.1 kita —
-# system_prop.mk:65 — dan ROM gt58wifi yang boot, system-build.prop:69).
-# linkerconfig (system/linkerconfig/modules/environment.cc:27) membaca properti
-# ini; kosong = namespace VNDK tidak dibangun. Bukan BOARD_VNDK_VERSION: itu
-# ikut membangun vndk_package yang tidak dipakai non-treble 32-bit ini.
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.vndk.version=current
+# ⚠️⚠️ ro.vndk.version DIBUANG — INI PENYEBAB BOOT STUCK DI LOGO OPPO. ⚠️⚠️
+#
+# Sebelumnya disetel `current`, disalin dari ROM 19.1 kita dan ROM gt58wifi yang
+# boot. Alasan itu benar untuk Android 12, TAPI DI ANDROID 14 MEMATIKAN.
+#
+# Rantai sebabnya, dibuktikan dari ramoops perangkat (report/1/):
+#
+#   1. ro.vndk.version=current disetel
+#   2. linkerconfig mencari /apex/com.android.vndk.vcurrent
+#      (generator/variableloader.cc:80 — path dibentuk dari nilai properti)
+#   3. ROM ini punya NOL apex VNDK, jadi access() gagal:
+#         "Unable to access VNDK APEX at path: /apex/com.android.vndk.vcurrent"
+#      dan variableloader.cc:84 RETURN DINI — SANITIZER_DEFAULT_VENDOR,
+#      VNDK_CORE_LIBRARIES_VENDOR, dan kawan-kawan tidak pernah didefinisikan.
+#   4. Tapi penjaga pemakaiannya memakai has_value(), bukan isi APEX-nya:
+#         modules/environment.cc:46
+#           IsVendorVndkVersionDefined() = GetValue("ro.vndk.version").has_value()
+#         contents/namespace/vendordefault.cc:55-57
+#           if (IsVendorVndkVersionDefined())
+#               .AddSharedLib(Var("SANITIZER_DEFAULT_VENDOR"));
+#      Properti DISETEL, jadi penjaga LOLOS dan Var() dipanggil.
+#   5. contents/context/context.cc:101
+#         CHECK(!"undefined var") << name << " is not defined";
+#      -> SIGABRT. Tombstone di pmsg-ramoops-0 mengonfirmasi:
+#         signal 6 (SIGABRT), #05 BuildApexDefaultSection, #08 main
+#   6. /linkerconfig/ld.config.txt TIDAK PERNAH dibuat
+#   7. Setiap biner dinamis gagal exec:
+#         init: cannot execv('/apex/com.android.sdkext/bin/derive_sdk'): ENOENT
+#         init: cannot execv('/apex/com.android.sdkext/bin/derive_classpath'): ENOENT
+#         art_boot exit 127 -> odsign exit 1, crash-loop tiap 5 detik
+#   8. zygote tidak pernah start -> stuck di logo OPPO selamanya
+#
+# DENGAN PROPERTI DIBUANG, has_value() = false, seluruh blok VNDK dilewati, dan
+# linkerconfig selesai normal. Itu persis yang komentar lama ini sendiri ramalkan
+# ("kosong = namespace VNDK tidak dibangun") — nilainya saja yang salah dipilih.
+#
+# JANGAN menyetelnya kembali ke nilai apa pun kecuali ROM benar-benar mengirim
+# /apex/com.android.vndk.v<nilai>. Menyetel angka versi tanpa APEX-nya
+# menghasilkan crash yang sama persis.
+#
+# Bukan BOARD_VNDK_VERSION: itu ikut membangun vndk_package yang tidak dipakai
+# non-treble 32-bit ini.
 
 # Mode low-RAM. Perangkat 2 GB; ROM referensi 19.1 A37 yang terbukti boot
 # menyetel ro.config.low_ram=true di build.prop.
