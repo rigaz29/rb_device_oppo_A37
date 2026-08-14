@@ -553,17 +553,19 @@ BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_qcwcn
 BOARD_WLAN_DEVICE := qcwcn
 BOARD_WPA_SUPPLICANT_DRIVER := NL80211
 BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_qcwcn
-TARGET_USES_QCOM_WCNSS_QMI := true
-# BARU DI 20 — pemblokir kati. Fork UL hardware/qcom-caf/wlan lineage-20.0-caf
-# menghilangkan gerbang `ifneq ($(QCPATH),)` yang ada di lineage-19.1-caf, jadi
-# tanpa flag ini wcnss_service menautkan libqmi_cci/libqmi_common_so/libmdmdetect
-# yang TIDAK ada sebagai modul di tree LOS 20 (kati: "missing ... (SHARED_LIBRARIES)").
-# Dengan TARGET_PROVIDES_WCNSS_QMI := true, wcnss_service dikompilasi
-# -DWCNSS_QMI_OSS + libdl — jalur yang PERSIS sama dengan build 19.1 kita
-# (di 19.1 gerbang QCPATH kosong menjatuhkannya ke WCNSS_QMI_OSS juga).
-# meghs A37 lineage-20 memakai flag yang sama (BoardConfig.mk:91) dan boot.
-# Flag ini hanya dibaca oleh hardware/qcom-caf/wlan/wcnss-service/Android.mk:15.
-TARGET_PROVIDES_WCNSS_QMI := true
+# LOS 21 basis official memakai hardware/qcom/wlan (bukan hardware/qcom-caf/wlan
+# seperti era LOS 20/UL). wcnss-service di sana HANYA mengenal
+# TARGET_USES_QCOM_WCNSS_QMI: bila true ia menautkan
+# libqmiservices/libqmi/libqcci_legacy/libqmi_client_qmux/libmdmdetect yang TIDAK
+# ADA sebagai modul di tree ini, dan ia TIDAK punya jalur WCNSS_QMI_OSS seperti
+# versi CAF dulu (diverifikasi: wcnss_service.c cuma punya #ifdef WCNSS_QMI).
+# Jadi diset false agar wcnss_service dibangun lewat jalur non-QMI.
+# Rujukan: acroreiser/android_device_lenovo_a6010 lineage-21.0 (msm8916, ROM boot)
+# TIDAK menyetel TARGET_USES_QCOM_WCNSS_QMI sama sekali — jalur non-QMI terbukti
+# berfungsi untuk msm8916 di Android 14.
+# TARGET_PROVIDES_WCNSS_QMI dibuang: hanya dibaca wcnss-service versi CAF, tidak
+# ada modul di tree ini yang memakainya (diverifikasi grep seluruh tree).
+TARGET_USES_QCOM_WCNSS_QMI := false
 WIFI_DRIVER_FW_PATH_AP := "ap"
 WIFI_DRIVER_FW_PATH_STA := "sta"
 WPA_SUPPLICANT_VERSION := VER_0_8_X
