@@ -553,19 +553,19 @@ BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_qcwcn
 BOARD_WLAN_DEVICE := qcwcn
 BOARD_WPA_SUPPLICANT_DRIVER := NL80211
 BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_qcwcn
-# LOS 21 basis official memakai hardware/qcom/wlan (bukan hardware/qcom-caf/wlan
-# seperti era LOS 20/UL). wcnss-service di sana HANYA mengenal
-# TARGET_USES_QCOM_WCNSS_QMI: bila true ia menautkan
-# libqmiservices/libqmi/libqcci_legacy/libqmi_client_qmux/libmdmdetect yang TIDAK
-# ADA sebagai modul di tree ini, dan ia TIDAK punya jalur WCNSS_QMI_OSS seperti
-# versi CAF dulu (diverifikasi: wcnss_service.c cuma punya #ifdef WCNSS_QMI).
-# Jadi diset false agar wcnss_service dibangun lewat jalur non-QMI.
-# Rujukan: acroreiser/android_device_lenovo_a6010 lineage-21.0 (msm8916, ROM boot)
-# TIDAK menyetel TARGET_USES_QCOM_WCNSS_QMI sama sekali — jalur non-QMI terbukti
-# berfungsi untuk msm8916 di Android 14.
-# TARGET_PROVIDES_WCNSS_QMI dibuang: hanya dibaca wcnss-service versi CAF, tidak
-# ada modul di tree ini yang memakainya (diverifikasi grep seluruh tree).
-TARGET_USES_QCOM_WCNSS_QMI := false
+# wcnss_service + lib_driver_cmd_qcwcn disediakan hardware/qcom-caf/wlan, yang
+# dipilih OTOMATIS lewat pathmap qcom-wlan di vendor/lineage/build/core/
+# qcom_target.mk karena BOARD_USES_QCOM_HARDWARE=true. (hardware/qcom/wlan
+# resmi dijaga hanya keymaster oleh os_pickup_aosp.mk pada device CAF.)
+#
+# Versi CAF punya jalur OSS: USES_QCOM_WCNSS_QMI=true + PROVIDES_WCNSS_QMI=true
+# -> -DWCNSS_QMI_OSS + libdl, TANPA lib QMI proprietary (wcnss_service.c
+# men-dlopen libwcnss_qmi.so saat runtime dan sudah include <string.h>).
+# Ini konfigurasi yang PERSIS dipakai ROM LOS 20 A37 yang wifi-nya berfungsi
+# (meghs BoardConfig.mk:91). Jangan set USES=true tanpa PROVIDES=true: cabang
+# itu menuntut libqmi_cci/libqmi_common_so/libmdmdetect yang tak ada di tree.
+TARGET_USES_QCOM_WCNSS_QMI := true
+TARGET_PROVIDES_WCNSS_QMI := true
 WIFI_DRIVER_FW_PATH_AP := "ap"
 WIFI_DRIVER_FW_PATH_STA := "sta"
 WPA_SUPPLICANT_VERSION := VER_0_8_X
