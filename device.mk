@@ -330,6 +330,25 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.software.midi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.midi.xml
 
 # Bluetooth
+#
+# libbt-vendor kini berada di dalam soong namespace sendiri. Commit
+# "bt: Convert libbt-vendor to blueprint" (hardware/qcom-caf/bt) menaruh
+# `soong_namespace {}` di libbt-vendor/Android.bp, jadi namanya adalah
+# hardware/qcom-caf/bt/libbt-vendor dan modulnya TIDAK TERLIHAT sampai
+# namespace itu diimpor.
+#
+# Yang mendaftarkannya bukan hardware/qcom-caf/common: BoardConfigQcom.mk di
+# sana hanya menambahkan bootctrl, display-commonsys, dan data-ipa-cfg-mgr --
+# diperiksa di versi ULH maupun versi LineageOS resmi lineage-22.2. Jadi ini
+# memang tugas device tree.
+#
+# Tanpa baris ini build gagal di fase Make dengan
+#   "device/oppo/A37/lineage_A37.mk includes non-existent modules in
+#    PRODUCT_PACKAGES: libbt-vendor"
+# padahal modulnya ada di hardware/qcom-caf/bt/libbt-vendor/Android.bp:10.
+PRODUCT_SOONG_NAMESPACES += \
+    hardware/qcom-caf/bt/libbt-vendor
+
 PRODUCT_PACKAGES += \
     libbt-vendor \
 
@@ -518,9 +537,32 @@ PRODUCT_PACKAGES += \
 # (InProcessNetworkStack + com.android.tethering.inprocess). msm8916-common
 # mendapatkannya otomatis lewat common_full_go_phone.mk; device ini memakai
 # common_full_phone.mk sehingga harus dideklarasikan eksplisit.
+#
+# ⚠️ LOS 22 (Android 15): com.android.tethering.inprocess SUDAH TIDAK ADA.
+#
+# Diperiksa di pohon lineage-22.2 ter-sync (15 Agustus 2026):
+#   - nol `override_apex` dan nol `InProcessTethering` di seluruh pohon
+#   - build/make/target/product/go_defaults_common.mk TIDAK lagi menyebutnya,
+#     padahal itulah pasangan kanonik yang dikutip analisis LOS 21 di atas
+#   - InProcessNetworkStack MASIH ADA (packages/modules/NetworkStack/Android.bp:444)
+#
+# Jadi mekanisme perbaikannya dicabut hulu, bukan sekadar berpindah nama.
+# Entrinya dibuang karena build gagal tanpa itu; InProcessNetworkStack
+# dipertahankan karena modulnya masih ada dan tetap relevan.
+#
+# BELUM DIKETAHUI apakah gejala LOS 21 kembali: Tethering.apk bersertifikat
+# networkstack tidak memperoleh MAINLINE_NETWORK_STACK, layanan tethering
+# gagal start, lalu Settings tampil putih polos. Android 15 mungkin sudah
+# menanganinya lewat jalur lain, mungkin juga tidak.
+#
+# YANG HARUS DIPERIKSA DI FASE 5, sebelum menyimpulkan apa pun:
+#   logcat -s SystemServer | grep -i tethering
+#   adb shell dumpsys activity | grep -i tether
+#   cari "Networking module does not have permission"
+# Kalau gejalanya muncul lagi, jalur penggantinya harus dicari dari awal --
+# jangan mengembalikan baris ini, modulnya benar-benar tidak ada.
 PRODUCT_PACKAGES += \
-    InProcessNetworkStack \
-    com.android.tethering.inprocess
+    InProcessNetworkStack
 
 # FM
 PRODUCT_PACKAGES += \
