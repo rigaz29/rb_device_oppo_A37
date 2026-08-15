@@ -13,7 +13,9 @@
 #
 # Yang PERLU DIPERIKSA saat memakai ini di LOS 20: parameter ramoops di
 # BOARD_KERNEL_CMDLINE hanya berfungsi kalau kernel yang dipakai punya patch
-# pstore/ram platform_data. Lihat catatan di BoardConfig.mk.
+# pstore/ram platform_data. Branch kernel lineage-20 dengan patch itu SUDAH
+# dibuat (rigaz29/kernel_oppo_msm8939), jadi tinggal memastikan manifest LOS 20
+# menunjuk ke sana. Rinciannya di BoardConfig.mk di atas blok ramoops.
 #
 # KENAPA INI ADA
 #

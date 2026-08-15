@@ -187,16 +187,26 @@ TARGET_USES_64_BIT_BINDER := true
 # kosong seluruhnya. Terbukti di proyek 21: ramoops tidak pernah menghasilkan
 # apa pun sampai patch itu dipasang.
 #
-# Patchnya ada di kernel rigaz29/kernel_oppo_msm8939 commit 6fa5298755d
-# ("pstore/ram: pulihkan jalur platform_data yang backport DT menghapusnya"),
-# dan per 15 Agustus 2026 commit itu HANYA ADA DI BRANCH lineage-21 — repo
-# kernel belum punya branch lineage-20 sama sekali.
+# ✅ PRASYARAT INI SUDAH DIPENUHI (15 Agustus 2026).
 #
-# Jadi sebelum memakai branch device tree ini untuk build LOS 20, pastikan
-# kernel yang dipakai memuat patch tersebut: cherry-pick 6fa5298755d ke branch
-# kernel LOS 20, atau arahkan manifest ke branch kernel yang sudah memuatnya.
-# Tanpa itu, seluruh blok ramoops di sini diam tanpa suara — dan diam itulah
-# yang paling menyesatkan saat mendiagnosis.
+# Branch kernel `lineage-20` dibuat di rigaz29/kernel_oppo_msm8939, dicabang dari
+# 8cc1519b65d (5 Agustus — commit terakhir SEBELUM ROM LOS 20 yang bekerja
+# dibangun pada 8 Agustus, jadi ia mewakili kernel yang dipakai ROM itu), dengan
+# dua commit di-cherry-pick:
+#
+#   d4916c67ee5  pstore/ram: pulihkan jalur platform_data   (dari 6fa5298755d)
+#   2fed964612d  defconfig: nyalakan deteksi task menggantung (dari 6832040fda8)
+#
+# Yang pertama membuat parameter ramoops di bawah benar-benar terbaca. Yang kedua
+# menyalakan CONFIG_DETECT_HUNG_TASK, tanpa itu `hung_task_panic=1` di cmdline
+# tidak berarti apa-apa. Keduanya memakai `cherry-pick -x`, jadi asal-usulnya
+# terekam di pesan commit.
+#
+# MANIFEST LOS 20 HARUS DIARAHKAN KE BRANCH ITU. Kalau ia masih menunjuk revisi
+# lama, seluruh blok ramoops di sini diam tanpa suara — dan diam itulah yang
+# paling menyesatkan saat mendiagnosis.
+#
+# Belum dibangun maupun diuji di LOS 20.
 #
 # ECC (ramoops.ecc=1) juga bukan kosmetik: tanpa ecc, isi buffer pstore di
 # perangkat ini terbaca rusak sebagian besar. Dengan ecc, hampir seluruhnya
