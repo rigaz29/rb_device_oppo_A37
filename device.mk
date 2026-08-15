@@ -223,6 +223,43 @@ PRODUCT_PACKAGES += \
     android.hardware.audio.effect@6.0-impl \
     android.hardware.bluetooth.audio@2.0-impl
 
+# Bluetooth: pustaka antarmuka HIDL untuk blob QTI.
+#
+# Tanpa baris ini vendor.bluetooth-1-0-qti CRASH-LOOP tiap 5 detik. Diverifikasi
+# di perangkat lewat adb (15 Agustus 2026):
+#
+#   init.svc.vendor.bluetooth-1-0-qti = restarting
+#   linker: CANNOT LINK EXECUTABLE
+#           "/vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti":
+#           library "android.hardware.bluetooth@1.0.so" not found
+#
+# Servisnya blob prebuilt (vendor/oppo/A37/proprietary/vendor/bin/hw/), jadi soong
+# tidak tahu ketergantungannya dan tidak pernah memasang pustakanya. readelf pada
+# blob itu mengonfirmasi DT_NEEDED android.hardware.bluetooth@1.0.so.
+#
+# HARUS varian `.vendor`, bukan `android.hardware.bluetooth@1.0` biasa: konsumennya
+# biner di /vendor sehingga memakai namespace linker vendor. Diperiksa di
+# module-info.json — hanya varian .vendor yang memasang ke
+# system/vendor/lib/android.hardware.bluetooth@1.0.so; varian polos hanya
+# menghasilkan pustaka HOST, dan varian .product memasang ke /system/product/lib.
+#
+# Tidak perlu menambal hardware/interfaces meski blok hidl_interface di
+# bluetooth/1.0/Android.bp tidak punya vendor_available (dicabut sejak a1169dd600,
+# 2017) — varian .vendor tetap tersedia lewat mekanisme VNDK.
+PRODUCT_PACKAGES += \
+    android.hardware.bluetooth@1.0.vendor
+
+# libhidlbase_shim — memulihkan simbol HIDL lama untuk blob QTI.
+#
+# Dipetakan ke dua blob di BoardConfig.mk (TARGET_LD_SHIM_LIBS); alasan lengkap
+# dan buktinya ada di sana. Baris ini yang memastikan pustakanya BENAR-BENAR
+# terpasang — memetakan tanpa memasang adalah kesalahan yang dulu melumpuhkan
+# rild sepenuhnya (lihat catatan libcutils_shim di BoardConfig.mk).
+#
+# Modulnya milik LineageOS: hardware/lineage/compat/Android.bp:400.
+PRODUCT_PACKAGES += \
+    libhidlbase_shim
+
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml
 

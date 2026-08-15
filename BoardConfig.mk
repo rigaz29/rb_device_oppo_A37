@@ -515,11 +515,79 @@ USE_DEVICE_SPECIFIC_GPS := true
 # --dyn-syms), dan seluruh simbol UND non-libc milik blob itu ditemukan di
 # library yang terpasang. ROM LineageOS 18.1 A37 yang beredar juga tidak
 # memuat libcutils_shim.so sama sekali.
+#
+# DUA PEMETAAN TERAKHIR (libhidlbase_shim) — ABI HIDL yang berubah.
+#
+# AOSP mengubah VARIABEL GLOBAL gBnConstructorMap menjadi FUNGSI
+# getBnConstructorMap(). Blob QTI lama dibangun terhadap ABI lama dan mencari
+# simbol variabelnya, yang sudah tidak ada:
+#
+#   dibutuhkan : _ZN7android8hardware7details17gBnConstructorMapE
+#   disediakan : _ZN7android8hardware7details19getBnConstructorMapEv
+#
+# Diverifikasi dengan `nm -D --defined-only` pada libhidlbase.so hasil build:
+# 1408 simbol terbaca sebagai kontrol, gBnConstructorMap = 0 kecocokan.
+#
+# Akibatnya di perangkat (diperiksa lewat adb, 15 Agustus 2026):
+#   init.svc.netmgrd       = restarting
+#   init.svc.perf-hal-1-0  = restarting
+#   cannot locate symbol "_ZN7android8hardware7details17gBnConstructorMapE"
+#     referenced by "/system/vendor/lib/com.quicinc.cne.api@1.0.so"
+#     referenced by "/system/vendor/lib/vendor.qti.hardware.perf@1.0_vendor.so"
+#
+# libhidlbase_shim BUKAN buatan sendiri — ia milik LineageOS,
+# hardware/lineage/compat/Android.bp:400, sumbernya
+# libhidlbase/gBnsConstructorMap.cpp, yang mendeklarasikan ulang kedua simbol
+# lama (gBnConstructorMap dan gBsConstructorMap) demi kompatibilitas ABI.
+#
+# ⚠️⚠️ SELURUH TARGET_LD_SHIM_LIBS SAAT INI TIDAK BERFUNGSI DI BASIS OFFICIAL.
+#
+# Bukan hanya dua baris baru di bawah — pemetaan kamera dan RIL yang sudah lama
+# ada pun INERT. Diverifikasi dengan readelf pada blob hasil build 15 Agustus 2026,
+# seluruh DT_NEEDED dicetak dan diperiksa:
+#
+#   libmmcamera2_stats_modules.so -> libandroid libc libcutils libdl libgui libm
+#       libmmcamera2_is libmmcamera2_stats_algorithm liboemcamera libstdc++ libui
+#       libutils          ... TIDAK ADA libshim_camera.so
+#   com.quicinc.cne.api@1.0.so    -> libhidlbase libhidltransport libhwbinder
+#       liblog libutils libcutils com.quicinc.cne.constants@1.0 libc++ libdl libc
+#       libm              ... TIDAK ADA libhidlbase_shim.so
+#
+# Sebabnya mekanismenya HILANG, bukan pemetaannya salah:
+#   vendor/lineage/config/BoardConfigSoong.mk:134 masih MENGEKSPOR variabelnya
+#     (SOONG_CONFIG_lineageGlobalVars_target_ld_shim_libs)
+#   tapi TIDAK ADA yang mengonsumsinya. Dicari di seluruh tree: nol kecocokan
+#     `ld_shim_libs`/`ShimLibs` di build/soong (760 berkas .go dipindai sebagai
+#     kontrol), nol di build/make, dan vendor/lineage/build/soong hanya berisi
+#     Android.bp + generator/.
+#
+# Basis UL mem-fork build/soong (LineageOS-UL/android_build_soong) dan di sanalah
+# penyuntikan itu diimplementasikan; official memakai LineageOS/android_build_soong
+# yang tidak punya. Delta build_soong TIDAK PERNAH diekstrak ke patches/ul21 —
+# celah yang baru ketahuan setelah pindah basis. Insiden libcutils_shim di atas
+# membuktikan mekanismenya dulu memang bekerja, jadi ini regresi dari perpindahan
+# basis, bukan sesuatu yang tidak pernah ada.
+#
+# Dua baris libhidlbase_shim DIPERTAHANKAN meski inert: modulnya benar
+# (hardware/lineage/compat/Android.bp:400, vendor:true, terpasang ke
+# /vendor/lib/libhidlbase_shim.so — diperiksa di module-info.json) dan
+# pemetaannya benar. Begitu mekanisme penyuntikan dipulihkan, keduanya langsung
+# berlaku. Karena inert, ia juga TIDAK BISA mengulangi kegagalan libcutils_shim:
+# tidak ada DT_NEEDED yang disuntikkan sama sekali.
+#
+# Untuk benar-benar memperbaiki netmgrd dan perf-hal, salah satu dari:
+#   a. port delta build/soong dari UL (memulihkan penyuntikan untuk SEMUA shim,
+#      termasuk kamera dan RIL yang sekarang diam-diam mati), atau
+#   b. ubah blob-nya dari PRODUCT_COPY_FILES (vendor/oppo/A37/A37-vendor.mk:60)
+#      menjadi modul prebuilt soong dengan shared_libs: ["libhidlbase_shim"]
+# Opsi (a) lebih luas dampaknya dan layak didahulukan.
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
     /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
     /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so \
-    /system/vendor/lib/libril-qc-qmi-1.so|libril_shim.so
+    /system/vendor/lib/libril-qc-qmi-1.so|libril_shim.so \
+    /system/vendor/lib/com.quicinc.cne.api@1.0.so|libhidlbase_shim.so \
+    /system/vendor/lib/vendor.qti.hardware.perf@1.0_vendor.so|libhidlbase_shim.so
 
 # SEpolicy
 # SELINUX_IGNORE_NEVERALLOWS masih WAJIB, dan alasannya bukan lagi
