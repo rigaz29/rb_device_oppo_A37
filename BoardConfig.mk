@@ -176,7 +176,33 @@ TARGET_USES_64_BIT_BINDER := true
 # Untuk menghidupkannya lagi saat mendiagnosis bootloop: kembalikan
 # earlyprintk di sini, dan msm_rtb.filter hanya bermakna kalau CONFIG_MSM_RTB
 # ikut dinyalakan lagi di defconfig.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000
+#
+# ⚠️⚠️ PARAMETER ramoops DI BAWAH TIDAK BERGUNA TANPA PATCH KERNEL. ⚠️⚠️
+#
+# Empat parameter yang ditambahkan (console_size, pmsg_size, dump_oops, ecc)
+# melengkapi tiga yang sudah ada, dan semuanya masuk lewat MODULE PARAMETER di
+# cmdline. Jalur itu hanya terbaca kalau kernel punya patch pstore/ram yang
+# memulihkan jalur platform_data — backport device-tree di kernel 3.10 ini
+# MENGHAPUSNYA, sehingga ramoops_probe selalu gagal dan /sys/fs/pstore ter-mount
+# kosong seluruhnya. Terbukti di proyek 21: ramoops tidak pernah menghasilkan
+# apa pun sampai patch itu dipasang.
+#
+# Patchnya ada di kernel rigaz29/kernel_oppo_msm8939 commit 6fa5298755d
+# ("pstore/ram: pulihkan jalur platform_data yang backport DT menghapusnya"),
+# dan per 15 Agustus 2026 commit itu HANYA ADA DI BRANCH lineage-21 — repo
+# kernel belum punya branch lineage-20 sama sekali.
+#
+# Jadi sebelum memakai branch device tree ini untuk build LOS 20, pastikan
+# kernel yang dipakai memuat patch tersebut: cherry-pick 6fa5298755d ke branch
+# kernel LOS 20, atau arahkan manifest ke branch kernel yang sudah memuatnya.
+# Tanpa itu, seluruh blok ramoops di sini diam tanpa suara — dan diam itulah
+# yang paling menyesatkan saat mendiagnosis.
+#
+# ECC (ramoops.ecc=1) juga bukan kosmetik: tanpa ecc, isi buffer pstore di
+# perangkat ini terbaca rusak sebagian besar. Dengan ecc, hampir seluruhnya
+# terbaca. Nilai ini HARUS sama antara kernel ROM dan kernel recovery, karena
+# ecc mengubah tata letak buffer — kalau berbeda, recovery membaca sampah.
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=1
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
@@ -190,6 +216,22 @@ BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
 # sedangkan reboot ke recovery berarti init fatal dan alasannya ada di ramoops.
 # Percobaan 19.1 yang lama sudah memakainya; dipertahankan.
 BOARD_KERNEL_CMDLINE += androidboot.init_fatal_reboot_target=recovery
+
+# Deteksi task menggantung — melengkapi tiga penanganan yang sudah ada.
+#
+# Empat kelas kegagalan boot dan penanganannya di perangkat ini:
+#   kernel panic       CONFIG_PANIC_TIMEOUT=5, tidak ditimpa (kernel/panic.c:45)
+#   CPU hang           CONFIG_MSM_WATCHDOG_V2=y
+#   init FATAL         androidboot.init_fatal_reboot_target=recovery (baris atas)
+#   task menggantung   hung_task_panic=1 (baris ini)
+#   userspace hang     rootdir/etc/bootwatchdog.sh
+#
+# Parameternya dibaca kernel/hung_task.c lewat __setup("hung_task_panic=", ...),
+# jadi ia berlaku dari cmdline tanpa perlu perubahan defconfig. Kalau sebuah task
+# uninterruptible melewati batas hung task, kernel panic — dan panic sudah
+# auto-reboot, sehingga jejaknya masuk ramoops alih-alih perangkat diam selamanya.
+BOARD_KERNEL_CMDLINE += hung_task_panic=1
+
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset 0x01000000 --tags_offset 0x00000100
 BOARD_KERNEL_IMAGE_NAME := Image
 TARGET_KERNEL_SOURCE := kernel/oppo/msm8939
