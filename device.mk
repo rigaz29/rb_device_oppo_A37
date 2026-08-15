@@ -249,17 +249,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0.vendor
 
-# libhidlbase_shim — memulihkan simbol HIDL lama untuk blob QTI.
-#
-# Dipetakan ke dua blob di BoardConfig.mk (TARGET_LD_SHIM_LIBS); alasan lengkap
-# dan buktinya ada di sana. Baris ini yang memastikan pustakanya BENAR-BENAR
-# terpasang — memetakan tanpa memasang adalah kesalahan yang dulu melumpuhkan
-# rild sepenuhnya (lihat catatan libcutils_shim di BoardConfig.mk).
-#
-# Modulnya milik LineageOS: hardware/lineage/compat/Android.bp:400.
-PRODUCT_PACKAGES += \
-    libhidlbase_shim
-
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml
 

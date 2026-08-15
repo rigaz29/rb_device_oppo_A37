@@ -516,29 +516,15 @@ USE_DEVICE_SPECIFIC_GPS := true
 # library yang terpasang. ROM LineageOS 18.1 A37 yang beredar juga tidak
 # memuat libcutils_shim.so sama sekali.
 #
-# DUA PEMETAAN TERAKHIR (libhidlbase_shim) — ABI HIDL yang berubah.
-#
-# AOSP mengubah VARIABEL GLOBAL gBnConstructorMap menjadi FUNGSI
-# getBnConstructorMap(). Blob QTI lama dibangun terhadap ABI lama dan mencari
-# simbol variabelnya, yang sudah tidak ada:
-#
-#   dibutuhkan : _ZN7android8hardware7details17gBnConstructorMapE
-#   disediakan : _ZN7android8hardware7details19getBnConstructorMapEv
-#
-# Diverifikasi dengan `nm -D --defined-only` pada libhidlbase.so hasil build:
-# 1408 simbol terbaca sebagai kontrol, gBnConstructorMap = 0 kecocokan.
-#
-# Akibatnya di perangkat (diperiksa lewat adb, 15 Agustus 2026):
-#   init.svc.netmgrd       = restarting
-#   init.svc.perf-hal-1-0  = restarting
-#   cannot locate symbol "_ZN7android8hardware7details17gBnConstructorMapE"
-#     referenced by "/system/vendor/lib/com.quicinc.cne.api@1.0.so"
-#     referenced by "/system/vendor/lib/vendor.qti.hardware.perf@1.0_vendor.so"
-#
-# libhidlbase_shim BUKAN buatan sendiri — ia milik LineageOS,
-# hardware/lineage/compat/Android.bp:400, sumbernya
-# libhidlbase/gBnsConstructorMap.cpp, yang mendeklarasikan ulang kedua simbol
-# lama (gBnConstructorMap dan gBsConstructorMap) demi kompatibilitas ABI.
+# CATATAN: dua pemetaan libhidlbase_shim SEMPAT ada di sini (15 Agustus 2026) untuk
+# netmgrd dan perf-hal, lalu DIBUANG. Shim itu memindahkan kegagalan satu tahap
+# lebih dalam, bukan menyelesaikannya: ia mendeklarasikan gBnConstructorMap SENDIRI,
+# terpisah dari peta yang dipakai libhidlbase, sehingga blob mendaftar ke satu peta
+# dan HidlBinderSupport.cpp:256 mencari di peta lain ->
+#   F HidlSupport: getOrCreateCachedBinder getBnConstructorMap returned null
+# Akarnya diperbaiki di patches/system_libhidl: simbol lama dipulihkan DI DALAM
+# libhidlbase sebagai penyimpan asli, sehingga semua blob lama tertangani sekaligus
+# tanpa pemetaan per-blob.
 #
 # MEKANISMENYA DIVERIFIKASI BEKERJA — dan cara memverifikasinya penting.
 #
@@ -559,7 +545,8 @@ USE_DEVICE_SPECIFIC_GPS := true
 # hash lama tetap tertinggal dan membaca yang basi memberi jawaban lama.
 #
 # Diverifikasi 15 Agustus 2026 pada linker build 07:48 (20.029 string terbaca
-# sebagai kontrol): keenam pemetaan di bawah ADA, termasuk kedua libhidlbase_shim.
+# sebagai kontrol): pemetaan di bawah ADA. (Saat itu enam; kedua libhidlbase_shim
+# kemudian dibuang, lihat CATATAN di atas — tersisa empat.)
 #
 # Catatan sejarah: delta build/soong UL sempat diduga menyimpan mekanisme ini dan
 # diekstrak untuk memastikan (patches/ul21/build_soong, 3 patch). Ternyata BUKAN —
@@ -569,9 +556,7 @@ TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
     /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
     /system/vendor/lib/hw/camera.vendor.msm8916.so|libshim_camera.so \
-    /system/vendor/lib/libril-qc-qmi-1.so|libril_shim.so \
-    /system/vendor/lib/com.quicinc.cne.api@1.0.so|libhidlbase_shim.so \
-    /system/vendor/lib/vendor.qti.hardware.perf@1.0_vendor.so|libhidlbase_shim.so
+    /system/vendor/lib/libril-qc-qmi-1.so|libril_shim.so
 
 # SEpolicy
 # SELINUX_IGNORE_NEVERALLOWS masih WAJIB, dan alasannya bukan lagi
