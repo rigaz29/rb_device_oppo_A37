@@ -142,6 +142,50 @@ if mkdir -p "$OUT" 2>/dev/null && touch "$OUT/.w" 2>/dev/null; then
     echo "$total"                > "$OUT/tertahan-detik.txt" 2>/dev/null
     getprop ro.build.display.id  > "$OUT/build.txt"     2>/dev/null
     getprop                      > "$OUT/getprop.txt"   2>/dev/null
+
+    # /data/system/environ — MEMILAH KEGAGALAN BOOTCLASSPATH.
+    #
+    # Ditambahkan setelah report/bootfail5 (basis official): zygote SIGABRT 24x
+    # dengan "BOOTCLASSPATH and DEX2OATBOOTCLASSPATH must not be empty" dan
+    # odrefresh dengan "BOOTCLASSPATH is not defined." Boot tidak pernah sampai
+    # system_server.
+    #
+    # Rantainya (system/core/rootdir/init.rc:1047-1048):
+    #     exec_start derive_classpath          -> tulis /data/system/environ/classpath
+    #     load_exports /data/system/environ/classpath  -> ekspor *CLASSPATH
+    #
+    # Semua yang bisa diperiksa dari luar sudah sehat, jadi putusnya PASTI di
+    # antara kedua baris itu: bootclasspath.pb ada di ROM (18 jar),
+    # com.android.sdkext.apex ada, APEX ter-mount (odrefresh JALAN dari
+    # /apex/com.android.art/bin), urutan servis benar (derive_classpath 15,75s ->
+    # odsign 15,98s -> zygote 18,29s), dan SELinux permissive.
+    #
+    # Berkas ini memilah dua kemungkinan yang tersisa dalam SATU kali boot:
+    #   kosong / tidak ada  -> derive_classpath yang gagal menulis
+    #   isinya lengkap      -> load_exports yang tidak memuatnya
+    #
+    # Kenapa tidak cukup mengandalkan dmesg: pesan init soal load_exports ada di
+    # kmsg detik ~15, sementara dmesg.txt di bootfail5 hanya mencakup detik
+    # 130-135 karena ring buffer kernel habis dibanjiri audit SELinux permissive.
+    #
+    # 2>&1 disengaja, bukan 2>/dev/null: pesan galat "No such file or directory"
+    # justru JAWABAN yang dicari, jadi harus ikut tersimpan.
+    {
+        # Ukuran lebih dulu: satu angka ini saja sudah memilah kedua kemungkinan,
+        # tanpa perlu membaca sisanya. Kosong/hilang = derive_classpath.
+        echo "== ukuran classpath (byte)"
+        wc -c /data/system/environ/classpath 2>&1
+        echo
+        echo "== ls -laZ /data/system/environ/"
+        ls -laZ /data/system/environ/ 2>&1
+        echo
+        echo "== isi /data/system/environ/classpath"
+        cat /data/system/environ/classpath 2>&1
+        echo
+        echo "== /data/system (ada tidaknya induknya)"
+        ls -ldZ /data/system 2>&1
+    } > "$OUT/environ.txt" 2>&1
+
     dmesg                        > "$OUT/dmesg.txt"     2>/dev/null
     logcat -d -v threadtime      > "$OUT/logcat.txt"    2>/dev/null
     cat /proc/last_kmsg          > "$OUT/last_kmsg.txt" 2>/dev/null
