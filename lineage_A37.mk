@@ -107,6 +107,15 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_l.mk)
 $(call inherit-product, device/oppo/A37/device.mk)
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
+# APEX tak terkompres — harus disetel DI SINI (setelah semua inherit), bukan di
+# device.mk: basis official mengaktifkan kompresi di
+# build/make/target/product/updatable_apex.mk:26 (PRODUCT_COMPRESSED_APEX := true)
+# dan penyelesaian variabel produk membuat nilai dari rantai inherit menang atas
+# device.mk. Di perangkat ini *.capex membuat apexd gagal mendekompresi ke /data
+# saat boot pertama → zygote tak bisa link libnativeloader.so dari apex art →
+# bootloop. Basis UL terbukti boot dengan *.apex tak terkompres.
+PRODUCT_COMPRESSED_APEX := false
+
 # CATATAN DynamicSystemInstallationService — JANGAN coba filter-out di sini.
 #
 # DSU mensyaratkan partisi dinamis; BoardConfig.mk tidak punya
