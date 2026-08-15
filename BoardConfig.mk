@@ -540,47 +540,31 @@ USE_DEVICE_SPECIFIC_GPS := true
 # libhidlbase/gBnsConstructorMap.cpp, yang mendeklarasikan ulang kedua simbol
 # lama (gBnConstructorMap dan gBsConstructorMap) demi kompatibilitas ABI.
 #
-# ⚠️⚠️ SELURUH TARGET_LD_SHIM_LIBS SAAT INI TIDAK BERFUNGSI DI BASIS OFFICIAL.
+# MEKANISMENYA DIVERIFIKASI BEKERJA — dan cara memverifikasinya penting.
 #
-# Bukan hanya dua baris baru di bawah — pemetaan kamera dan RIL yang sudah lama
-# ada pun INERT. Diverifikasi dengan readelf pada blob hasil build 15 Agustus 2026,
-# seluruh DT_NEEDED dicetak dan diperiksa:
+# Shim TIDAK PERNAH muncul di DT_NEEDED blob. Ia dimuat LINKER saat runtime:
+#   vendor/lineage/build/soong/Android.bp:211  shim_libs_defaults
+#       -> cppflags -DLD_SHIM_LIBS="<daftar>"
+#   bionic/linker/Android.bp:78                memakai shim_libs_defaults
+#   bionic/linker/linker.cpp:693,712,1367      parse_LD_SHIM_LIBS()
 #
-#   libmmcamera2_stats_modules.so -> libandroid libc libcutils libdl libgui libm
-#       libmmcamera2_is libmmcamera2_stats_algorithm liboemcamera libstdc++ libui
-#       libutils          ... TIDAK ADA libshim_camera.so
-#   com.quicinc.cne.api@1.0.so    -> libhidlbase libhidltransport libhwbinder
-#       liblog libutils libcutils com.quicinc.cne.constants@1.0 libc++ libdl libc
-#       libm              ... TIDAK ADA libhidlbase_shim.so
+# Jadi `readelf -d <blob>` adalah INSTRUMEN YANG SALAH untuk memeriksanya, dan
+# hasil nol darinya BUKAN bukti shim mati. Instrumen yang benar adalah string
+# LD_SHIM_LIBS di dalam biner linker:
 #
-# Sebabnya mekanismenya HILANG, bukan pemetaannya salah:
-#   vendor/lineage/config/BoardConfigSoong.mk:134 masih MENGEKSPOR variabelnya
-#     (SOONG_CONFIG_lineageGlobalVars_target_ld_shim_libs)
-#   tapi TIDAK ADA yang mengonsumsinya. Dicari di seluruh tree: nol kecocokan
-#     `ld_shim_libs`/`ShimLibs` di build/soong (760 berkas .go dipindai sebagai
-#     kontrol), nol di build/make, dan vendor/lineage/build/soong hanya berisi
-#     Android.bp + generator/.
+#   strings out/soong/.intermediates/bionic/linker/linker/<varian>/<hash>/linker \
+#     | grep "libshim_camera.so:"
 #
-# Basis UL mem-fork build/soong (LineageOS-UL/android_build_soong) dan di sanalah
-# penyuntikan itu diimplementasikan; official memakai LineageOS/android_build_soong
-# yang tidak punya. Delta build_soong TIDAK PERNAH diekstrak ke patches/ul21 —
-# celah yang baru ketahuan setelah pindah basis. Insiden libcutils_shim di atas
-# membuktikan mekanismenya dulu memang bekerja, jadi ini regresi dari perpindahan
-# basis, bukan sesuatu yang tidak pernah ada.
+# ⚠️ Ambil hash intermediate yang mtime-nya sesuai build terakhir — direktori
+# hash lama tetap tertinggal dan membaca yang basi memberi jawaban lama.
 #
-# Dua baris libhidlbase_shim DIPERTAHANKAN meski inert: modulnya benar
-# (hardware/lineage/compat/Android.bp:400, vendor:true, terpasang ke
-# /vendor/lib/libhidlbase_shim.so — diperiksa di module-info.json) dan
-# pemetaannya benar. Begitu mekanisme penyuntikan dipulihkan, keduanya langsung
-# berlaku. Karena inert, ia juga TIDAK BISA mengulangi kegagalan libcutils_shim:
-# tidak ada DT_NEEDED yang disuntikkan sama sekali.
+# Diverifikasi 15 Agustus 2026 pada linker build 07:48 (20.029 string terbaca
+# sebagai kontrol): keenam pemetaan di bawah ADA, termasuk kedua libhidlbase_shim.
 #
-# Untuk benar-benar memperbaiki netmgrd dan perf-hal, salah satu dari:
-#   a. port delta build/soong dari UL (memulihkan penyuntikan untuk SEMUA shim,
-#      termasuk kamera dan RIL yang sekarang diam-diam mati), atau
-#   b. ubah blob-nya dari PRODUCT_COPY_FILES (vendor/oppo/A37/A37-vendor.mk:60)
-#      menjadi modul prebuilt soong dengan shared_libs: ["libhidlbase_shim"]
-# Opsi (a) lebih luas dampaknya dan layak didahulukan.
+# Catatan sejarah: delta build/soong UL sempat diduga menyimpan mekanisme ini dan
+# diekstrak untuk memastikan (patches/ul21/build_soong, 3 patch). Ternyata BUKAN —
+# isinya allowlist xz, workaround manifest_check.py, dan revert makefile_goal.
+# Mekanismenya memang sudah lengkap di basis official.
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera2_stats_modules.so|libshim_camera.so \
     /system/vendor/lib/libmmcamera2_stats_algorithm.so|libshim_camera.so \
