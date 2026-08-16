@@ -79,13 +79,36 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <!-- vendor.lineage.health IChargingControl (AIDL) — fragment health-service
-         bawaan LineageOS; padanannya di vendor/lineage/config/device_framework_matrix.xml
-         TIDAK dipakai build ini (tidak ada yang mereferensikan berkas itu). -->
+    <!-- vendor.lineage.health (AIDL) — fragment health-service bawaan LineageOS;
+         padanannya di vendor/lineage/config/device_framework_matrix.xml TIDAK
+         dipakai build ini (tidak ada yang mereferensikan berkas itu).
+         =====================================================================
+         DISESUAIKAN untuk LOS 22: HAL ini naik ke AIDL V2, dan entri lama di
+         sini tidak menyebut versi (berarti hanya 1) serta tidak mendaftarkan
+         IFastCharge. Akibatnya checkvintf menolak ROM di langkah pengemasan
+         terakhir:
+
+           ERROR: files are incompatible: The following instances are in the
+           device manifest but not specified in framework compatibility matrix:
+               vendor.lineage.health.IChargingControl/default (@2)
+               vendor.lineage.health.IFastCharge/default (@2)
+
+         Servisnya memang mendeklarasikan keduanya di versi 2 — lihat
+         out/.../vintf/manifest/vendor.lineage.health-service.default.xml yang
+         dihasilkan dari hardware/lineage/interfaces/health/aidl/default/.
+
+         Rentang 1-2 dan kedua interface disalin dari
+         vendor/lineage/config/device_framework_matrix.xml:26-36 agar entri ini
+         tidak lagi menyimpang dari hulu saat versinya naik lagi. -->
     <hal format="aidl" optional="true">
         <name>vendor.lineage.health</name>
+        <version>1-2</version>
         <interface>
             <name>IChargingControl</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFastCharge</name>
             <instance>default</instance>
         </interface>
     </hal>
