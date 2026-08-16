@@ -49,7 +49,8 @@
 # TERBUKTI SALAH, dan pengaman ini sempat MEMBUNUH BOOT YANG SEHAT karenanya.
 # dexpreopt menghilangkan dexopt APLIKASI, tapi tidak menyentuh `odrefresh` —
 # kompilasi ulang BOOT CLASSPATH ART, yang dipicu artefak APEX yang tidak cocok
-# dengan hasil build. Terukur di report/bootfail3/:
+# dengan hasil build. Terukur di report/bootfail3/ milik PROYEK LOS 21 --
+# bukan report/bootfail3/ di repo ini, yang isinya berbeda sama sekali:
 #
 #   odrefresh: No prior cache-info file     -> kompilasi penuh, 190x dex2oat
 #   21:20:52,6 -> 21:22:14,2                = 81,5 detik
