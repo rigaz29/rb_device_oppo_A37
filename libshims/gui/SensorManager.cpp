@@ -164,7 +164,17 @@ sp<SensorEventQueue> SensorManager::createEventQueue()
             ALOGE("createEventQueue: connection is NULL. SensorService died.");
             continue;
         }
-        queue = new SensorEventQueue(connection);
+        // Android 15 menambah dua parameter pada konstruktor SensorEventQueue
+        // (frameworks/native/libs/sensor/include/sensor/SensorEventQueue.h:70-71):
+        //
+        //   SensorEventQueue(const sp<ISensorEventConnection>& connection,
+        //                    SensorManager& sensorManager, String8 packageName)
+        //
+        // Disamakan dengan pemanggil hulu di libs/sensor/SensorManager.cpp:404,
+        // yang mengoper `*this` dan packageName miliknya. Di shim ini
+        // gPackageName bertipe String16 (baris 39) sedangkan parameternya
+        // String8, jadi dikonversi eksplisit.
+        queue = new SensorEventQueue(connection, *this, String8(gPackageName));
         break;
     }
     return queue;
