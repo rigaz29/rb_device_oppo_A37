@@ -1095,3 +1095,18 @@ PRODUCT_PACKAGES += \
     vendor.lineage.livedisplay@2.0-service-sysfs
 
 $(call inherit-product, vendor/oppo/A37/A37-vendor.mk)
+
+# adb lewat USB: PAKSA jalur FunctionFS non-AIO (blocking).
+#
+# Kernel 3.10 perangkat ini tidak punya AIO pada endpoint FunctionFS sama sekali
+# -- drivers/usb/gadget/f_fs.c nol kemunculan aio, dan FFS disediakan lewat
+# gadget android lama (android.c:39 #include "f_fs.c"), bukan CONFIG_USB_FUNCTIONFS.
+# adbd Android 15 memakai io_submit tanpa syarat, sehingga endpoint terbentuk
+# tapi data tidak pernah mengalir: host melihat perangkat "offline" selamanya.
+#
+# init.qcom.usb.rc sudah menyetel keduanya di `on fs`, tapi diulang di sini supaya
+# tersedia dari build.prop -- yaitu sebelum aksi init mana pun sempat berjalan,
+# sehingga tidak ada lagi ketergantungan urutan.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.adb.nonblocking_ffs=false \
+    persist.adb.nonblocking_ffs=false
