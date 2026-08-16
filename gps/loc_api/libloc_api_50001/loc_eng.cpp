@@ -2687,8 +2687,15 @@ int loc_eng_agps_install_certificates(loc_eng_data_s_type &loc_eng_data,
         for (int i=0; i < numberOfCerts; ++i)
         {
             if (certificates[i].length > AGPS_CERTIFICATE_MAX_LENGTH) {
+                /* Tiga %u tapi dulu hanya dua argumen: nomor sertifikat tidak
+                 * pernah dikirim, sehingga %u pertama membaca panjang, kedua
+                 * membaca nilai maksimum, dan ketiga membaca sampah dari stack.
+                 * Clang LOS 22 menolaknya sebagai -Werror,-Wformat-insufficient-args;
+                 * toolchain lama hanya diam. `i` di-cast karena loop-nya `int`
+                 * sedangkan konversinya %u. */
                 LOC_LOGE("cert#(%u) length of %u is too big! greater than %u",
-                        certificates[i].length, AGPS_CERTIFICATE_MAX_LENGTH);
+                        (unsigned)i, certificates[i].length,
+                        AGPS_CERTIFICATE_MAX_LENGTH);
                 ret_val = AGPS_CERTIFICATE_ERROR_GENERIC;
                 break;
             }

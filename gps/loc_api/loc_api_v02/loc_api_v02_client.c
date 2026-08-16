@@ -2192,7 +2192,7 @@ bool locClientGetSizeByRespIndId(uint32_t respIndId, size_t *pRespIndSize)
   // Validate input arguments
   if(pRespIndSize == NULL)
   {
-    LOC_LOGE("%s:%d]: size argument NULL !");
+    LOC_LOGE("%s:%d]: size argument NULL !", __func__, __LINE__);
     return false;
   }
 
@@ -2229,7 +2229,7 @@ bool locClientGetSizeByEventIndId(uint32_t eventIndId, size_t *pEventIndSize)
   // Validate input arguments
   if(pEventIndSize == NULL)
   {
-    LOC_LOGE("%s:%d]: size argument NULL !");
+    LOC_LOGE("%s:%d]: size argument NULL !", __func__, __LINE__);
     return false;
   }
 

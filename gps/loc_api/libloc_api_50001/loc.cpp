@@ -1029,7 +1029,10 @@ static int loc_agps_revoke_certificates(const Sha1CertificateFingerprint* finger
                                         size_t length)
 {
     ENTRY_LOG();
-    LOC_LOGE("%s:%d]: agps_revoke_certificates not supported");
+    /* Dulu dua konversi tanpa satu pun argumen. Idiom di berkas ini
+     * (mis. baris 599) selalu memasok __func__, __LINE__. */
+    LOC_LOGE("%s:%d]: agps_revoke_certificates not supported",
+             __func__, __LINE__);
     int ret_val = AGPS_CERTIFICATE_ERROR_GENERIC;
     EXIT_LOG(%d, ret_val);
     return ret_val;

@@ -87,7 +87,25 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # otorisasi RSA lagi. Wireless debugging tetap bekerja (ia memakai pairing/TLS
 # sendiri, bukan jalur ini); adb USB akan berstatus `unauthorized` sampai dialog
 # di layar perangkat disetujui.
-# WITH_ADB_INSECURE := true
+#
+# ⚠️⚠️ DINYALAKAN LAGI 16 Agustus 2026 untuk bring-up LOS 22. ⚠️⚠️
+#
+# Alasan: Fase 5 LOS 22 belum pernah dijalani di perangkat ini, dan LOS 21
+# menunjukkan kelas kegagalan yang persis melumpuhkan diagnosis -- "berhenti di
+# logo OPPO tanpa satu pun entri USB". Dialog otorisasi muncul DI LAYAR
+# perangkat; kalau layar hitam atau UI membeku, dialog itu tidak bisa ditekan,
+# sehingga adb jadi tidak berguna tepat ketika paling dibutuhkan.
+#
+# adb_keys SENGAJA TIDAK dipakai: akses shell memang dikehendaki terbuka untuk
+# siapa pun, bukan dibatasi ke kunci mesin build. Blok PRODUCT_ADB_KEYS di bawah
+# tetap tidak aktif karena berkas device/oppo/A37/adb_keys memang tidak ada.
+#
+# KONSEKUENSI: ROM ini memberi shell adb tanpa otorisasi kepada SIAPA PUN yang
+# mencolokkan USB. Pilihan sadar untuk perangkat uji. JANGAN DIBAGIKAN.
+#
+# Cara mematikan nanti: KOMENTARI baris di bawah. Jangan setel `false` -- lihat
+# catatan ifdef GNU Make di atas.
+WITH_ADB_INSECURE := true
 
 # Kunci adb build machine, supaya `adb shell` jalan tanpa dialog RSA di layar
 # yang mungkin tak pernah menyala.
