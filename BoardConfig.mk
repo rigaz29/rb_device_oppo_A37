@@ -309,6 +309,25 @@ TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-l
 # File System
 TARGET_FS_CONFIG_GEN := $(PLATFORM_PATH)/config.fs
 BOARD_FLASH_BLOCK_SIZE := 131072
+
+# A37 adalah perangkat NON-A/B: satu slot, tanpa partisi _a/_b.
+#
+# WAJIB DISETEL EKSPLISIT SEJAK ANDROID 15. Sebelumnya nilai kosong berarti
+# non-A/B, jadi device tree ini tidak pernah perlu menyebutnya. Di A15
+# build/make/core/board_config.mk:945-947 membalik defaultnya:
+#
+#   ifeq ($(AB_OTA_UPDATER),)
+#   AB_OTA_UPDATER := true
+#   endif
+#
+# Akibatnya misc_info.txt memuat ab_update=true, dan pengemasan OTA gagal di
+# langkah paling akhir (100%, setelah seluruh image jadi):
+#
+#   AssertionError: META/ab_partitions.txt is required for ab_update.
+#
+# Berkas itu tidak akan pernah ada karena perangkat ini memang tidak punya
+# partisi A/B.
+AB_OTA_UPDATER := false
 BOARD_BOOTIMAGE_PARTITION_SIZE := 33554432
 BOARD_CACHEIMAGE_PARTITION_SIZE := 126877696
 BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
