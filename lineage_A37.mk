@@ -193,9 +193,32 @@ PRODUCT_MODEL := A37
 PRODUCT_MANUFACTURER := Oppo
 
 # Build fingerprint
+#
+# Nama kunci BERUBAH di Android 15. PRODUCT_BUILD_PROP_OVERRIDES kini divalidasi
+# oleh build/soong/scripts/gen_build_prop.py:50-66, yang MENOLAK kunci apa pun
+# yang tidak ada di konfigurasi produk:
+#
+#   Key "PRIVATE_BUILD_DESC" isn't a valid prop override
+#
+# Padanannya di A15 (diverifikasi di gen_build_prop.py, bukan ditebak):
+#
+#   PRIVATE_BUILD_DESC -> BuildDesc     :114 dibentuk, :274 jadi ro.build.description
+#   TARGET_DEVICE      -> DeviceName    :155 jadi ro.product.<part>.device
+#                                       :271 jadi ro.build.product
+#
+# ro.lineage.device dan ro.lineage.build.description TIDAK ikut berubah, karena
+# LineageDesc/LineageDevice disalin di baris 123-124 SEBELUM override_config()
+# dijalankan di baris 129. Jadi identitas Lineage tetap A37 dan pencocokan OTA
+# tidak terganggu -- hanya identitas "stok" yang dipalsukan. Itu memang yang
+# diinginkan.
+#
+# TANPA TANDA KUTIP, disengaja. Parser di :55-61 memecah nilai per kata dan
+# menyambungnya kembali; tanda kutip akan ikut masuk ke nilai propertinya secara
+# harfiah. Kata pertama setelah spasi yang mengandung "=" memulai kunci baru,
+# jadi DeviceName=A37f di bawah tetap terbaca sebagai kunci terpisah.
 PRODUCT_BUILD_PROP_OVERRIDES += \
-    PRIVATE_BUILD_DESC="msm8916_64-user 5.1.1 LMY47V eng.root.20190711.032745 release-keys" \
-    TARGET_DEVICE="A37f"
+    BuildDesc=msm8916_64-user 5.1.1 LMY47V eng.root.20190711.032745 release-keys \
+    DeviceName=A37f
 
 BUILD_FINGERPRINT := OPPO/A37fw/A37f:5.1.1/LMY47V/1519717163:user/release-keys
 
