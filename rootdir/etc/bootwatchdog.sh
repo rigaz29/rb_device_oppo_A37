@@ -30,9 +30,10 @@
 # diubah dari recovery tanpa membangun ulang ROM:
 #
 #   setprop persist.a37.bootwatchdog 0            matikan sama sekali
-#   setprop persist.a37.bootwatchdog.timeout 90   ganti batas (detik)
+#   setprop persist.a37.bootwatchdog.timeout 90   ganti batas (detik, default 300)
 #
-# BATAS DEFAULT 120 DETIK — DARI PENGUKURAN, BUKAN TEBAKAN.
+# BATAS DEFAULT 300 DETIK. Angka 120 di bawah adalah PENGUKURAN yang jadi
+# dasarnya; lihat catatan kenaikan menjelang deklarasi BATAS.
 #
 # Diukur dari bugreport perangkat nyata yang menjalankan LOS 20 dengan sehat
 # (report/bugreport.zip, properti ro.boottime.* dalam nanodetik):
@@ -41,8 +42,8 @@
 #   bootanim         19,2 s
 #   wpa_supplicant   34,3 s   <- servis boot terakhir
 #
-# Jadi boot sehat di perangkat ini selesai sekitar 40 detik, dan 120 detik
-# memberi margin 3x.
+# Jadi boot sehat di perangkat ini selesai sekitar 40 detik. Batas semula 120
+# detik memberi margin 3x; kini 300 detik, margin 7,5x.
 #
 # ⚠️ ASUMSI "WITH_DEXPREOPT=true jadi tidak ada dexopt besar di boot pertama"
 # TERBUKTI SALAH, dan pengaman ini sempat MEMBUNUH BOOT YANG SEHAT karenanya.
@@ -59,17 +60,25 @@
 # hanya lambat sekali sekali.
 #
 # Karena itu waktu selama ART mengompilasi TIDAK DIHITUNG (lihat loop di bawah).
-# Batas 120 detik dipertahankan sebagai anggaran "tidak ada kemajuan", karena
-# untuk mendeteksi hang sungguhan ia memang tepat.
+# Batas itu adalah anggaran "tidak ada kemajuan", bukan anggaran boot total.
 #
-# Kenapa tidak lebih longgar: false positive di sini MURAH — perangkat masuk
-# recovery, tempat adb hidup dan semuanya bisa dibereskan lewat properti di
-# atas. Yang mahal justru menunggu, karena setiap percobaan diagnosis menahan
-# orang di depan layar. Asimetrinya berpihak pada batas yang lebih pendek.
+# DINAIKKAN KE 300 DETIK (5 MENIT) — atas permintaan, 16 Agustus 2026.
 #
-# Kalau boot pertama setelah flash ternyata butuh lebih dari 120 detik di eMMC
-# yang lambat, gejalanya jelas: perangkat masuk recovery padahal /data/bootfail
-# menunjukkan boot sedang berjalan normal. Naikkan lewat properti, bukan rebuild.
+# Alasan penimbangan di atas ("asimetrinya berpihak pada batas yang lebih
+# pendek") berlaku selama false positive murah. Itu benar sewaktu kegagalannya
+# cepat dan berulang. Sekarang tidak lagi: boot 2 bertahan 199 detik dan
+# dipotong saat netd masih berputar, sehingga tidak pernah terlihat apakah ada
+# keadaan yang akhirnya stabil setelah menit ketiga.
+#
+# 300 detik memberi ruang untuk kasus yang paling mungkin sekarang:
+#   - odrefresh penuh 81,5 detik yang menumpuk dengan crash-loop servis
+#   - eMMC lambat pada boot pertama setelah flash
+# dan tetap di bawah PAGU MUTLAK 600 detik di bawah, jadi hang sungguhan
+# masih tertangkap.
+#
+# Kalau nanti akar-akar kegagalan sudah bersih dan boot sehat kembali ~40 detik,
+# nilai ini layak diturunkan lagi — diagnosis yang cepat lebih berharga saat
+# kegagalannya memang cepat.
 
 # Nilai bukan-angka jatuh ke default. Nilai di bawah 30 detik juga ditolak:
 # `timeout 0` akan membuat loop tidak pernah berjalan dan perangkat langsung
@@ -77,9 +86,9 @@
 # dan untuk itu ada persist.a37.bootwatchdog=0.
 BATAS="$(getprop persist.a37.bootwatchdog.timeout)"
 case "$BATAS" in
-    ''|*[!0-9]*) BATAS=120 ;;
+    ''|*[!0-9]*) BATAS=300 ;;
 esac
-[ "$BATAS" -lt 30 ] && BATAS=120
+[ "$BATAS" -lt 30 ] && BATAS=300
 JEDA=5
 OUT=/data/bootfail
 
