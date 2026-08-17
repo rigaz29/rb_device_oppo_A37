@@ -82,6 +82,9 @@ struct CameraMemory {
     void* data;
     camera_memory_t mem;
     int fd;
+    // A37: hanya fd yang KITA buat yang boleh ditutup. Kalau pemanggil menyerahkan
+    // fd (fd >= 0 saat masuk get_memory), penutupan jadi milik pemanggil.
+    bool owns_fd;
 };
 
 typedef struct {
@@ -188,8 +191,15 @@ void release_memory(camera_memory_t* memory)
     if (memory) {
         CameraMemory* cameraMem = static_cast<CameraMemory*>(memory->handle);
         if (cameraMem) {
-            if (cameraMem->data) {
+            // A37: MAP_FAILED, bukan nullptr, adalah nilai gagal mmap.
+            if (cameraMem->data && cameraMem->data != MAP_FAILED) {
                 munmap(cameraMem->data, cameraMem->mem.size);
+            }
+            // A37: fd sebelumnya TIDAK PERNAH ditutup di mana pun. Setiap alokasi
+            // buffer membocorkan satu fd; sesi kamera mengalokasikan buffer terus
+            // menerus sehingga batas fd proses habis dan kamera mati.
+            if (cameraMem->owns_fd && cameraMem->fd >= 0) {
+                close(cameraMem->fd);
             }
             free(cameraMem);
         }
@@ -206,9 +216,12 @@ camera_memory_t* get_memory(int fd, size_t buf_size, uint_t num_bufs, void* user
         return nullptr;
     }
 
+    bool owns_fd = false;
+
     if (fd < 0) {
+        owns_fd = true;
         if (properties.use_memfd)
-            fd = memfd_create("CameraHeap", 0);
+            fd = memfd_create("CameraHeap", MFD_CLOEXEC);
         else
             fd = ashmem_create_region("CameraHeap", buf_size);
 
@@ -222,7 +235,19 @@ camera_memory_t* get_memory(int fd, size_t buf_size, uint_t num_bufs, void* user
     }
 
     cameraMem->fd = fd;
+    cameraMem->owns_fd = owns_fd;
     cameraMem->data = mmap(nullptr, buf_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    // A37: mmap gagal mengembalikan MAP_FAILED ((void*)-1), BUKAN nullptr. Tanpa
+    // pemeriksaan ini pointer itu diserahkan ke HAL1 sebagai buffer sah dan HAL
+    // menulis ke alamat -1.
+    if (cameraMem->data == MAP_FAILED) {
+        ALOGE("Error: mmap failed for %zu bytes: %s", buf_size, strerror(errno));
+        if (owns_fd)
+            close(fd);
+        free(cameraMem);
+        return nullptr;
+    }
 
     cameraMem->mem.data = cameraMem->data;
     cameraMem->mem.size = buf_size;
@@ -2100,10 +2125,16 @@ static void camera_convert_parameters(int camera_id, const char *settings, Camer
     float zoom_max = 1.0;
 
     if (zoom_support_str) {
+        // A37: penjaga di atas memeriksa "zoom-supported", BUKAN "zoom-ratios".
+        // HAL1 yang menyatakan zoom didukung tapi tidak mencantumkan rasionya
+        // membuat params.get() mengembalikan NULL dan strncpy men-deref NULL.
+        const char* zoom_ratios_str = params.get("zoom-ratios");
+        if (zoom_ratios_str) {
         char zoom_ratios[1024];
-        strncpy(zoom_ratios, params.get("zoom-ratios"), 1024);
+        // strncpy dengan n == sizeof(buffer) TIDAK menjamin NUL; sisakan satu byte.
+        strncpy(zoom_ratios, zoom_ratios_str, sizeof(zoom_ratios) - 1);
+        zoom_ratios[sizeof(zoom_ratios) - 1] = '\0';
 
-        int ratios[256];
         int count = 0;
 
         char *token = strtok(zoom_ratios, ",");
@@ -2115,6 +2146,7 @@ static void camera_convert_parameters(int camera_id, const char *settings, Camer
 
         if (count > 1)
             zoom_max = (float)hal1_zoom_ratios[camera_id][count - 1] * 0.01f;
+        }
     }
 
     metadata->update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &zoom_max, 1);
