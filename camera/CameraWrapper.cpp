@@ -65,8 +65,20 @@ static struct hw_module_methods_t camera_module_methods = {
 camera_module_t HAL_MODULE_INFO_SYM = {
     .common = {
         .tag = HARDWARE_MODULE_TAG,
-        .version_major = 1,
-        .version_minor = 0,
+        // A37: HARUS memakai konstanta terkemas, bukan angka mentah.
+        // hardware.h:112 mendefinisikan version_major SEBAGAI module_api_version,
+        // sehingga ".version_major = 1" menyetel module_api_version = 1, padahal
+        // CAMERA_MODULE_API_VERSION_1_0 bernilai (1<<8)|0 = 256.
+        //
+        // HAL3on1 memilih cara membuka device dari nilai itu:
+        //   == CAMERA_MODULE_API_VERSION_1_0 (256) -> methods->open()
+        //   >= CAMERA_MODULE_API_VERSION_2_3 (515) -> open_legacy()
+        //   selain itu                              -> -EINVAL
+        // Dengan nilai 1, keduanya meleset dan adapter gagal dengan
+        // "Failed to open HAL1 device" -> "Camera info query failed!" ->
+        // provider legacy/0 tidak pernah naik -> nol kamera terdeteksi.
+        .module_api_version = CAMERA_MODULE_API_VERSION_1_0,
+        .hal_api_version = HARDWARE_HAL_API_VERSION,
         .id = CAMERA_HARDWARE_MODULE_ID,
         .name = "msm8916 Camera Wrapper",
         .author = "The CyanogenMod Project",
