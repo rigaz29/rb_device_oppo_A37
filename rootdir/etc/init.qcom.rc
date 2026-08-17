@@ -205,6 +205,10 @@ service ril-daemon2 /vendor/bin/hw/rild -c 2
     user radio
     group radio cache inet misc audio log readproc wakelock
     capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
+    # Alasan sama dengan vendor.ril-daemon di hardware/ril/rild/rild.rc:
+    # libril-qc-qmi-1.so menuntut simbol lama yang hanya ada di libril_shim.so,
+    # dan TARGET_LD_SHIM_LIBS sudah mati di 22 sehingga shim tak pernah dimuat.
+    setenv LD_PRELOAD /vendor/lib/libril_shim.so
 
 service set_baseband /vendor/bin/sh /system/vendor/bin/set_baseband.sh
     class late_start
