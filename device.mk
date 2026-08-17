@@ -497,6 +497,36 @@ PRODUCT_PACKAGES += \
 # Network stack — 18.1: varian in-process (tanpa APEX)
 # Sumber: msm8916-common lineage-18.1
 #
+# ⚠️ DIUBAH 17 Agustus 2026: InProcessNetworkStack -> NetworkStack.
+#
+# Akar hotspot/tethering mati DAN menu USB hang 60 detik, terukur di perangkat:
+#
+#   Permission [android.permission.MAINLINE_NETWORK_STACK]
+#     sourcePackage = com.android.networkstack.inprocess
+#     uid = 1000                 <- platform
+#     prot = signature           <- HANYA untuk paket bersertifikat SAMA
+#
+# InProcessNetworkStack bersertifikat "platform" (Android.bp:451) dan
+# mendefinisikan izin itu, sementara TetheringNext di APEX bersertifikat
+# "networkstack" (sidik jari e708811f vs b4addb29). Sertifikat beda ->
+# izin tidak pernah diberikan -> ConnectivityModuleConnector gagal di
+# checkModuleServicePermission -> SystemServer tidak pernah menjalankan
+# ServiceManager.addService("tethering") (SystemServer.java:3357-3364).
+#
+# Akibatnya "service check tethering" -> not found, TetheringManager
+# menjalankan startPollingForConnector() yang polling selamanya, dan
+# TetheringManager.isTetheringSupported() dari UsbBackend memblokir main
+# thread Settings sampai 60 detik lalu melempar Callback timeout.
+#
+# NetworkStack (Android.bp:496) bersertifikat "networkstack" dan memakai
+# AndroidManifest.xml yang mendefinisikan izin yang sama, sehingga sertifikat
+# pendefinisi dan pemakainya cocok.
+#
+# Ongkosnya: network stack berjalan di prosesnya sendiri, bukan di dalam
+# system_server. Beberapa puluh MB RAM pada perangkat 2 GB -- ditukar dengan
+# hotspot, tethering, dan menu USB yang berfungsi.
+#
+# --- catatan lama, sebagian sudah tidak berlaku ---
 # InProcessTethering WAJIB berpasangan dengan InProcessNetworkStack.
 # Tanpa TetheringService, TetheringManager.isTetheringSupported() menunggu
 # ConditionVariable yang tidak pernah di-signal, dan itu membekukan MAIN THREAD
@@ -563,7 +593,7 @@ PRODUCT_PACKAGES += \
 # Kalau gejalanya muncul lagi, jalur penggantinya harus dicari dari awal --
 # jangan mengembalikan baris ini, modulnya benar-benar tidak ada.
 PRODUCT_PACKAGES += \
-    InProcessNetworkStack
+    NetworkStack
 
 # FM
 PRODUCT_PACKAGES += \
