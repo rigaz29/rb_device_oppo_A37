@@ -230,6 +230,27 @@ service qcamerasvr /system/vendor/bin/mm-qcamera-daemon
     user camera
     group camera gps system inet input graphics
     writepid /dev/cpuset/camera-daemon/tasks
+    # libmmcamera2_stats_modules.so menuntut android::SensorManager::SensorManager(),
+    # konstruktor tanpa argumen yang sudah lama dicabut dari Android. libshim_camera.so
+    # menyediakannya (nm: _ZN7android13SensorManagerC1Ev), tapi tidak ada yang pernah
+    # memuatnya: TARGET_LD_SHIM_LIBS di BoardConfig.mk:574 SEPENUHNYA MATI di 22 --
+    # tidak ada satu pun kode di vendor/lineage maupun build/make yang memprosesnya,
+    # dan mekanisme LD_SHIM_LIBS tidak ada lagi di bionic/linker.
+    #
+    # Akibatnya mm-qcamera-daemon gagal link setiap kali dijalankan
+    # ("CANNOT LINK EXECUTABLE ... cannot locate symbol"), init.svc.qcamerasvr
+    # terus restarting, dan kamera tidak bisa dibuka sama sekali.
+    #
+    # LD_PRELOAD memuat shim sebelum blob diresolusi. Diuji langsung di perangkat
+    # lewat adb sebelum ROM dibangun: tanpa LD_PRELOAD gagal link seketika,
+    # dengan LD_PRELOAD daemon berjalan tanpa keluhan.
+    #
+    # /system/lib, bukan /system/vendor/lib: shim menaut libsensor, libandroid,
+    # libstagefright, libmedia, dan libgui yang semuanya native:platform, sehingga
+    # sebagai modul vendor ia ditolak build (build/make/core/binary.mk). Perangkat
+    # ini memakai konfigurasi linker legacy (Treble tidak aktif) -- /system dan
+    # /vendor sama-sama dir.legacy -- jadi lintas-partisi di sini sah.
+    setenv LD_PRELOAD /system/lib/libshim_camera.so
 
 on property:init.svc.media=restarting
     restart qcamerasvr

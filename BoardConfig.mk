@@ -488,6 +488,10 @@ TARGET_USES_MEDIA_EXTENSIONS := true
 BOARD_GLOBAL_CFLAGS += -DCAMERA_VENDOR_L_COMPAT
 BOARD_GLOBAL_CFLAGS += -DCONFIG_OPPO_CAMERA_51
 USE_DEVICE_SPECIFIC_CAMERA := true
+# ⚠️ TIDAK BERFUNGSI di 22 — diperiksa 17 Agustus 2026: tidak ada satu pun kode di
+# vendor/lineage, build/make, maupun frameworks/av yang membaca variabel ini.
+# Dibiarkan sebagai catatan sejarah. Jalur kamera sekarang HAL3on1 (camera/hal3on1),
+# yang tidak membutuhkannya.
 TARGET_HAS_LEGACY_CAMERA_HAL1 := true
 # Menyalakan qti_camera_device_defaults: -DQTI_CAMERA_DEVICE +
 # vendor.qti.hardware.camera.device@1.0 pada libcameraservice. Dibutuhkan patch

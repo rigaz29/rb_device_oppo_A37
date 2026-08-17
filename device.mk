@@ -401,6 +401,7 @@ PRODUCT_PACKAGES += \
     libshim_camera \
     libcamera_shim \
     camera.msm8916 \
+    camera.legacy.msm8916 \
     Aperture
 # APLIKASI KAMERA: Aperture di 20 (Camera2 di 19.1, Snap di 18.1).
 #
