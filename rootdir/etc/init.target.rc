@@ -82,7 +82,12 @@ on post-fs
     write /proc/sys/vm/page-cluster 0
     # swappiness 60: dengan LZ4 zram, swap murah — manfaatkan untuk
     # menjaga lebih banyak app di background.
-    write /proc/sys/vm/swappiness 60
+    # 100, bukan 60. Nilai 60 adalah default Linux untuk swap ke DISK, di mana
+    # swapping mahal sehingga kernel menahan diri. Di sini swap-nya ke RAM
+    # terkompresi (zram LZ4) -- jauh lebih murah daripada membunuh aplikasi lalu
+    # memuatnya ulang dari eMMC. Diukur: zram terpakai 0 MB padahal RAM bebas
+    # tinggal 90 MB, yang berarti kernel memang enggan memakai swap.
+    write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_background_ratio 10
     write /proc/sys/vm/dirty_expire_centisecs 200
     write /proc/sys/vm/dirty_ratio 30
@@ -157,7 +162,15 @@ on property:sys.boot_completed=1
     # lineageos_a37f_defconfig, jadi /sys/kernel/mm/ksm/ tidak pernah ada.
     # Sengaja tidak dinyalakan: di Snapdragon 410 ongkos CPU untuk scanning KSM
     # tidak sepadan dengan hemat RAM-nya.
-    write /sys/block/mmcblk0/queue/scheduler noop
+    # deadline, BUKAN noop. Baris ini dulu menimpa "scheduler deadline" yang
+    # diset di on post-fs-data, sehingga argumen di komentar blok itu (deadline
+    # lebih cocok untuk eMMC) tidak pernah benar-benar berlaku -- runtime selalu
+    # berakhir di noop.
+    #
+    # noop tidak punya keadilan antar-proses sama sekali: pada eMMC berantrean
+    # tunggal, satu penulisan latar (update aplikasi, dexopt) bisa menahan
+    # pembacaan UI dan terasa sebagai lag.
+    write /sys/block/mmcblk0/queue/scheduler deadline
     write /sys/block/mmcblk0/queue/rq_affinity 0
     write /sys/block/mmcblk0/queue/nr_requests 128
     # Satu baris saja — lihat catatan read_ahead_kb di blok sebelumnya.

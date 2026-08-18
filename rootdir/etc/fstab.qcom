@@ -30,4 +30,9 @@
 # lihat ref/evidence/ramdisk-fstab.qcom.
 /devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto
 /devices/platform/msm_hsusb*                 auto         auto    defaults                                                    voldmanaged=usb:auto
-/dev/block/zram0                             none         swap    defaults zramsize=268435456
+# ZRAM 768 MB (dari 256 MB). Diukur di perangkat: RAM bebas 90 MB dari 1887 MB
+# sementara zram TERPAKAI 0 MB -- swap tidak pernah dipakai karena lmkd membunuh
+# aplikasi lebih dulu. Dengan LZ4 rasio kompresi ~2,5:1, 768 MB menampung ~1,9 GB
+# data efektif dan biayanya hanya RAM yang benar-benar terisi.
+# 768 MB = 40% dari RAM, batas atas rentang yang lazim (25-50%).
+/dev/block/zram0                             none         swap    defaults zramsize=805306368
