@@ -265,18 +265,32 @@
              libwvhidl.so butuh protobuf lama. Lihat catatan di
              proprietary-files.txt. Deklarasi tanpa implementasi bikin klien
              MediaDrm menunggu getService() sia-sia. -->
+        <!-- instance "clearkey" DIBUANG (TODO Fase 3 di device.mk:158, akhirnya
+             dikerjakan). Alasannya persis sama dengan widevine di atas:
+             deklarasi tanpa implementasi membuat klien menunggu sia-sia.
+
+             Android 15 mengirim clearkey sebagai servis AIDL
+             (android.hardware.drm-service.clearkey, terdaftar sebagai
+             android.hardware.drm.IDrmFactory/clearkey), BUKAN HIDL. Yang
+             tersedia lewat HIDL di perangkat ini hanya instance "default".
+
+             Gejalanya terukur: com.android.rkpdapp meminta
+             @1.0::IDrmFactory/clearkey, hwservicemanager mencoba menyalakannya
+             sebagai lazy HAL, gagal dengan PROP_ERROR_HANDLE_CONTROL_MESSAGE,
+             lalu klien menunggu satu detik, berulang 1 kali per detik tanpa
+             henti. Setelah banjir RILJ diperbaiki, sisa ini menjadi 65 dari 99
+             baris log.
+
+             DRM clearkey tetap berfungsi lewat AIDL; yang dibuang hanya
+             deklarasi HIDL yang tidak pernah ada implementasinya. -->
         <interface>
             <name>ICryptoFactory</name>
-            <instance>clearkey</instance>
             <instance>default</instance>
         </interface>
         <interface>
             <name>IDrmFactory</name>
-            <instance>clearkey</instance>
             <instance>default</instance>
         </interface>
-        <fqname>@1.4::ICryptoFactory/clearkey</fqname>
-        <fqname>@1.4::IDrmFactory/clearkey</fqname>
     </hal>
     <!-- wifi/hostapd/supplicant: dihapus — paket service bawa VINTF fragment.
          Sumber: msm8916-common lineage-18.1 -->
