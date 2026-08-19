@@ -879,9 +879,19 @@ PRODUCT_PACKAGES += \
     android.hardware.light@2.0-service.oppo_msm8916
 
 # Properties
+# ccodec=0 mematikan SELURUH Codec 2.0 (Codec2InfoBuilder.cpp:407:
+#   "0 - No Codec 2.0 components are available.").
+# Warisan device tree msm8916 era LOS 14.1, saat CCodec masih baru. Dulu aman
+# karena decoder audio software datang dari OMX.google.*; komponen itu dihapus
+# di Android 12, jadi di 22.2 setelan ini menyisakan NOL decoder audio -- store
+# OMX vendor hanya punya komponen video QCOM. Akibatnya audio mati di semua
+# aplikasi yang memakai MediaCodec (NewPipe bisu, SoundPool gagal muat .ogg).
+# Browser tidak terdampak karena Chromium mendekode audio di prosesnya sendiri.
+# 4 = semua komponen tersedia dengan rank normal; omx_default_rank=0 di bawah
+# menjaga decoder video QCOM tetap diutamakan di atas software.
 PRODUCT_PROPERTY_OVERRIDES += \
     drm.service.enabled=1 \
-    debug.stagefright.ccodec=0 \
+    debug.stagefright.ccodec=4 \
     debug.stagefright.omx_default_rank.sw-audio=1 \
     debug.stagefright.omx_default_rank=0 \
     vendor.mediacodec.binder.size=6 \
