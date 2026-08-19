@@ -272,3 +272,17 @@
 
 /dev/block/platform/soc.0/7824900.sdhci/by-name/frp                             0600    system     system
 /dev/block/platform/soc.0/7824900.sdhci/by-name/config                          0600    system     system
+
+# Node idle_time HARUS sudah bisa ditulis uid system sebelum service composer
+# jalan, bukan menunggu "on boot". init.qcom.rc:149 memang men-chown node ini,
+# tapi blok itu "on boot" -- terlambat. Composer start lebih dulu, gagal buka
+# node, lalu men-delete IdleInvalidator secara mentah padahal thread-nya masih
+# memegang satu strong reference. RefBase modern menganggap itu fatal:
+#   E qdutils : setIdleTimeout:Unable to open
+#               /sys/devices/virtual/graphics/fb0/idle_time node Permission denied
+#   F RefBase : RefBase: object 0x... with strong count 1 deleted. Double owned?
+# Akibatnya android.hardware.graphics.composer@2.1-service SIGABRT tiap boot dan
+# baru hidup setelah init me-restart-nya. ueventd memasang izin saat node dibuat,
+# jadi balapan ini hilang. Perhatikan jalurnya /sys/devices/... (yang dipakai
+# blob), bukan symlink /sys/class/... yang dipakai init.qcom.rc.
+/sys/devices/virtual/graphics/fb0        idle_time      0664    system     graphics
