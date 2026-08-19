@@ -40,3 +40,18 @@
 # TimeKeep
 /sys/devices/soc\.0/qpnp-rtc-[0-9]/rtc/rtc0(/.*)?                         u:object_r:sysfs_rtc:s0
 /(system/vendor|vendor)/bin/timekeep                                      u:object_r:timekeep_exec:s0
+
+# gralloc adalah same-process HAL: ia di-dlopen KE DALAM proses siapa pun yang
+# menggambar, bukan diakses lewat servis binder seperti hwcomposer atau memtrack.
+# Karena itu labelnya harus same_process_hal_file, bukan vendor_file bawaan.
+#
+# Tanpa entri ini terukur 25 denial dalam satu sesi aktivitas singkat, dari
+# system_server, surfaceflinger, platform_app, system_app, dan untrusted_app --
+# semuanya getattr/read/open pada berkas yang sama. Sekarang tidak terlihat
+# akibatnya karena SELinux berjalan permissive; kalau suatu saat dipindah ke
+# enforcing, grafis akan patah.
+#
+# Pola ini sudah dipakai sepolicy QCOM hulu untuk platform sejenis:
+#   device/qcom/sepolicy-legacy-um/legacy/vendor/msm8996/file_contexts:105
+#   device/qcom/sepolicy-legacy-um/legacy/vendor/msm8937/file_contexts:61
+/(system/vendor|vendor)/lib(64)?/hw/gralloc\.msm8916\.so    u:object_r:same_process_hal_file:s0
