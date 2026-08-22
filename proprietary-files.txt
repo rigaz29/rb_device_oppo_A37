@@ -216,8 +216,13 @@ vendor/lib/libqomx_jpegdec.so
 -vendor/lib/libloc_api_v02.so
 -vendor/lib/libloc_ds_api.so
 -vendor/lib/libtime_genoff.so
--vendor/lib/libTimeService.so
--vendor/app/TimeService/TimeService.apk
+# TimeService dibuang: APK-nya di /vendor tapi device ini non-Treble, jadi
+# namespace linker sphal tidak ada dan libTimeService.so mustahil dimuat.
+# Tidak ada yang menaut pustaka itu selain dirinya sendiri; pemakai
+# time_genoff yang sesungguhnya (libril-qc-qmi-1, libdrmtime, lib-imsdpl)
+# memuat libtime_genoff.so langsung. libtime_genoff & time_daemon tetap.
+#-vendor/lib/libTimeService.so
+#-vendor/app/TimeService/TimeService.apk
 
 
 # Vendor --blobs

@@ -257,12 +257,17 @@ vendor/lib64/libthermalioctl.so|d566833bf264923e37d7671e9fc0595618f38385
 vendor/lib/libthermalclient.so|6c9bde1d2d2896b254ea412a256215cfc9e1640d
 
 # Time services - from crackling
--app/TimeService/TimeService.apk|d46e9aa034505127c851edd2db2b9b43d52b111c
+# TimeService dibuang: APK-nya di /vendor tapi device ini non-Treble, jadi
+# namespace linker sphal tidak ada dan libTimeService.so mustahil dimuat.
+# Tidak ada yang menaut pustaka itu selain dirinya sendiri; pemakai
+# time_genoff yang sesungguhnya (libril-qc-qmi-1, libdrmtime, lib-imsdpl)
+# memuat libtime_genoff.so langsung. libtime_genoff & time_daemon tetap.
+#-app/TimeService/TimeService.apk|d46e9aa034505127c851edd2db2b9b43d52b111c
 bin/time_daemon|164edeccc9c61c531cd5ec6ff76503e724d5cb9a
 -vendor/lib64/libtime_genoff.so|fd0d7e009099bb4711738dcca3233d2d67341e98
-vendor/lib64/libTimeService.so|305d5ce4e4f4f94920f6baad1eda6bcef10bdbc0
+#vendor/lib64/libTimeService.so|305d5ce4e4f4f94920f6baad1eda6bcef10bdbc0
 -vendor/lib/libtime_genoff.so|a11a3e573a82ef9f5de3ec437cd6d45eadd0bea8
-vendor/lib/libTimeService.so|0e3c35c8fef864d24697d1cad26318c46366f652
+#vendor/lib/libTimeService.so|0e3c35c8fef864d24697d1cad26318c46366f652
 
 # Postprocessing - from crackling
 bin/mm-pp-daemon|10739f24de0590bec5d618126891831716434912
