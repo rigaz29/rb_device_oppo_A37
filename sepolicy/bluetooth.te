@@ -1,1 +1,14 @@
 allow bluetooth init:binder { call transfer };
+
+# hal_bluetooth_qti menyimpan alamat BT ke persist.vendor.service.bdroid.bdaddr,
+# tapi properti itu tidak punya label sehingga jatuh ke vendor_default_prop:
+#   avc: denied { set } for property=persist.vendor.service.bdroid.bdaddr
+#        scontext=u:r:hal_bluetooth_qti:s0 tcontext=u:object_r:vendor_default_prop:s0
+# Sekarang alamatnya tetap tersimpan hanya karena SELinux permissive; di bawah
+# enforcing alamat BT akan berubah tiap boot.
+#
+# Hulu melabeli varian non-vendor sebagai bluetooth_prop
+# (system/sepolicy/private/property_contexts:86), tapi bluetooth_prop tipe core
+# sedangkan ini namespace persist.vendor.*, jadi dipakai tipe vendor tersendiri --
+# pola yang sama dengan vendor_timekeep_prop di device tree ini.
+set_prop(hal_bluetooth_qti, vendor_bluetooth_prop)
