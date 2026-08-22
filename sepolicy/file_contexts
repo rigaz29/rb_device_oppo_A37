@@ -55,3 +55,13 @@
 #   device/qcom/sepolicy-legacy-um/legacy/vendor/msm8996/file_contexts:105
 #   device/qcom/sepolicy-legacy-um/legacy/vendor/msm8937/file_contexts:61
 /(system/vendor|vendor)/lib(64)?/hw/gralloc\.msm8916\.so    u:object_r:same_process_hal_file:s0
+
+# libmemalloc adalah dependensi langsung gralloc.msm8916.so (DT_NEEDED), jadi ia
+# ikut termuat ke dalam proses aplikasi mana pun yang menggambar. Setelah gralloc
+# dilabeli same_process_hal_file, denial-nya hanya turun satu tingkat ke sini:
+#   avc: denied { read } name="libmemalloc.so" scontext=u:r:untrusted_app
+#        tcontext=u:object_r:vendor_file:s0 app=org.lineageos.aperture
+# Dua dependensi vendor gralloc yang lain, libqdutils.so dan libqdMetaData.so,
+# sudah berlabel benar dari sepolicy QCOM hulu. libmemalloc tidak ikut terlabeli
+# karena ia khas era msm8916 dan tidak ada di berkas platform hulu yang lebih baru.
+/(system/vendor|vendor)/lib(64)?/libmemalloc\.so    u:object_r:same_process_hal_file:s0
