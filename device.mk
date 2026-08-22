@@ -852,7 +852,17 @@ PRODUCT_COPY_FILES += \
 
 # Vibrator
 PRODUCT_PACKAGES += \
-    android.hardware.vibrator@1.0-impl
+    # FASE 2 (23.2): dinonaktifkan sementara, BUKAN dibuang.
+    # hardware/interfaces/vibrator/ di 23.2 hanya punya aidl/; HIDL 1.0 sudah
+    # dihapus hulu, termasuk implementasi passthrough default yang dipakai baris
+    # ini (lihat manifest.xml:232 <transport>passthrough</transport>).
+    # Patch MisterZtr 'Add-HIDL-vibrator-1.0-interface-for-legacy-vendor-HA'
+    # TIDAK cukup: ia hanya mengembalikan interface (IVibrator.hal, types.hal,
+    # Android.bp), tanpa vibrator/1.0/default/.
+    # TODO Fase 6: pilih salah satu -- kembalikan default impl bersama patch
+    # interface itu, atau tulis implementasi AIDL sysfs. Di pohon hanya ada
+    # android.hardware.vibrator-service.example yang sekadar contoh.
+    # Sampai itu dikerjakan: getaran mati, boot tidak terpengaruh.
 
 # RIL
 # libcnefeatureconfig dibuang 7 Agu 2026 (M4): modulnya hanya disediakan repo
@@ -1133,7 +1143,15 @@ PRODUCT_PACKAGES += \
 # register + interface-nya terdeklarasi di manifest = getService(true)
 # menggantung selamanya dan Watchdog membunuh system_server. Lihat manifest.xml.
 PRODUCT_PACKAGES += \
-    vendor.lineage.livedisplay@2.0-service-sysfs
+    # FASE 2 (23.2): dinonaktifkan sementara, BUKAN dibuang.
+    # hardware/lineage/interfaces/livedisplay/ di 23.2 hanya punya aidl/.
+    # Padanan langsungnya ADA: vendor.lineage.livedisplay-service.sysfs.
+    # Tidak ditukar sekarang karena perpindahan HIDL->AIDL juga mengubah cara
+    # VINTF dideklarasikan, dan catatan di manifest.xml:356-380 mencatat bahwa
+    # salah deklarasi membuat servisnya [restarting] permanen tanpa pernah
+    # register -- gejala yang sulit dilacak kalau ditumpuk dengan perubahan lain.
+    # TODO Fase 6: tukar ke -service.sysfs sekalian rapikan blok VINTF-nya,
+    # lalu verifikasi di perangkat. Sampai itu: LiveDisplay mati, boot aman.
 
 $(call inherit-product, vendor/oppo/A37/A37-vendor.mk)
 
