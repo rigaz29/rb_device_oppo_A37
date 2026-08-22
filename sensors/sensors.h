@@ -27,6 +27,34 @@
 #include <hardware/hardware.h>
 #include <hardware/sensors.h>
 
+/*
+ * FASE 2 (23.2): SYN_TIME_SEC dan SYN_TIME_NSEC didefinisikan di sini karena
+ * header UAPI kernel tidak lagi tersedia saat kompilasi.
+ *
+ * Android.mk:13 menunjuk LOCAL_C_INCLUDES ke
+ * $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include, tapi di LineageOS 23.2
+ * direktori itu tidak pernah terisi -- vendor/lineage/build/tasks/kernel.mk
+ * tidak menjalankan headers_install sama sekali. Isinya hanya artefak build
+ * (built-in.o, gen_init_cpio, initramfs_data.cpio), sehingga compiler jatuh ke
+ * header bionic yang tidak mengenal kedua konstanta ini:
+ *
+ *   LightSensor.cpp:260: error: use of undeclared identifier 'SYN_TIME_SEC'
+ *
+ * Nilainya diambil dari kernel perangkat ini sendiri, bukan ditebak:
+ *   kernel/oppo/msm8939/include/uapi/linux/input.h:201  SYN_TIME_SEC   4
+ *   kernel/oppo/msm8939/include/uapi/linux/input.h:202  SYN_TIME_NSEC  5
+ *
+ * Dijaga #ifndef supaya otomatis mundur kalau suatu saat header kernel kembali
+ * diekspor atau bionic menambahkannya.
+ */
+#ifndef SYN_TIME_SEC
+#define SYN_TIME_SEC 4
+#endif
+#ifndef SYN_TIME_NSEC
+#define SYN_TIME_NSEC 5
+#endif
+
+
 __BEGIN_DECLS
 
 /*****************************************************************************/
