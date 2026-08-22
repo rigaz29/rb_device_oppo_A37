@@ -1,3 +1,7 @@
+# Skrip shell, bukan biner ELF. Android 16 memeriksa setiap modul
+# LOCAL_MODULE_CLASS := EXECUTABLES dengan check_elf_files dan menolak:
+#   set_baseband.sh: error: File "..." must have a valid ELF magic word.
+# Pesan errornya sendiri menyebutkan jalan keluarnya untuk Android.mk.
 LOCAL_PATH:= $(call my-dir)
 
 # Configuration scripts
@@ -5,6 +9,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE       := set_baseband.sh
 LOCAL_MODULE_TAGS  := optional
 LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_CHECK_ELF_FILES := false
 LOCAL_SRC_FILES    := etc/set_baseband.sh
 LOCAL_VENDOR_MODULE    := true
 include $(BUILD_PREBUILT)
@@ -13,6 +18,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE       := bootwatchdog.sh
 LOCAL_MODULE_TAGS  := optional
 LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_CHECK_ELF_FILES := false
 LOCAL_SRC_FILES    := etc/bootwatchdog.sh
 LOCAL_VENDOR_MODULE    := true
 include $(BUILD_PREBUILT)

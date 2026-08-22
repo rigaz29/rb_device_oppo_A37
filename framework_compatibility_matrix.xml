@@ -42,6 +42,24 @@
             <instance>default</instance>
         </interface>
     </hal>
+    <!-- memtrack 1.0 — di 23.2 matriks hulu hanya mendeklarasikan memtrack
+         AIDL (compatibility_matrix.202504.xml), sedangkan A37 memakai HIDL:
+         device.mk:33-38 memasang @1.0-impl, @1.0-service, dan modul passthrough
+         memtrack.msm8916. Implementasi AIDL yang tersedia di pohon hanya
+         -service.apex dan -service.example, dan keduanya TIDAK membungkus modul
+         passthrough legacy, jadi bukan pengganti langsung.
+         Errornya:
+           The following instances are in the device manifest but not specified
+           in framework compatibility matrix:
+               android.hardware.memtrack@1.0::IMemtrack/default -->
+    <hal format="hidl" optional="true">
+        <name>android.hardware.memtrack</name>
+        <version>1.0</version>
+        <interface>
+            <name>IMemtrack</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
     <!-- light 2.0 — kernel 3.10, HAL lama. -->
     <hal format="hidl" optional="true">
         <name>android.hardware.light</name>
