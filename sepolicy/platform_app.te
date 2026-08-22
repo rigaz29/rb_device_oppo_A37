@@ -1,4 +1,7 @@
-allow platform_app hal_lineage_touch_hwservice:hwservice_manager find;
+# FASE 2 (23.2): hal_lineage_touch_hwservice adalah tipe HIDL yang sudah tidak
+# dideklarasikan di 23.2 (HAL touch LineageOS kini AIDL saja). Lihat catatan
+# lengkap di init.te. TODO Fase 6: pulihkan sebagai izin AIDL.
+#allow platform_app hal_lineage_touch_hwservice:hwservice_manager find;
 allow platform_app init:binder call;
 allow platform_app device:chr_file { ioctl open read write };
 allow platform_app sysfs:file { getattr open read };

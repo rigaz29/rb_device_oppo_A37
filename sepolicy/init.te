@@ -1,3 +1,14 @@
+# FASE 2 (23.2): dua baris hwservice dinonaktifkan, BUKAN dibuang.
+# hal_lineage_livedisplay_hwservice dan hal_lineage_touch_hwservice adalah tipe
+# HIDL. Di 23.2 kedua HAL LineageOS itu sudah pindah ke AIDL sepenuhnya
+# (hardware/lineage/interfaces/{livedisplay,touch}/ hanya berisi aidl/), sehingga
+# tipenya tidak lagi dideklarasikan di mana pun dan checkpolicy menolak:
+#   device/oppo/A37/sepolicy/init.te:12:
+#     ERROR 'unknown type hal_lineage_livedisplay_hwservice'
+# Diperiksa menyeluruh: dari 20 tipe *_hwservice yang dirujuk sepolicy A37,
+# hanya dua ini yang hilang. hal_vibrator_hwservice masih ada meski impl HIDL-nya
+# sudah tidak ada.
+# TODO Fase 6: kembalikan sebagai izin AIDL saat kedua HAL dipindah ke AIDL.
 allow init bluetooth:binder call;
 allow init camera_data_file:file append;
 allow init cameraserver:fd use;
@@ -9,8 +20,8 @@ allow init hal_bluetooth_hwservice:hwservice_manager { add find };
 allow init hal_graphics_allocator_default:fd use;
 allow init hal_keymaster_hwservice:hwservice_manager add;
 allow init hal_light_hwservice:hwservice_manager add;
-allow init hal_lineage_livedisplay_hwservice:hwservice_manager add;
-allow init hal_lineage_touch_hwservice:hwservice_manager add;
+#allow init hal_lineage_livedisplay_hwservice:hwservice_manager add;
+#allow init hal_lineage_touch_hwservice:hwservice_manager add;
 allow init hal_usb_hwservice:hwservice_manager add;
 allow init hidl_base_hwservice:hwservice_manager add;
 allow init hwservicemanager:binder { call transfer };
