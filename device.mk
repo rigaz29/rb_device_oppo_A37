@@ -915,8 +915,7 @@ $(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,tru
 # di berkas vendor ini menggantikan entri v2 dari profil dasar. Nilai Mode/UID/GID
 # mengikuti definisi memcg legacy AOSP sebelum migrasi ke v2.
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/configs/cgroups.json:$(TARGET_COPY_OUT_VENDOR)/etc/cgroups.json \
-    $(LOCAL_PATH)/configs/zz-a37-vndservicemanager-off.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/zz-a37-vndservicemanager-off.rc
+    $(LOCAL_PATH)/configs/cgroups.json:$(TARGET_COPY_OUT_VENDOR)/etc/cgroups.json
 
 # ⚠️ vendor.lineage.health-service.default dinonaktifkan sementara.
 #
