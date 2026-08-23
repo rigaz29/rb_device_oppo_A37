@@ -1,0 +1,37 @@
+# A37: matikan vndservicemanager.
+#
+# Perangkat ini tidak memakai VNDK (ro.vndk.version kosong), jadi /dev/vndbinder
+# tidak punya guna. Yang dihasilkannya justru kerusakan: SETIAP HAL AIDL vendor
+# mendaftar ke vndservicemanager, bukan servicemanager, sehingga framework tidak
+# pernah menemukannya. Terbukti di perangkat:
+#
+#   vndservice list  ->  android.hardware.wifi.IWifi/default
+#                        android.hardware.drm.IDrmFactory/clearkey
+#   service check android.hardware.wifi.IWifi/default  ->  not found
+#   /proc/<pid>/fd   ->  hanya /dev/vndbinder, tidak ada /dev/binder
+#
+# Sebabnya berlapis:
+#   build/soong/cc/compiler.go:476  setiap varian vendor dapat -D__ANDROID_VNDK__
+#   ProcessState.cpp:56-60          define itu membuat kDefaultDriver = /dev/vndbinder
+#   ProcessState.cpp:148-151        ada jalan mundur ke /dev/binder, TAPI hanya bila
+#                                   /dev/vndbinder tidak bisa diakses
+#
+# Jadi selama /dev/vndbinder ada, jalan mundur itu tidak pernah terpakai. Kernel
+# kini tidak lagi membuatnya (CONFIG_ANDROID_BINDER_DEVICES tanpa vndbinder), dan
+# servis ini harus ikut dimatikan -- kalau dibiarkan ia akan jatuh ke /dev/binder,
+# bentrok dengan servicemanager yang asli, lalu restart selamanya.
+#
+# vndservicemanager terpasang karena base_vendor.mk:105-108 menambahkannya untuk
+# PRODUCT_SHIPPING_API_LEVEL <= 29, dan A37 memang 21 (lineage_A37.mk:185). Nilai
+# itu benar untuk perangkat 2016 dan tidak boleh dipalsukan hanya demi ini.
+#
+# 'override' menggantikan definisi dari /vendor/etc/init/vndservicemanager.rc.
+# Berkas ini dinamai zz- supaya diurai belakangan: parser.cpp:177 mengurutkan isi
+# direktori dengan std::sort sebelum memuatnya.
+service vndservicemanager /vendor/bin/vndservicemanager /dev/vndbinder
+    class core
+    user system
+    group system readproc
+    shutdown critical
+    disabled
+    override
