@@ -843,6 +843,39 @@ PRODUCT_PACKAGES += \
     android.hardware.health@2.1-service \
     vendor.lineage.health-service.default
 
+# Konfigurasi charging control HARUS lewat soong_config di 23.2.
+#
+# TARGET_HEALTH_CHARGING_CONTROL_* di BoardConfig.mk sudah TIDAK DIBACA SIAPA
+# PUN -- diperiksa dengan grep ke seluruh pohon, nol kecocokan di luar device
+# tree ini sendiri. Yang dibaca hanya
+# hardware/lineage/interfaces/health/aidl/default/Android.bp:62 lewat
+# soong_config_variable("lineage_health", ...).
+#
+# Akibat kalau dibiarkan kosong (terlihat di build sebelumnya:
+# out/soong/soong.lineage_A37.variables -> VendorVars.lineage_health KOSONG):
+#
+#   - HEALTH_CHARGING_CONTROL_CHARGING_PATH tak terdefinisi, sehingga yang
+#     terkompilasi adalah cabang #else di ChargingControl.cpp:73 -- loop
+#     while(!mChargingEnabledNode) yang menyisir daftar node bawaan.
+#   - HEALTH_CHARGING_CONTROL_SUPPORTS_BYPASS justru IKUT AKTIF, karena
+#     default-nya di Android.bp:83 mendefinisikannya. Setelan `false` di
+#     BoardConfig tidak berpengaruh sama sekali.
+#
+# Dan kalau IChargingControl tidak pernah register, main thread system_server
+# menggantung di waitForDeclaredService (ChargingControlController.java:85)
+# lalu Watchdog membunuhnya:
+#   WATCHDOG KILLING SYSTEM PROCESS: Blocked in handler on main thread for 70s
+#
+# Jalur node diverifikasi di kernel kita: qpnp-linear-charger.c mengekspos
+# POWER_SUPPLY_PROP_CHARGING_ENABLED, dipetakan power_supply_sysfs.c ke atribut
+# "charging_enabled" pada psy bernama "battery". Node dibuat writable oleh
+# chmod di init.qcom.rc (on fs).
+$(call soong_config_set,lineage_health,charging_control_charging_path,/sys/class/power_supply/battery/charging_enabled)
+$(call soong_config_set,lineage_health,charging_control_charging_enabled,1)
+$(call soong_config_set,lineage_health,charging_control_charging_disabled,0)
+$(call soong_config_set_bool,lineage_health,charging_control_supports_bypass,false)
+$(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,true)
+
 # Touchscreen
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml

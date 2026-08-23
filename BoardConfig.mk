@@ -469,6 +469,11 @@ BACKLIGHT_PATH := /sys/class/leds/lcd-backlight/brightness
 #   :3372 batt_psy bernama "battery"; power_supply_sysfs.c:148 memetakannya ke
 #   atribut sysfs "charging_enabled". CONFIG_QPNP_LINEAR_CHARGER=y di defconfig
 #   (lineageos_a37f_defconfig:334).
+# ⚠️ TIDAK BERLAKU LAGI DI 23.2. Variabel TARGET_HEALTH_CHARGING_CONTROL_* di
+# bawah ini sudah tidak dibaca siapa pun -- diverifikasi dengan grep ke seluruh
+# pohon, nol kecocokan di luar berkas ini. Nilainya kini disetel lewat
+# soong_config di device.mk; lihat komentar di sana. Dipertahankan hanya sebagai
+# jejak asal-usul nilainya.
 TARGET_HEALTH_CHARGING_CONTROL_CHARGING_PATH := /sys/class/power_supply/battery/charging_enabled
 TARGET_HEALTH_CHARGING_CONTROL_CHARGING_ENABLED := 1
 TARGET_HEALTH_CHARGING_CONTROL_CHARGING_DISABLED := 0
