@@ -877,6 +877,46 @@ $(call soong_config_set,lineage_health,charging_control_charging_disabled,0)
 $(call soong_config_set_bool,lineage_health,charging_control_supports_bypass,false)
 $(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,true)
 
+# Deklarasikan memcg sebagai cgroup v1, bukan v2.
+#
+# profil dasar (system/core/libprocessgroup/profiles/cgroups.json) menaruh
+# controller "memory" DI DALAM blok Cgroups2 pada /sys/fs/cgroup. Kernel 3.10
+# tidak punya cgroup v2 sama sekali; memcg yang nyata ter-mount sebagai v1 di
+# /dev/memcg (terbaca di /proc/mounts perangkat).
+#
+# Akibatnya lmkd salah menyimpulkan versi hierarki. statslog.cpp:39-49
+# membandingkan dua jalur:
+#     CgroupGetControllerPath("memory")  -> /sys/fs/cgroup
+#     CgroupGetControllerPath(cgroup2)   -> /sys/fs/cgroup
+# keduanya sama, jadi memcg_version() mengembalikan kV2, dan lmkd.cpp:3619
+# menolak jalan lalu KELUAR:
+#
+#   lowmemorykiller: init_mp_common: global monitoring is only available for
+#                    the v1 cgroup hierarchy
+#   lowmemorykiller: Kernel does not support memory pressure events or
+#                    in-kernel low memory killer
+#   lowmemorykiller: exiting
+#
+# init menghidupkannya lagi, keluar lagi -- init.svc.lmkd = restarting selamanya,
+# /dev/socket/lmkd tidak pernah ada. Setiap updateOomAdj di ActivityManager lalu
+# menunggu lmkd sambil MEMEGANG kunci AMS, menghasilkan stall ~3 detik berulang:
+#
+#   Slow operation: 3028ms so far, now at attachApplicationLocked: after updateOomAdjLocked
+#   Long monitor contention with owner binder:1170_7 at ActivityManagerService.attachAp...
+#
+# dan itu membuat setiap proses yang baru lahir gagal menyelesaikan startup:
+# SystemUI, com.android.phone, providers.media.module, android.process.acore
+# semuanya ANR dengan alasan "failed to complete startup".
+#
+# Perangkat sebenarnya PUNYA yang dibutuhkan lmkd -- /dev/memcg/memory.pressure_level
+# ada. Yang salah hanya deklarasinya.
+#
+# util.cpp:108-110 menimpa entri berdasarkan nama controller, jadi deklarasi v1
+# di berkas vendor ini menggantikan entri v2 dari profil dasar. Nilai Mode/UID/GID
+# mengikuti definisi memcg legacy AOSP sebelum migrasi ke v2.
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/cgroups.json:$(TARGET_COPY_OUT_VENDOR)/etc/cgroups.json
+
 # ⚠️ vendor.lineage.health-service.default dinonaktifkan sementara.
 #
 # Servisnya BERJALAN (init.svc.vendor.lineage_health: running, pid 830), tidak
