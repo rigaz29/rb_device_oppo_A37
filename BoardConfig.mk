@@ -295,9 +295,15 @@ BOARD_KERNEL_CMDLINE += androidboot.init_fatal_reboot_target=recovery
 # androidboot.init_fatal_reboot_target di atas (init FATAL).
 BOARD_KERNEL_CMDLINE += hung_task_panic=1
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset 0x01000000 --tags_offset 0x00000100
-BOARD_KERNEL_IMAGE_NAME := Image
+BOARD_KERNEL_IMAGE_NAME := Image-dtb
 TARGET_KERNEL_SOURCE := kernel/oppo/msm8939
-BOARD_KERNEL_SEPARATED_DT := true
+# BOARD_KERNEL_SEPARATED_DT dinonaktifkan: jalur itu bersandar pada mkbootimg
+# --dt, yang sudah dibuang AOSP di Android 16. dt_image.mk MASIH membangun
+# dt.img dengan benar, tapi tidak ada lagi yang memakainya -- diperiksa dengan
+# grep, nol tempat melewatkan --dt. Penempelan kini dilakukan kernel lewat
+# CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE, dan BOARD_KERNEL_IMAGE_NAME di atas
+# diubah ke Image-dtb. Pendekatan yang sama dipakai a6010 di lineage-23.2.
+# BOARD_KERNEL_SEPARATED_DT := true
 TARGET_KERNEL_ARCH := arm64
 TARGET_CUSTOM_DTBTOOL := dtbToolOppo
 TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
