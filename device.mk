@@ -841,7 +841,8 @@ PRODUCT_ENFORCE_RRO_TARGETS := *
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl \
     android.hardware.health@2.1-service \
-    vendor.lineage.health-service.default
+# DINONAKTIFKAN SEMENTARA -- lihat catatan di bawah.
+#    vendor.lineage.health-service.default
 
 # Konfigurasi charging control HARUS lewat soong_config di 23.2.
 #
@@ -875,6 +876,36 @@ $(call soong_config_set,lineage_health,charging_control_charging_enabled,1)
 $(call soong_config_set,lineage_health,charging_control_charging_disabled,0)
 $(call soong_config_set_bool,lineage_health,charging_control_supports_bypass,false)
 $(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,true)
+
+# ⚠️ vendor.lineage.health-service.default dinonaktifkan sementara.
+#
+# Servisnya BERJALAN (init.svc.vendor.lineage_health: running, pid 830), tidak
+# crash (nol tombstone), dan nol keluaran log -- tapi tidak pernah mendaftarkan
+# IChargingControl. Akibatnya main thread system_server menggantung di
+# waitForDeclaredService dan Watchdog membunuhnya:
+#
+#   WATCHDOG KILLING SYSTEM PROCESS: Blocked in handler on main thread for 70s
+#     at ChargingControlController.<init>(ChargingControlController.java:85)
+#
+#   159x "Waited one second for vendor.lineage.health.IChargingControl/default"
+#
+# Dua dugaan sudah gugur dengan bukti:
+#   - loop konstruktor: hilang setelah soong_config di atas disetel; biner tidak
+#     lagi memuat string "Failed to access() file" dan hanya menanam satu node.
+#   - crash: kesepuluh tombstone di perangkat semuanya milik cameraserver.
+#
+# waitForDeclaredService hanya menggantung kalau servis DIDEKLARASIKAN di VINTF
+# tapi tidak muncul. Dengan paketnya dilepas, fragmen VINTF-nya ikut hilang,
+# fungsi itu langsung mengembalikan null, dan framework menanganinya dengan
+# rapi -- ChargingControlController.java:88-91 mencatat "Lineage Health HAL not
+# found" lalu keluar.
+#
+# Yang hilang: charging control (batas pengisian / jadwal). Fitur tambahan
+# Lineage, bukan bagian inti.
+#
+# Setelan soong_config di atas sengaja DIPERTAHANKAN supaya benar begitu servis
+# ini dihidupkan lagi. Penyelidikan lanjutan menunggu perangkat bisa boot, di
+# mana prosesnya bisa diperiksa langsung (ps, /proc/<pid>/stack, debuggerd -b).
 
 # Touchscreen
 PRODUCT_COPY_FILES += \
