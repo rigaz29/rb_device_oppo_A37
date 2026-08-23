@@ -254,7 +254,7 @@ service qcamerasvr /system/vendor/bin/mm-qcamera-daemon
     # sebagai modul vendor ia ditolak build (build/make/core/binary.mk). Perangkat
     # ini memakai konfigurasi linker legacy (Treble tidak aktif) -- /system dan
     # /vendor sama-sama dir.legacy -- jadi lintas-partisi di sini sah.
-    setenv LD_PRELOAD /system/lib/libshim_camera.so
+    setenv LD_PRELOAD /system/lib/libshim_camera_sensor.so
 
 on property:init.svc.media=restarting
     restart qcamerasvr

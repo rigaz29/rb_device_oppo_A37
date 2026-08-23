@@ -71,6 +71,47 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 
 include $(BUILD_SHARED_LIBRARY)
 
+# ---------------------------------------------------------------------------
+# libshim_camera_sensor -- shim ramping khusus mm-qcamera-daemon.
+#
+# Daemon hanya membutuhkan SEMBILAN simbol dari shim. Diukur langsung, bukan
+# ditebak: irisan antara simbol UND milik libmmcamera2_stats_modules.so dan
+# simbol yang didefinisikan libshim_camera.so:
+#
+#   ASensorEventQueue_disableSensor   ASensorManager_createEventQueue
+#   ASensorEventQueue_enableSensor    ASensorManager_destroyEventQueue
+#   ASensorEventQueue_getEvents       ASensorManager_getDefaultSensor
+#   ASensorEventQueue_setEventRate    ASensor_getMinDelay
+#   _ZN7android13SensorManagerC1Ev
+#
+# Delapan pertama dari android/sensor.cpp, yang terakhir dari
+# gui/SensorManager.cpp. Nol dari MediaCodec/AudioSource/MetaData/
+# GraphicBuffer/CameraParameters.
+#
+# Kenapa dipisah: libshim_camera menaut libmedia, dan libmedia menaut
+# libandroidicu.so yang hanya ada di /apex/com.android.i18n/lib. Namespace
+# vendor tidak punya tautan ke APEX itu, jadi daemon gagal link:
+#
+#   CANNOT LINK EXECUTABLE "/system/vendor/bin/mm-qcamera-daemon":
+#   library "libandroidicu.so" not found: needed by /system/lib/libmedia.so
+#
+# Pustaka yang ditaut modul ramping ini -- libsensor, libutils, liblog,
+# libbinder, libandroid -- sudah diperiksa: DT_NEEDED-nya hanya libc/libm/libdl
+# di luar /system/lib, jadi tidak ada rantai APEX sama sekali.
+#
+# libshim_camera yang gemuk TETAP dipakai lewat TARGET_LD_SHIM_LIBS untuk blob
+# yang berjalan di dalam cameraserver, dan di sana libmedia memang tersedia.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+    android/sensor.cpp \
+    gui/SensorManager.cpp
+LOCAL_C_INCLUDES := gui
+LOCAL_SHARED_LIBRARIES := libsensor libutils liblog libbinder libandroid
+LOCAL_MODULE := libshim_camera_sensor
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
+
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := camera_shim.c
 LOCAL_SHARED_LIBRARIES := libutils libgui liblog
