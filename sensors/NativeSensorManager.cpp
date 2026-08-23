@@ -859,7 +859,14 @@ int NativeSensorManager::getSensorListInner()
 		*nodename++ = '/';
 
 		for (i = 0; i < ARRAY_SIZE(node_map); i++) {
-			strlcpy(nodename, node_map[i].node, PATH_MAX - strlen(SYSFS_CLASS) - strlen(de->d_name));
+			/* -1 untuk '/' yang ditulis tepat sebelum nodename di atas. Tanpa itu
+			 * batas yang diberikan satu byte lebih besar dari ruang yang ada, dan
+			 * FORTIFY Android 16 -- yang kini memakai __builtin_dynamic_object_size
+			 * sehingga sanggup menghitung offset runtime ini -- membunuh prosesnya:
+			 * 'FORTIFY: strlcpy: prevented 4065-byte write into 4064-byte buffer'
+			 * untuk nama sensor 12 karakter (lis3dh-accel, mmc3416x-mag). */
+			strlcpy(nodename, node_map[i].node,
+				PATH_MAX - strlen(SYSFS_CLASS) - strlen(de->d_name) - 1);
 			err = getNode((char*)(list->sensor), devname, &node_map[i]);
 			if (err) {
 				ALOGE("Get node for %s failed.\n", devname);
