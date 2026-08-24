@@ -254,7 +254,14 @@ service qcamerasvr /system/vendor/bin/mm-qcamera-daemon
     # sebagai modul vendor ia ditolak build (build/make/core/binary.mk). Perangkat
     # ini memakai konfigurasi linker legacy (Treble tidak aktif) -- /system dan
     # /vendor sama-sama dir.legacy -- jadi lintas-partisi di sini sah.
-    setenv LD_PRELOAD /system/lib/libshim_camera_sensor.so
+    # LD_PRELOAD DIBUANG. Dulu dipakai menyuntikkan simbol sensor ke daemon,
+    # dari /system/lib -- jalur yang tidak terjangkau namespace vendor:
+    #   CANNOT LINK EXECUTABLE ".../mm-qcamera-daemon":
+    #   library "/system/lib/libshim_camera_sensor.so" needed or dlopened by ...
+    # Sekarang /vendor/lib/libandroid.so (libshims, modul libandroid_a37_vendor)
+    # menyediakan ketiga belas simbol yang dibutuhkan blob SEKALIGUS konstruktor
+    # android::SensorManager::SensorManager(), dan ia ditemukan lewat DT_NEEDED
+    # biasa -- tanpa preload.
 
 on property:init.svc.media=restarting
     restart qcamerasvr

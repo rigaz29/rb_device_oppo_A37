@@ -644,6 +644,28 @@ BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_qcwcn
 # itu menuntut libqmi_cci/libqmi_common_so/libmdmdetect yang tak ada di tree.
 TARGET_USES_QCOM_WCNSS_QMI := true
 TARGET_PROVIDES_WCNSS_QMI := true
+# Jalur kendali pemuatan driver WLAN.
+#
+# Tanpa WIFI_DRIVER_STATE_CTRL_PARAM, HAL wifi legacy tidak tahu KE MANA harus
+# menulis untuk memuat driver -- dua baris FW_PATH di bawah hanya menentukan APA
+# yang ditulis. Akibatnya wlan.driver.status tetap "unloaded" selamanya, dan
+# HAL menolak permintaan framework:
+#
+#   WifiChipAidlImpl: getMode failed ... (code 5 = ERROR_NOT_AVAILABLE)
+#   WifiChipAidlImpl: configureChip failed ... (code 7 = ERROR_UNKNOWN)
+#   WifiVendorHal: Failed to create STA iface
+#   WifiNative: Vendor HAL died. Cleaning up internal state.
+#
+# Prosesnya sendiri tidak pernah mati -- "died" itu tafsir framework atas
+# isReady(): false. HAL tetap running dan IWifi tetap terdaftar.
+#
+# Nilai diambil dari acroreiser/ULH lenovo a6010 (BoardConfig.mk:227-229), yang
+# memakai driver prima/pronto yang sama. Node-nya diverifikasi ada di perangkat
+# ini: /sys/module/wlan/parameters/fwpath, milik wifi:wifi mode 0644, dan
+# menulisinya benar-benar memuat ulang driver (indeks wlan0 berubah 12 -> 14).
+WIFI_DRIVER_STATE_CTRL_PARAM := "/sys/module/wlan/parameters/fwpath"
+WIFI_DRIVER_STATE_ON := ""
+WIFI_DRIVER_STATE_OFF := ""
 WIFI_DRIVER_FW_PATH_AP := "ap"
 WIFI_DRIVER_FW_PATH_STA := "sta"
 WPA_SUPPLICANT_VERSION := VER_0_8_X

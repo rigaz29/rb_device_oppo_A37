@@ -112,6 +112,74 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
 
+# ---------------------------------------------------------------------------
+# libandroid versi A37, dipasang ke /vendor/lib.
+#
+# Blob vendor menaut libandroid lewat DT_NEEDED, dan namespace vendor tidak
+# menjangkau /system/lib:
+#
+#   CANNOT LINK EXECUTABLE "/vendor/bin/mm-qcamera-daemon":
+#   library "libandroid.so" not found:
+#   needed by /system/vendor/lib/libmmcamera2_stats_modules.so
+#
+# Hanya 13 simbol yang dibutuhkan -- diukur dengan mengiris simbol UND blob
+# terhadap simbol yang didefinisikan libandroid platform:
+#
+#   ALooper_forThread  ALooper_pollOnce  ALooper_prepare  ALooper_wake
+#   ASensorManager_getInstance  ASensorManager_getDefaultSensor
+#   ASensorManager_createEventQueue  ASensorManager_destroyEventQueue
+#   ASensorEventQueue_enableSensor  ASensorEventQueue_disableSensor
+#   ASensorEventQueue_setEventRate  ASensorEventQueue_getEvents
+#   ASensor_getMinDelay
+#
+# gui/SensorManager.cpp ikut disertakan karena libmmcamera2_stats_modules.so
+# juga menuntut android::SensorManager::SensorManager() -- konstruktor tanpa
+# argumen yang sudah lama dicabut dari Android. Dengan itu di sini, LD_PRELOAD
+# libshim_camera_sensor.so TIDAK diperlukan lagi untuk daemon.
+#
+# Closure dependensinya sudah diperiksa: libsensor/libutils/liblog/libbinder
+# menghasilkan 18 pustaka, TANPA libicu maupun libharfbuzz_ng, jadi tidak ada
+# rantai APEX yang tak terjangkau.
+#
+# Dipasang lewat LOCAL_MODULE_PATH, bukan LOCAL_VENDOR_MODULE: sebagai modul
+# vendor ia ditolak build karena menaut pustaka native:platform -- alasan yang
+# sama dengan libshim_camera di atas.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := stub/libandroid_stub.cpp
+LOCAL_SHARED_LIBRARIES := liblog
+# LOCAL_MODULE_STEM TIDAK bisa dipakai di sini: shared_library_internal.mk:17
+# menolaknya untuk pustaka ("Cannot set module stem for a library").
+# Berkasnya tetap bernama libandroid_a37_vendor.so, dan libandroid.so disediakan
+# sebagai symlink lewat install_symlink di device/oppo/A37/Android.bp --
+# pola yang sama dengan libstdc++ di sana.
+LOCAL_MODULE := libandroid_a37_vendor
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
+
+# ---------------------------------------------------------------------------
+# libmedia kosong untuk /vendor/lib.
+#
+# libril-qc-qmi-1.so mencantumkan libmedia.so di DT_NEEDED tapi memakai NOL
+# simbolnya (diukur: irisan simbol UND-nya dengan simbol libmedia = kosong).
+# Tanpa berkas ber-soname itu di namespace vendor, rild gagal:
+#
+#   RILD: dlopen failed: library "libmedia.so" not found:
+#         needed by /system/vendor/lib/libril-qc-qmi-1.so
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := stub/libmedia_stub.cpp
+# LOCAL_MODULE_STEM TIDAK bisa dipakai di sini: shared_library_internal.mk:17
+# menolaknya untuk pustaka ("Cannot set module stem for a library").
+# Berkasnya tetap bernama libmedia_a37_vendor.so, dan libmedia.so disediakan
+# sebagai symlink lewat install_symlink di device/oppo/A37/Android.bp --
+# pola yang sama dengan libstdc++ di sana.
+LOCAL_MODULE := libmedia_a37_vendor
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
+
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := camera_shim.c
 LOCAL_SHARED_LIBRARIES := libutils libgui liblog

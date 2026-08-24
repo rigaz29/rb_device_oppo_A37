@@ -17,3 +17,32 @@ install_symlink {
     installed_location: "lib/libstdc++.so",
     symlink_target: "libstdc++_vendor.so",
 }
+
+// libandroid.so dan libmedia.so untuk namespace vendor.
+//
+// Keduanya dibangun di libshims/ sebagai libandroid_a37_vendor.so dan
+// libmedia_a37_vendor.so, karena LOCAL_MODULE_STEM ditolak untuk pustaka
+// (shared_library_internal.mk:17) dan memakai nama aslinya akan bentrok dengan
+// modul platform. Symlink di bawah memberi nama yang benar-benar dicari linker.
+//
+// libandroid: blob kamera menaut lewat DT_NEEDED dan butuh 13 simbol.
+//   CANNOT LINK EXECUTABLE "/vendor/bin/mm-qcamera-daemon":
+//   library "libandroid.so" not found:
+//   needed by /system/vendor/lib/libmmcamera2_stats_modules.so
+//
+// libmedia: libril-qc-qmi-1.so menautnya tapi memakai NOL simbolnya.
+//   RILD: dlopen failed: library "libmedia.so" not found:
+//         needed by /system/vendor/lib/libril-qc-qmi-1.so
+install_symlink {
+    name: "libandroid_a37_vendor_symlink",
+    soc_specific: true,
+    installed_location: "lib/libandroid.so",
+    symlink_target: "libandroid_a37_vendor.so",
+}
+
+install_symlink {
+    name: "libmedia_a37_vendor_symlink",
+    soc_specific: true,
+    installed_location: "lib/libmedia.so",
+    symlink_target: "libmedia_a37_vendor.so",
+}

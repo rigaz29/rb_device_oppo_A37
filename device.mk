@@ -916,16 +916,32 @@ $(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,tru
 # Masih belum tertutup: libandroid, libandroid_runtime, libcamera_client,
 # libmedia, libpowermanager, libstagefright -- keenamnya tidak punya
 # vendor_available di pohon ini. a6010 juga tidak memasangnya.
-# libhwbinder.vendor dan libnetutils.vendor SENGAJA TIDAK diambil meski a6010
-# memasangnya. libhwbinder.vendor pernah dibuang dari device tree ini karena
-# bukan modul sah dan tertangkap pemeriksaan common.mk:104 (lihat catatan HIDL
-# di atas); libnetutils.vendor datang dari prebuilts/vndk/v32, VNDK 32 di atas
-# Android 16. Keduanya juga tidak terbukti memblokir apa pun di perangkat ini.
-# Ditambahkan hanya kalau nanti ada kegagalan yang menunjuk ke sana.
+# libhwbinder.vendor dan libnetutils.vendor semula dilewati karena belum
+# terbukti memblokir. Setelah flash, keduanya TERBUKTI:
+#
+#   CANNOT LINK EXECUTABLE "/vendor/bin/hw/vendor.qti.hardware.perf@1.0-service":
+#     library "libhwbinder.so" not found
+#   CANNOT LINK EXECUTABLE "/system/vendor/bin/netmgrd":
+#     library "libnetutils.so" not found
+#
+# Keduanya persis yang dipasang a6010, jadi daftarnya kini sama dengan mereka.
+# Catatan lama di bagian HIDL (sekitar baris 821) menyebut libhwbinder.vendor
+# pernah dibuang karena bukan modul sah di LOS 20; di 23.2 ia sah kembali --
+# system/libhwbinder/Android.bp menyatakan vendor_available: true.
+#
+# libandroid dan libmedia tidak punya varian vendor resmi, jadi disediakan
+# sendiri di libshims/: libandroid sebagai shim 13 simbol, libmedia sebagai stub
+# kosong (blob RIL memakai NOL simbolnya). Lihat komentar di Android.mk sana.
 PRODUCT_PACKAGES += \
     libsqlite.vendor \
     libstdc++_vendor \
-    libstdc++_vendor_symlink
+    libstdc++_vendor_symlink \
+    libhwbinder.vendor \
+    libnetutils.vendor \
+    libandroid_a37_vendor \
+    libandroid_a37_vendor_symlink \
+    libmedia_a37_vendor \
+    libmedia_a37_vendor_symlink
 
 # Deklarasikan memcg sebagai cgroup v1, bukan v2.
 #
