@@ -30,6 +30,8 @@
 #include <hardware/camera.h>
 #include <utils/threads.h>
 #include <utils/String8.h>
+#include <unistd.h>
+
 #include <android/binder_manager.h>
 // <camera/Camera.h> DIBUANG. Tidak ada satu pun tipenya yang dipakai berkas ini
 // (hanya CameraParameters di bawah), tetapi ia menarik header AIDL hasil-generate
@@ -169,13 +171,44 @@ static int check_vendor_module()
  */
 static bool can_talk_to_sensormanager()
 {
-    AIBinder *binder = AServiceManager_checkService(
-            "android.frameworks.sensorservice.ISensorManager/default");
-    if (binder == NULL)
-        return false;
+    // MENUNGGU, bukan memeriksa sekali. Versi pertama perbaikan ini memakai
+    // AServiceManager_checkService() sekali jalan, dan itu MEMATIKAN KAMERA
+    // SEPENUHNYA setelah boot:
+    //
+    //   E CameraWrapper: Waiting for sensor service failed.
+    //   E cameraserver: Failed to open HAL1 device
+    //   E cameraserver: getProviderImpl: camera provider init failed!
+    //   -> "Number of camera devices: 0", permanen sampai cameraserver
+    //      di-restart manual.
+    //
+    // Sebabnya: cameraserver menginisialisasi provider jauh sebelum
+    // sensorservice terdaftar (sensorservice dipublikasikan system_server yang
+    // masih menyala). Kode a6010 yang digantikan di sini memakai
+    // SensorManager::getInstanceForPackage(), yang di dalam libsensor MENUNGGU
+    // sampai sensorservice muncul. checkService() tidak menunggu sama sekali,
+    // jadi semantiknya berubah dari "tunggu" menjadi "gagal cepat" -- dan
+    // pemanggil di camera_device_open memperlakukan false sebagai NO_INIT.
+    //
+    // Penantiannya DIBATASI, tidak seperti loop tak berujung di libsensor:
+    // kalau sensorservice benar-benar tidak pernah muncul, lebih baik menyerah
+    // daripada menggantung cameraserver selamanya.
+    static constexpr int kMaxWaitMs = 30000;
+    static constexpr int kPollMs = 200;
 
-    AIBinder_decStrong(binder);
-    return true;
+    for (int waited = 0; waited <= kMaxWaitMs; waited += kPollMs) {
+        AIBinder *binder = AServiceManager_checkService(
+                "android.frameworks.sensorservice.ISensorManager/default");
+        if (binder != NULL) {
+            AIBinder_decStrong(binder);
+            if (waited > 0)
+                ALOGI("sensor service tersedia setelah menunggu %d ms", waited);
+            return true;
+        }
+        usleep(kPollMs * 1000);
+    }
+
+    ALOGE("sensor service tidak muncul dalam %d ms", kMaxWaitMs);
+    return false;
 }
 
 static char *camera_fixup_getparams(int id, const char *settings)
