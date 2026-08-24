@@ -1892,22 +1892,66 @@ static void camera_convert_parameters(int camera_id, const char *settings, Camer
 
     const char* fps_ranges_str = params.get("preview-fps-range");
 
-    int32_t available_fps_ranges[2];
-    size_t j = 0;
+    // Blok ini punya TIGA cacat di HAL3on1 hulu; ketiganya diperbaiki di sini.
+    // Kode aslinya (juga ada apa adanya di a6010, jadi bukan bawaan A37):
+    //
+    //   int32_t available_fps_ranges[2];
+    //   for (size_t i = 0; i < preview_sizes.size(); i++) {
+    //       available_fps_ranges[j] = ...; available_fps_ranges[j+1] = ...; j += 2;
+    //   }
+    //   metadata->update(..., available_fps_ranges, sizeof(available_fps_ranges));
+    //
+    // 1. LUAPAN TUMPUKAN. Arraynya 2 elemen, tapi loop menulis 2*preview_sizes
+    //    elemen -- menimpa tumpukan di sebelahnya.
+    // 2. HITUNGAN SALAH. update() meminta JUMLAH ELEMEN, tapi diberi
+    //    sizeof(array) = 8 byte. Dua baris di atas (thumbnail sizes) melakukannya
+    //    dengan benar: sizeof(...)/sizeof(int32_t). Akibatnya metadata terbaca
+    //    int32[8], enam nilai terakhir isi tumpukan.
+    // 3. TIDAK ADA RENTANG TETAP. Yang dilaporkan cuma [min,max] variabel.
+    //
+    // Cacat ke-3 yang terlihat pengguna: perekaman video mustahil dipilih.
+    // Perangkat ini melaporkan aeAvailableTargetFpsRanges = [7 30] saja, dan
+    // Aperture hanya menerima rentang TETAP --
+    // models/FrameRate.kt:18 fromRange() mengembalikan null kalau
+    // start != endInclusive, lalu mapNotNull membuangnya. Jadi
+    // supportedVideoFrameRates KOSONG, setiap pemeriksaan gagal, dan aplikasi
+    // crash saat mode video dipulihkan:
+    //
+    //   java.lang.IllegalArgumentException: Video frame rate not supported
+    //     with the requested video quality
+    //     at org.lineageos.aperture.CameraActivity$loadData$2$1
+    //
+    // Crash itu terjadi SAAT PELUNCURAN dan berulang, sehingga aplikasi kamera
+    // tidak bisa dibuka sama sekali sampai datanya dihapus.
+    //
+    // Sekarang dilaporkan dua rentang: [min,max] variabel dan [max,max] tetap --
+    // persis yang dilakukan HAL camera2 sungguhan.
+    int32_t available_fps_ranges[4];
+    size_t fps_ranges_count = 0;
     if (fps_ranges_str) {
         int min_fps = 0;
         int max_fps = 0;
-        sscanf(fps_ranges_str, "%d,%d", &min_fps, &max_fps);
-
-        for (size_t i = 0; i < preview_sizes.size(); i++) {
-            available_fps_ranges[j] = min_fps / 1000;
-            available_fps_ranges[j+1] = max_fps / 1000;
-            j+=2;
+        if (sscanf(fps_ranges_str, "%d,%d", &min_fps, &max_fps) == 2 && max_fps > 0) {
+            min_fps /= 1000;
+            max_fps /= 1000;
+            available_fps_ranges[fps_ranges_count++] = min_fps;
+            available_fps_ranges[fps_ranges_count++] = max_fps;
+            if (min_fps != max_fps) {
+                available_fps_ranges[fps_ranges_count++] = max_fps;
+                available_fps_ranges[fps_ranges_count++] = max_fps;
+            }
         }
+    }
+    if (fps_ranges_count == 0) {
+        // Blob tidak memberi preview-fps-range yang bisa dibaca. 30 fps tetap
+        // lebih baik daripada metadata kosong: seluruh profil di
+        // media_profiles_V1_0.xml perangkat ini memang 30 fps.
+        available_fps_ranges[fps_ranges_count++] = 30;
+        available_fps_ranges[fps_ranges_count++] = 30;
     }
 
     metadata->update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
-                     available_fps_ranges, sizeof(available_fps_ranges));
+                     available_fps_ranges, fps_ranges_count);
 
     size_t max_stream_configs_size = (picture_sizes.size() + preview_sizes.size() + video_sizes.size()) * scalar_formats_count * 4;
     int32_t available_stream_configs[max_stream_configs_size];
