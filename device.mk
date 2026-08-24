@@ -877,6 +877,56 @@ $(call soong_config_set,lineage_health,charging_control_charging_disabled,0)
 $(call soong_config_set_bool,lineage_health,charging_control_supports_bypass,false)
 $(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,true)
 
+# Varian vendor dari pustaka platform yang dibutuhkan blob.
+#
+# Blob msm8916 era 2016 menaut pustaka yang ada di /system/lib. Namespace vendor
+# tidak menjangkau /system, dan hanya sebagian kecil pustaka tersedia lewat
+# tautan LLNDK. Sisanya harus dipasang sebagai varian vendor di /vendor/lib --
+# mekanisme resmi AOSP untuk modul ber-vendor_available.
+#
+# Daftar ini disusun dari pengukuran, bukan tebakan: setiap berkas di
+# /system/vendor diperiksa DT_NEEDED-nya, lalu dikurangi isi
+# namespace.default.link.system.shared_libs (25 pustaka LLNDK) yang terbaca di
+# /linkerconfig/ld.config.txt perangkat. Sebelas pustaka tersisa; empat di
+# antaranya punya varian vendor resmi dan dipasang di sini.
+#
+# Dua yang terbukti memblokir, terekam di perangkat:
+#
+#   rild: dlopen failed: library "libandroidicu.so" not found:
+#         needed by /system/lib/libsqlite.so
+#     -> libsqlite.vendor. Dibutuhkan libqti-iopd.so, libqti-iopd-client.so.
+#
+#   CANNOT LINK EXECUTABLE "/system/vendor/bin/mm-qcamera-daemon":
+#     library "libstdc++.so" not found
+#     -> libstdc++_vendor. Dibutuhkan 158 berkas vendor, termasuk
+#        camera.vendor.msm8916.so.
+#
+# Pendekatan ini disalin dari acroreiser/ULH lenovo a6010 (lineage-23.2), yang
+# memakai blob msm8916 yang sama dan menyelesaikannya persis begini --
+# device.mk:446-481 di sana memasang libstdc++_vendor, libsqlite.vendor,
+# libhwbinder.vendor, dan libnetutils.vendor. Mereka TIDAK menyentuh namespace
+# linker sama sekali.
+#
+# CATATAN: percobaan sebelumnya menambahkan /system ke search path namespace
+# vendor. Itu SALAH dan merusak lebih banyak daripada yang diperbaiki: search
+# path membayangi tautan LLNDK libbinder_ndk.so, sehingga libbinder_ndk sistem
+# berpasangan dengan libbinder vendor dan SEMUA HAL AIDL vendor gagal mendaftar
+# (EX_TRANSACTION_FAILED). Wi-Fi, RIL, dan Bluetooth ikut mati. Sudah di-revert.
+#
+# Masih belum tertutup: libandroid, libandroid_runtime, libcamera_client,
+# libmedia, libpowermanager, libstagefright -- keenamnya tidak punya
+# vendor_available di pohon ini. a6010 juga tidak memasangnya.
+# libhwbinder.vendor dan libnetutils.vendor SENGAJA TIDAK diambil meski a6010
+# memasangnya. libhwbinder.vendor pernah dibuang dari device tree ini karena
+# bukan modul sah dan tertangkap pemeriksaan common.mk:104 (lihat catatan HIDL
+# di atas); libnetutils.vendor datang dari prebuilts/vndk/v32, VNDK 32 di atas
+# Android 16. Keduanya juga tidak terbukti memblokir apa pun di perangkat ini.
+# Ditambahkan hanya kalau nanti ada kegagalan yang menunjuk ke sana.
+PRODUCT_PACKAGES += \
+    libsqlite.vendor \
+    libstdc++_vendor \
+    libstdc++_vendor_symlink
+
 # Deklarasikan memcg sebagai cgroup v1, bukan v2.
 #
 # profil dasar (system/core/libprocessgroup/profiles/cgroups.json) menaruh

@@ -1,0 +1,19 @@
+// Blob vendor msm8916 menaut "libstdc++.so" lewat DT_NEEDED (158 berkas,
+// termasuk camera.vendor.msm8916.so), dan tanpa salinan di /vendor/lib daemon
+// kamera gagal link:
+//   CANNOT LINK EXECUTABLE "/system/vendor/bin/mm-qcamera-daemon":
+//   library "libstdc++.so" not found
+//
+// Modul libstdc++_vendor (bionic/libc/Android.bp:1818) memasang berkasnya
+// sebagai /vendor/lib/libstdc++_vendor.so -- nama yang tidak dicari linker.
+//
+// Menambahkan stem: "libstdc++" pada modul itu SUDAH DICOBA dan menggagalkan
+// build: varian ramdisk-nya lalu bertabrakan dengan libstdc++ platform --
+//   ninja: multiple rules generate .../symbols/ramdisk/system/lib/libstdc++.so
+// Karena itu dipakai symlink, bukan penggantian nama.
+install_symlink {
+    name: "libstdc++_vendor_symlink",
+    soc_specific: true,
+    installed_location: "lib/libstdc++.so",
+    symlink_target: "libstdc++_vendor.so",
+}
