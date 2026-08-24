@@ -931,7 +931,23 @@ $(call soong_config_set_bool,lineage_health,charging_control_supports_toggle,tru
 #
 # libandroid dan libmedia tidak punya varian vendor resmi, jadi disediakan
 # sendiri di libshims/: libandroid sebagai shim 13 simbol, libmedia sebagai stub
-# kosong (blob RIL memakai NOL simbolnya). Lihat komentar di Android.mk sana.
+# tiga simbol AudioSystem lama. Lihat komentar di Android.mk sana.
+#
+# CATATAN: keterangan lama "libmedia stub kosong, blob RIL memakai NOL simbolnya"
+# KELIRU dan sudah diperbaiki. Pengukuran yang menghasilkannya mengiris simbol
+# UND blob dengan simbol yang MASIH ADA di libmedia sekarang -- padahal yang
+# dibutuhkan blob justru simbol yang sudah DICABUT dari libmedia modern,
+# sehingga tidak pernah muncul di irisan itu. Yang benar tiga:
+# setParameters, getParameters, dan setErrorCallback.
+#
+# libgui memakai varian vendor RESMI dari AOSP (libgui_vendor,
+# frameworks/native/libs/gui/Android.bp:581), bukan shim buatan sendiri --
+# sama seperti acroreiser/ULH a6010 (camera/hal3on1/Android.mk:22) dan
+# Mi-Thorium (libshim/Android.bp:58). Tanpa ini daemon kamera tidak pernah jalan:
+#   CANNOT LINK EXECUTABLE "/system/vendor/bin/mm-qcamera-daemon":
+#   library "libgui.so" not found:
+#   needed by /system/vendor/lib/libmmcamera2_stats_modules.so
+# dan cameraserver ikut SIGABRT di CameraModule::init().
 PRODUCT_PACKAGES += \
     libsqlite.vendor \
     libstdc++_vendor \
@@ -941,7 +957,11 @@ PRODUCT_PACKAGES += \
     libandroid_a37_vendor \
     libandroid_a37_vendor_symlink \
     libmedia_a37_vendor \
-    libmedia_a37_vendor_symlink
+    libmedia_a37_vendor_symlink \
+    libgui_vendor \
+    libgui_vendor_symlink \
+    libcamera_client_a37_vendor \
+    libcamera_client_a37_vendor_symlink
 
 # Deklarasikan memcg sebagai cgroup v1, bukan v2.
 #

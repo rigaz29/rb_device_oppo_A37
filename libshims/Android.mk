@@ -208,3 +208,64 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true
 include $(BUILD_SHARED_LIBRARY)
+
+# /vendor/lib/libcamera_client.so untuk blob HAL1 kamera.
+#
+# camera.vendor.msm8916.so menautnya lewat DT_NEEDED dan tanpa berkas ber-soname
+# itu di namespace sphal, CameraWrapper tidak pernah bisa membuka backend-nya:
+#
+#   E vndksupport: Could not load /vendor/lib/hw/camera.vendor.msm8916.so from
+#     sphal namespace: dlopen failed: library "libcamera_client.so" not found
+#   E CameraWrapper: failed to open vendor camera module
+#   I CameraProviderManager: Camera provider legacy/0 ready with 0 camera devices
+#
+# libcamera_client platform (frameworks/av/camera/Android.bp:77) TIDAK
+# vendor_available, jadi tidak bisa dipasang ke /vendor.
+#
+# Diukur: dari 372 simbol UND blob, 137 diambil dari libcamera_client dan
+# KESELURUHAN 137 itu CameraParameters -- nol simbol lain. Karena itu yang
+# dibangun di sini hanya CameraParameters.cpp hulu, bukan libcamera_client utuh.
+# Berkasnya dirujuk langsung dari pohon hulu, tidak disalin.
+#
+# DITAMBAH 5 KONSTANTA EKSTENSI OPPO/QCOM.
+#
+# CameraParameters.cpp hulu saja TIDAK cukup. Blob juga merujuk lima konstanta
+# yang tidak pernah ada di AOSP:
+#
+#   android::CameraParameters::KEY_TRACK_ENABLE
+#   android::CameraParameters::KEY_TRACK_AREAS
+#   android::CameraParameters::KEY_APP_MASK
+#   android::CameraParameters::FOCUS_MODE_MANUAL_POSITION
+#   android::CameraParameters::WHITE_BALANCE_MANUAL_CCT
+#
+#   E vndksupport: dlopen failed: cannot locate symbol
+#     "_ZN7android16CameraParameters16KEY_TRACK_ENABLEE"
+#
+# Kelimanya sudah lama ada di camera_parameters/CameraParameters.cpp milik pohon
+# ini, tapi selama ini hanya dibangun ke dalam libshim_camera -- modul system,
+# jadi mendarat di /system/lib dan tak pernah terjangkau namespace sphal.
+#
+# CATATAN METODE: kelima simbol ini SEMPAT LUPUT karena pengukuran pertama
+# mengiris "simbol UND blob" dengan "simbol yang diekspor libcamera_client".
+# Simbol yang memang tidak pernah ada di AOSP mustahil muncul di irisan seperti
+# itu. Yang benar: simbol UND blob DIKURANGI seluruh simbol yang tersedia di
+# /vendor/lib dan /vendor/lib/hw. Kekeliruan yang sama pernah terjadi pada stub
+# libmedia; lihat catatannya di stub/libmedia_stub.cpp.
+#
+# Nama berkasnya libcamera_client_a37_vendor.so; libcamera_client.so disediakan
+# sebagai symlink lewat install_symlink di device/oppo/A37/Android.bp, pola yang
+# sama dengan libmedia, libandroid, libgui, dan libstdc++ di sana.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+    ../../../../frameworks/av/camera/CameraParameters.cpp \
+    camera_parameters/CameraParameters.cpp
+LOCAL_C_INCLUDES := \
+    frameworks/av/camera/include \
+    system/media/camera/include
+LOCAL_SHARED_LIBRARIES := libutils liblog
+LOCAL_MODULE := libcamera_client_a37_vendor
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE_TAGS := optional
+LOCAL_32_BIT_ONLY := true
+include $(BUILD_SHARED_LIBRARY)

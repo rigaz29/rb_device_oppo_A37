@@ -46,3 +46,35 @@ install_symlink {
     installed_location: "lib/libmedia.so",
     symlink_target: "libmedia_a37_vendor.so",
 }
+
+// libgui.so untuk namespace vendor.
+//
+// Berbeda dari libandroid/libmedia, libgui PUNYA varian vendor resmi di AOSP:
+// libgui_vendor (frameworks/native/libs/gui/Android.bp:581, vendor: true,
+// defaults libgui_defaults) -- pustaka libgui sungguhan, bukan stub. Karena itu
+// tidak dibuatkan shim; cukup dipasang lalu diberi nama yang dicari linker.
+//
+// Dipakai juga oleh acroreiser/ULH a6010 (camera/hal3on1/Android.mk:22) dan
+// Mi-Thorium (libshim/Android.bp:58).
+//
+//   CANNOT LINK EXECUTABLE "/system/vendor/bin/mm-qcamera-daemon":
+//   library "libgui.so" not found:
+//   needed by /system/vendor/lib/libmmcamera2_stats_modules.so
+install_symlink {
+    name: "libgui_vendor_symlink",
+    soc_specific: true,
+    installed_location: "lib/libgui.so",
+    symlink_target: "libgui_vendor.so",
+}
+
+// libcamera_client.so untuk namespace vendor/sphal.
+//
+// Isinya HANYA CameraParameters -- diukur dari blob: 137 dari 372 simbol UND-nya
+// diambil dari libcamera_client, dan seluruh 137 itu CameraParameters.
+// Lihat komentar lengkap di libshims/Android.mk.
+install_symlink {
+    name: "libcamera_client_a37_vendor_symlink",
+    soc_specific: true,
+    installed_location: "lib/libcamera_client.so",
+    symlink_target: "libcamera_client_a37_vendor.so",
+}

@@ -30,8 +30,12 @@
 #include <hardware/camera.h>
 #include <utils/threads.h>
 #include <utils/String8.h>
-#include <sensor/SensorManager.h>
-#include <camera/Camera.h>
+#include <android/binder_manager.h>
+// <camera/Camera.h> DIBUANG. Tidak ada satu pun tipenya yang dipakai berkas ini
+// (hanya CameraParameters di bawah), tetapi ia menarik header AIDL hasil-generate
+// milik libcamera_client dan menggagalkan build modul vendor:
+//   frameworks/av/camera/include/camera/Camera.h:22:10: fatal error:
+//   'android/hardware/ICameraService.h' file not found
 #include <camera/CameraParameters.h>
 
 #define BACK_CAMERA     0
@@ -126,12 +130,52 @@ static int check_vendor_module()
     return rv;
 }
 
+/*
+ * Penjaga kesiapan sensorservice.
+ *
+ * Versi lama memakai SensorManager::getInstanceForPackage() dari libsensor.
+ * libsensor TIDAK vendor_available (frameworks/native/libs/sensor/Android.bp:37,
+ * tanpa vendor_available), sedangkan modul ini HARUS terpasang di /vendor/lib/hw
+ * -- lihat alasannya di Android.mk. Menautnya akan ditolak dengan
+ * "native:vendor can not link against native:platform".
+ *
+ * Dipakai libbinder_ndk, BUKAN libbinder. Versi pertama perbaikan ini memakai
+ * libbinder dan GAGAL di perangkat:
+ *
+ *   E CameraWrapper: Waiting for sensor service failed.
+ *   E cameraserver: Failed to open HAL1 device
+ *
+ * Sebabnya terbaca di /linkerconfig/ld.config.txt: daftar
+ * namespace.sphal.link.default.shared_libs memuat libbinder_ndk.so tetapi TIDAK
+ * memuat libbinder.so. Modul ini dimuat ke namespace sphal di dalam proses
+ * cameraserver, yang sudah memakai libbinder sistem. Karena libbinder bukan
+ * LLNDK, tautan ke sana diambil dari /vendor/lib/libbinder.so sebagai salinan
+ * KEDUA di proses yang sama -- ProcessState-nya sendiri, terpisah dari milik
+ * cameraserver -- sehingga lookup-nya tidak pernah menemukan apa pun.
+ *
+ * libbinder_ndk LLNDK, jadi tautannya menunjuk instans yang sama persis dengan
+ * yang sudah dipakai cameraserver. Tidak ada muat ganda.
+ *
+ * Yang diperiksa android.frameworks.sensorservice.ISensorManager/default --
+ * antarmuka sensor yang memang ditujukan untuk kode vendor, dan di-host oleh
+ * sensorservice itu sendiri, sehingga kesiapannya menandakan hal yang sama
+ * dengan pemeriksaan lama. Terverifikasi terdaftar di perangkat lewat
+ * "service check".
+ *
+ * Semantiknya dipertahankan: mengembalikan false selama layanan belum ada, dan
+ * pemanggil di camera_device_open tetap menolak dengan NO_INIT. Dipakai
+ * checkService, bukan getService/waitForService, karena yang diinginkan di sini
+ * pemeriksaan seketika tanpa blocking.
+ */
 static bool can_talk_to_sensormanager()
 {
-    SensorManager& sensorManager(
-            SensorManager::getInstanceForPackage(String16("camera")));
-    Sensor const * const * sensorList;
-    return sensorManager.getSensorList(&sensorList) >= 0;
+    AIBinder *binder = AServiceManager_checkService(
+            "android.frameworks.sensorservice.ISensorManager/default");
+    if (binder == NULL)
+        return false;
+
+    AIBinder_decStrong(binder);
+    return true;
 }
 
 static char *camera_fixup_getparams(int id, const char *settings)

@@ -84,3 +84,44 @@ int ASensor_getMinDelay(void*) { return 0; }
 void _ZN7android13SensorManagerC1Ev(void*) { warn_once("SensorManager::SensorManager()"); }
 
 }  // extern "C"
+
+/*
+ * android_atomic_acquire_load -- BUKAN milik libandroid.
+ *
+ * Tiga blob kamera merujuknya dan tidak ada satu pun pustaka di perangkat yang
+ * menyediakannya (diukur: seluruh /vendor/lib + /system/lib + APEX bionic,
+ * nol penyedia):
+ *
+ *   libmmcamera2_stats_algorithm.so
+ *   libmmcamera_wavelet_lib.so
+ *   libuiblur.so
+ *
+ * Akibatnya daemon kamera tidak pernah jalan dan cameraserver SIGABRT:
+ *
+ *   CANNOT LINK EXECUTABLE "/system/vendor/bin/mm-qcamera-daemon":
+ *   cannot locate symbol "android_atomic_acquire_load"
+ *   referenced by "/system/vendor/lib/libmmcamera2_stats_algorithm.so"
+ *
+ * Simbol ini dulu ada di libcutils. Versi modern hanya menyediakannya sebagai
+ * inline di <cutils/atomic.h>, jadi tidak ada lagi simbol yang bisa ditaut.
+ *
+ * KENAPA DITARUH DI SINI, bukan di pustaka sendiri
+ *
+ * Pesannya "CANNOT LINK EXECUTABLE", artinya blob-blob itu ada di closure
+ * DT_NEEDED daemon dan diresolusi saat load, bukan lewat dlopen. Simbolnya
+ * boleh datang dari pustaka mana pun di closure tersebut. libandroid.so ada di
+ * closure itu -- terbukti dari kegagalan sebelumnya, "library libandroid.so not
+ * found: needed by libmmcamera2_stats_modules.so" -- dan ia satu-satunya di
+ * sana yang kita kendalikan isinya.
+ *
+ * Tiga shim kamera yang sudah ada (libshim_camera, libshim_camera_sensor,
+ * libcamera_shim) TIDAK bisa dipakai: ketiganya dibangun sebagai modul system
+ * sehingga terpasang di /system/lib, yang tak terjangkau namespace vendor sejak
+ * LD_PRELOAD dicabut dari init.qcom.rc.
+ *
+ * Hanya varian acquire yang disediakan; pengukuran atas SELURUH blob vendor
+ * menunjukkan tidak ada android_atomic_* lain yang dirujuk.
+ */
+extern "C" int32_t android_atomic_acquire_load(volatile const int32_t* addr) {
+    return __atomic_load_n(addr, __ATOMIC_ACQUIRE);
+}
