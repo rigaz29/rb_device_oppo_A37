@@ -169,6 +169,7 @@ include $(BUILD_SHARED_LIBRARY)
 #         needed by /system/vendor/lib/libril-qc-qmi-1.so
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := stub/libmedia_stub.cpp
+LOCAL_SHARED_LIBRARIES := libutils liblog
 # LOCAL_MODULE_STEM TIDAK bisa dipakai di sini: shared_library_internal.mk:17
 # menolaknya untuk pustaka ("Cannot set module stem for a library").
 # Berkasnya tetap bernama libmedia_a37_vendor.so, dan libmedia.so disediakan
