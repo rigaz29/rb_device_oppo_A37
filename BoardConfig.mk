@@ -652,7 +652,7 @@ TARGET_PROVIDES_WCNSS_QMI := true
 # HAL menolak permintaan framework:
 #
 #   WifiChipAidlImpl: getMode failed ... (code 5 = ERROR_NOT_AVAILABLE)
-#   WifiChipAidlImpl: configureChip failed ... (code 7 = ERROR_UNKNOWN)
+#   WifiChipAidlImpl: configureChip failed ... (code 7 = ERROR_INVALID_ARGS)
 #   WifiVendorHal: Failed to create STA iface
 #   WifiNative: Vendor HAL died. Cleaning up internal state.
 #
@@ -668,6 +668,47 @@ WIFI_DRIVER_STATE_ON := ""
 WIFI_DRIVER_STATE_OFF := ""
 WIFI_DRIVER_FW_PATH_AP := "ap"
 WIFI_DRIVER_FW_PATH_STA := "sta"
+
+# Kombinasi antarmuka chip. WAJIB diset -- tanpa ini Wi-Fi tidak pernah menyala.
+#
+# wifi_feature_flags.cpp:68 bercabang pada makro ini:
+#   #ifdef WIFI_HAL_INTERFACE_COMBINATIONS -> kMainModeId = kV3   (3)
+#   #else                                  -> kMainModeId = kV1Sta (0)
+#
+# Kalau tidak diset, chip yang baru dibuat mengiklankan mode id 0 dan 1. Tapi
+# setiap kali handleChipConfiguration() berhasil, wifi_chip.cpp:275 menimpa
+# seluruh daftar mode dengan SATU mode hasil bacaan driver dan memberinya
+# id kV3 = 3:
+#
+#   aidl_chip_mode.id = feature_flags::chip_mode_ids::kV3;
+#   modes_.clear();
+#   modes_.push_back(aidl_chip_mode);
+#
+# Jadi id mode berbeda antara jalur statis (0) dan jalur dinamis (3). Framework
+# menyimpan daftar mode itu (HalDeviceManager, WIFI_STATIC_CHIP_INFO), lalu
+# setelah HAL restart ia meminta mode 3 kepada chip baru yang hanya punya 0 dan
+# 1. wifi_chip.cpp:706 menolaknya:
+#
+#   if (!isValidModeId(mode_id)) return ERROR_INVALID_ARGS;   <- code 7
+#
+# Itu satu-satunya jalur keluar configureChip yang TIDAK menulis log apa pun,
+# dan memang di logcat perangkat tidak ada satu baris pun dari pid HAL saat
+# kegagalan terjadi -- yang sempat menyesatkan ke arah "driver tidak termuat".
+# Dengan makro ini diset, kedua jalur sama-sama memakai id 3 dan daftar mode
+# tetap sah melintasi restart HAL.
+#
+# Gejala yang terukur di perangkat sebelum perbaikan: driver justru SUDAH aktif
+# (/sys/module/wlan/parameters/fwpath ada, wlan0 ada,
+# vendor.wlan.driver.version = 3.0.11.85), HAL dan wificond running, tapi
+# wlan.driver.status tetap "unloaded" karena wifi_legacy_hal.cpp:587 baru
+# menyetelnya SETELAH configureChip berhasil. Propertinya gejala, bukan sebab.
+#
+# Nilai {{{STA}, 1}} disalin dari dua rujukan yang memakai kelas chip sama:
+# acroreiser/ULH lenovo a6010 (BoardConfig.mk:226) dan Mi-Thorium
+# (BoardConfigCommon.mk:251). Hanya STA -- AP dan P2P tidak didaftarkan di sini
+# karena wifi_chip.cpp:275 akan menggantinya dengan matriks asli dari driver
+# begitu konfigurasi pertama berhasil.
+WIFI_HAL_INTERFACE_COMBINATIONS := {{{STA}, 1}}
 WPA_SUPPLICANT_VERSION := VER_0_8_X
 # WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION dibuang — tidak ada di 18.1.
 # Sumber: msm8916-common lineage-18.1 (flag ini dihapus di diff resmi)
