@@ -417,8 +417,32 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.camera.front.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.front.xml
 
 # Properties
+#
+# persist.camera.disable.anight mematikan jalur multi-frame cahaya rendah milik
+# blob OPPO. Tanpa itu, MEMOTRET dengan kamera DEPAN menjatuhkan cameraserver:
+#
+#   F libc: Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x190
+#           in tid ... (binder), pid ... (cameraserver)
+#   Cause: null pointer dereference
+#     #00 pc 002ac580  /vendor/lib/hw/camera.vendor.msm8916.so
+#                      (VDSuperPhoto_AddFrame+0)
+#     #01 pc 00001cee  [anon:.bss]
+#   D CXCP: CameraId-1: onError 5 -> ERROR_CAMERA_SERVICE
+#
+# Crash-nya DI DALAM blob, di offset +0 fungsi itu, membaca 0x190 dari pointer
+# null -- konteks SuperPhoto tidak pernah diinisialisasi padahal AddFrame
+# dipanggil. Blob memang menyediakan VDInitializeSuperPhoto/VDInitializeLowLight,
+# jadi jalur ini bagian dari fitur "auto night" bawaan OPPO.
+#
+# Kamera DEPAN yang kena karena ruangan gelap membuat jalur cahaya rendah aktif;
+# kamera belakang pada pencahayaan normal tidak pernah melewatinya.
+#
+# Terverifikasi di perangkat, keduanya sesudah properti ini disetel:
+#   depan   : foto tersimpan 1944x2592, cameraserver tetap running, nol SIGSEGV
+#   belakang: foto tersimpan, tidak ada regresi
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.camera.cpp.duplication=false \
+    persist.camera.disable.anight=1 \
     persist.camera.hal.debug.mask=0
 
 # vendor_init
