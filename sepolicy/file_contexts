@@ -20,6 +20,11 @@
 # jadi biner aslinya tidak pernah dapat label dan init tidak bisa transisi ke
 # domain hal_light_default.
 /(system/vendor|vendor)/bin/hw/android\.hardware\.light@2\.0-service\.oppo_msm8916    u:object_r:hal_light_default_exec:s0
+# HAL vibrator AIDL yang menggantikan jalur HIDL 1.0 (dihapus hulu di 23.2).
+# Domain hal_vibrator_default sudah ada di system/sepolicy/vendor/
+# hal_vibrator_default.te; yang kurang hanya label untuk biner bernama msm8916.
+# Baris ini disalin dari a6010 (sepolicy/vendor/file_contexts:63).
+/(system/vendor|vendor)/bin/hw/android\.hardware\.vibrator-service\.msm8916    u:object_r:hal_vibrator_default_exec:s0
 /sys/class/leds/lcd-backlight(/.*)? 	   u:object_r:sysfs_leds:s0
 /dev/block/platform/soc.0/7824900.sdhci/by-name/persist    u:object_r:persist_block_device:s0
 

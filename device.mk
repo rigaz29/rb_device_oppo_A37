@@ -1042,18 +1042,22 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.usb.accessory.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.accessory.xml
 
 # Vibrator
+#
+# HIDL vibrator 1.0 sudah dihapus hulu di 23.2 -- hardware/interfaces/vibrator/
+# hanya menyisakan aidl/. Karena itu jalur passthrough lama tidak bisa dipakai
+# lagi dan sempat dinonaktifkan di commit 0231000 (getaran mati).
+#
+# Penggantinya HAL AIDL yang menulis langsung ke sysfs, disalin dari
+# acroreiser/ULH lenovo a6010 (aidl/vibrator/, device.mk:469) -- sama-sama
+# msm8916 dan sama-sama lineage-23.2.
+#
+# Node yang dipakainya diverifikasi ADA di perangkat ini, bukan diasumsikan:
+#   /sys/class/timed_output/vibrator/enable       (durasi, ms)
+#   /sys/class/timed_output/vibrator/vtg_level    (amplitudo)
+#   vtg_default, vtg_max, vtg_min
+# dan menulis 800 ke node enable lewat adb benar-benar menggerakkan motornya.
 PRODUCT_PACKAGES += \
-    # FASE 2 (23.2): dinonaktifkan sementara, BUKAN dibuang.
-    # hardware/interfaces/vibrator/ di 23.2 hanya punya aidl/; HIDL 1.0 sudah
-    # dihapus hulu, termasuk implementasi passthrough default yang dipakai baris
-    # ini (lihat manifest.xml:232 <transport>passthrough</transport>).
-    # Patch MisterZtr 'Add-HIDL-vibrator-1.0-interface-for-legacy-vendor-HA'
-    # TIDAK cukup: ia hanya mengembalikan interface (IVibrator.hal, types.hal,
-    # Android.bp), tanpa vibrator/1.0/default/.
-    # TODO Fase 6: pilih salah satu -- kembalikan default impl bersama patch
-    # interface itu, atau tulis implementasi AIDL sysfs. Di pohon hanya ada
-    # android.hardware.vibrator-service.example yang sekadar contoh.
-    # Sampai itu dikerjakan: getaran mati, boot tidak terpengaruh.
+    android.hardware.vibrator-service.msm8916
 
 # RIL
 # libcnefeatureconfig dibuang 7 Agu 2026 (M4): modulnya hanya disediakan repo
