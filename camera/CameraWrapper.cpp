@@ -31,6 +31,7 @@
 #include <utils/threads.h>
 #include <utils/String8.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 #include <android/binder_manager.h>
 // <camera/Camera.h> DIBUANG. Tidak ada satu pun tipenya yang dipakai berkas ini
@@ -117,6 +118,66 @@ typedef struct wrapper_camera_device {
 
 #define CAMERA_ID(device) (((wrapper_camera_device_t *)(device))->id)
 
+/*
+ * A37: tahan libthermalclient.so supaya tidak pernah dilepas dari pemetaan.
+ *
+ * QCameraThermalAdapter di dalam blob melakukan
+ *     dlopen("/vendor/lib/libthermalclient.so", RTLD_NOW)      pada init()
+ *     dlclose(mHandle)                                          pada deinit()
+ * (terbaca langsung di sumber CAF yang setara, QCameraThermalAdapter.cpp:66
+ * dan deinit()). deinit() berjalan setiap kali kamera ditutup -- termasuk saat
+ * pengguna berpindah dari kamera belakang ke depan.
+ *
+ * Pustaka itu meninggalkan destruktor kunci TLS yang menunjuk ke kodenya
+ * sendiri. Begitu pemetaannya dilepas, thread mana pun yang berikutnya keluar
+ * memanggil pointer itu dari pthread_key_clean_all() dan cameraserver mati
+ * dengan SIGSEGV, sehingga aplikasi kamera ikut tertutup paksa.
+ *
+ * Diukur di perangkat, bukan disimpulkan:
+ *   - menutup kamera membongkar TEPAT SATU pustaka, yaitu libthermalclient.so
+ *     (diff /proc/<cameraserver>/maps sebelum dan sesudah)
+ *   - tiga tombstone berturut-turut menunjuk alamat fault e29cdcf8, d87cecf8,
+ *     dan e688ccf8 -- basis berbeda karena ASLR, offset selalu 0xcf8
+ *   - offset 0xcf8 jatuh di dalam segmen R E milik libthermalclient.so
+ *     (LOAD VA 0x0 ukuran 0x5010), jadi itu memang alamat fungsi di sana
+ *   - saat kamera terbuka pustaka itu dipetakan di wilayah e6xxxxxx, satu-
+ *     satunya penghuni wilayah itu; saat crash wilayah e0-e7 kosong sama sekali
+ *
+ * Dengan memegang satu rujukan sendiri, dlclose milik blob hanya menurunkan
+ * hitungan rujukan dan pemetaannya tetap hidup. RTLD_NODELETE ditambahkan
+ * sebagai pengaman kedua supaya linker menandai soinfo-nya tidak boleh dilepas
+ * sekalipun hitungan rujukan sempat mencapai nol.
+ *
+ * Tidak ada fungsi yang hilang karenanya: perangkat ini memang tidak punya
+ * thermal daemon (init.svc.thermald kosong, biner thermald tidak ada), jadi
+ * yang dijaga semata-mata agar pemetaannya tidak lenyap di bawah kaki thread
+ * yang masih hidup.
+ */
+static void pin_thermal_client()
+{
+    static bool pinned = false;
+
+    if (pinned)
+        return;
+    pinned = true;
+
+    /* Jalur ditulis persis seperti yang dipakai blob, supaya linker
+     * mengembalikan soinfo yang sama dan bukan salinan kedua. */
+    void *handle = dlopen("/vendor/lib/libthermalclient.so",
+            RTLD_NOW | RTLD_NODELETE);
+
+    if (handle == NULL) {
+        const char *err = dlerror();
+        ALOGW("%s: libthermalclient.so tidak dapat dipin: %s",
+                __FUNCTION__, err ? err : "(tanpa keterangan)");
+    } else {
+        ALOGI("%s: libthermalclient.so dipin, dlclose blob tidak akan "
+                "membongkarnya", __FUNCTION__);
+    }
+
+    /* Handle sengaja TIDAK ditutup -- itu justru inti perbaikannya. */
+}
+
 static int check_vendor_module()
 {
     int rv = 0;
@@ -124,6 +185,9 @@ static int check_vendor_module()
 
     if (gVendorModule)
         return 0;
+
+    /* Dipasang sebelum blob sempat memuat dan membongkarnya sendiri. */
+    pin_thermal_client();
 
     rv = hw_get_module_by_class("camera", "vendor",
             (const hw_module_t**)&gVendorModule);
