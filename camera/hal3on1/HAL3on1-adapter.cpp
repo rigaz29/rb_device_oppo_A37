@@ -175,6 +175,77 @@ void hal1_data_callback(int32_t msg_type,
     }
 }
 
+#ifndef A37_ALIGN
+#define A37_ALIGN(v, a) (((v) + (a) - 1) / (a) * (a))
+#endif
+
+/*
+ * Menyalin bingkai yuv420sp POLOS dari HAL1 ke buffer gralloc ber-tata-letak
+ * VENUS milik encoder.
+ *
+ * Sebelumnya jalur video hanya melakukan:
+ *   memcpy(buf, adapter->video_buffer, adapter->video_buffer_size);
+ * yaitu menyalin sebanyak ukuran SUMBER tanpa pernah melihat ukuran atau tata
+ * letak TUJUAN. Diukur di perangkat ini:
+ *
+ *   src      = 1855488 byte   (HAL1, yuv420sp 1280x960)
+ *   dst_size = 3153920 byte   (gralloc, venus 1920x1088)
+ *
+ * Sumbernya bahkan lebih kecil daripada bidang luma tujuan saja (2088960 byte),
+ * sehingga SELURUH bidang kroma tidak pernah tersentuh dan tetap nol. YUV nol
+ * berarti Y=0,U=0,V=0 -> RGB kira-kira (0,135,0): itulah kenapa rekaman kamera
+ * depan seluruhnya HIJAU. Rekaman kamera belakang tampak hitam hanya karena
+ * lensanya menghadap meja, bukan karena lebih sehat.
+ *
+ * Bagian yang tidak tersalin kini diisi nilai NETRAL (Y=16, UV=128) supaya sisa
+ * bingkai hitam, bukan hijau menyala.
+ *
+ * Salin per baris memang diperlukan, bukan kehati-hatian berlebih: dari ukuran
+ * video yang didukung blob, hanya 1280x960 dan 640x480 yang tata letak venus-nya
+ * kebetulan identik dengan polos. 1280x720 (scanline 720->736), 960x720
+ * (stride 960->1024), 864x480, 800x480, dan 720x480 semuanya berbeda.
+ */
+static void a37_copy_yuv420sp_to_venus(uint8_t* dst, int dst_w, int dst_h,
+                                       const uint8_t* src, int src_w, int src_h)
+{
+    const int dst_stride = A37_ALIGN(dst_w, 128);
+    const int dst_scanlines = A37_ALIGN(dst_h, 32);
+    const int dst_uv_lines = A37_ALIGN(dst_h / 2, 16);
+
+    // SUMBERNYA JUGA VENUS, meski HAL1 melaporkan "yuv420sp".
+    //
+    // Laporan format itu tidak bisa dipercaya; ukuran buffernya yang membuktikan.
+    // Diukur di perangkat ini, keduanya cocok PERSIS dengan venus + 12288 byte
+    // padding, bukan dengan tata letak polos:
+    //
+    //   belakang 1920x1080  src = 3145728 = 3133440 + 12288
+    //   depan    1280x960   src = 1855488 = 1843200 + 12288
+    //
+    // Versi pertama penyalin ini memperlakukan sumber sebagai polos, sehingga
+    // bidang kroma dibaca dari src + 1920*1080 padahal venus menaruhnya di
+    // src + 1920*1088 -- meleset 15360 byte, yaitu 8 baris luma dibaca sebagai
+    // kroma. Sisa artefak warna di tepi bingkai berasal dari situ.
+    const int src_stride = A37_ALIGN(src_w, 128);
+    const int src_scanlines = A37_ALIGN(src_h, 32);
+
+    const int copy_w = src_w < dst_w ? src_w : dst_w;
+    const int copy_h = src_h < dst_h ? src_h : dst_h;
+
+    memset(dst, 16, (size_t)dst_stride * dst_scanlines);
+    for (int y = 0; y < copy_h; y++) {
+        memcpy(dst + (size_t)y * dst_stride,
+               src + (size_t)y * src_stride, (size_t)copy_w);
+    }
+
+    uint8_t* dst_uv = dst + (size_t)dst_stride * dst_scanlines;
+    const uint8_t* src_uv = src + (size_t)src_stride * src_scanlines;
+    memset(dst_uv, 128, (size_t)dst_stride * dst_uv_lines);
+    for (int y = 0; y < copy_h / 2; y++) {
+        memcpy(dst_uv + (size_t)y * dst_stride,
+               src_uv + (size_t)y * src_stride, (size_t)copy_w);
+    }
+}
+
 void hal1_data_timestamp_callback(nsecs_t timestamp, int32_t msg_type,
                                   const camera_memory_t* data, unsigned index, void* user)
 {
@@ -346,6 +417,8 @@ struct preview_stream_ops* preview_window_stub_create() {
 }
 
 static CameraParameters current_params;
+static int a37_video_src_w = 0;
+static int a37_video_src_h = 0;
 
 static int camera3_configure_streams(const struct camera3_device *dev, camera3_stream_configuration_t* stream_config)
 {
@@ -1322,12 +1395,53 @@ skip_mwb:
                     HAL1_CALL(hal1_device, enable_msg_type, CAMERA_MSG_VIDEO_FRAME);
                     HAL1_CALL(hal1_device, start_recording);
                     adapter->video_stream = true;
+
+                    // Baca ukuran rekaman yang BENAR-BENAR dipakai HAL1, jangan
+                    // diasumsikan sama dengan yang diminta. Blob boleh menurunkan
+                    // permintaan ke ukuran terdekat yang didukungnya, dan di
+                    // perangkat ini memang begitu: diminta 1920x1080, yang dipakai
+                    // 1280x960. Format yang dilaporkannya juga yuv420sp polos,
+                    // bukan nv12-venus yang disetel di atas.
+                    a37_video_src_w = 0;
+                    a37_video_src_h = 0;
+                    {
+                        const char* hp = HAL1_CALL(hal1_device, get_parameters);
+                        if (hp) {
+                            CameraParameters rp;
+                            rp.unflatten(String8(hp));
+                            const char* vs = rp.get("video-size");
+                            if (vs)
+                                sscanf(vs, "%dx%d", &a37_video_src_w, &a37_video_src_h);
+                            ALOGI("A37 video: HAL1 merekam %dx%d fmt=%s (diminta %ux%u)",
+                                  a37_video_src_w, a37_video_src_h,
+                                  rp.get("video-frame-format") ?
+                                      rp.get("video-frame-format") : "(none)",
+                                  output_buffer.stream->width,
+                                  output_buffer.stream->height);
+                        }
+                    }
                 }
 
                 while (adapter->video_buffer_size == 0) {
                     usleep(1);
                 }
-                memcpy(buf, adapter->video_buffer, adapter->video_buffer_size);
+
+
+                if (a37_video_src_w > 0 && a37_video_src_h > 0) {
+                    a37_copy_yuv420sp_to_venus(buf,
+                                               (int)output_buffer.stream->width,
+                                               (int)output_buffer.stream->height,
+                                               adapter->video_buffer,
+                                               a37_video_src_w, a37_video_src_h);
+                } else {
+                    // Ukuran sumber tidak terbaca: jangan menyalin melewati batas
+                    // buffer tujuan, dan sisakan bingkai netral daripada hijau.
+                    private_handle_t* dh = (private_handle_t*)(*output_buffer.buffer);
+                    size_t n = (size_t)adapter->video_buffer_size;
+                    if (dh && n > dh->size)
+                        n = dh->size;
+                    memcpy(buf, adapter->video_buffer, n);
+                }
                 HAL1_CALL(adapter->hal1_device, release_recording_frame, adapter->video_buffer);
                 adapter->video_buffer_size = 0;
             } else if (output_buffer.stream->width < adapter->stream_width ||
@@ -1972,6 +2086,31 @@ static void camera_convert_parameters(int camera_id, const char *settings, Camer
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             case HAL_PIXEL_FORMAT_YCbCr_420_888:
             for (size_t i = 0; i < preview_sizes.size(); i++) {
+                // A37: hanya iklankan ukuran yang JUGA bisa DIREKAM HAL1.
+                //
+                // Format ini dipakai stream preview MAUPUN stream encoder video,
+                // dan camera2 tidak bisa memisahkan keduanya -- keduanya membaca
+                // daftar yang sama. Sebelumnya daftar ini disusun murni dari
+                // preview_sizes, sedangkan video_sizes diambil di atas lalu TIDAK
+                // PERNAH dipakai selain untuk menghitung ukuran array.
+                //
+                // Akibatnya framework diberi tahu 1920x1080 tersedia dan membuat
+                // stream encoder sebesar itu, padahal HAL1 melaporkan
+                //   video-size-values = 1280x960,1280x720,960x720,864x480,
+                //                       800x480,720x480,640x480,352x288,...
+                // Maksimumnya 1280x960; permintaan 1080p diam-diam diturunkan ke
+                // sana, sehingga sumber dan tujuan tidak pernah cocok.
+                bool recordable = video_sizes.isEmpty();
+                for (size_t v = 0; v < video_sizes.size(); v++) {
+                    if ((int)video_sizes[v].width == (int)preview_sizes[i].width &&
+                        (int)video_sizes[v].height == (int)preview_sizes[i].height) {
+                        recordable = true;
+                        break;
+                    }
+                }
+                if (!recordable)
+                    continue;
+
                 available_stream_configs[idx] = scalar_formats[j];
                 available_stream_configs[idx+1] = preview_sizes[i].width;
                 available_stream_configs[idx+2] = preview_sizes[i].height;
