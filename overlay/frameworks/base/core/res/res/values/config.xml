@@ -270,17 +270,34 @@
           turned off and the screen off animation has been performed. -->
     <bool name="config_dozeAfterScreenOffByDefault">true</bool>
 
-    <!-- Default list of files pinned by the Pinner Service -->
+    <!-- Default list of files pinned by the Pinner Service
+
+         Empat dari sembilan entri sebelumnya menunjuk berkas yang tidak ada,
+         sehingga PinnerService melempar ErrnoException ENOENT tiap boot dan
+         tidak pernah mem-pin apa pun dari keempatnya. Diverifikasi satu per
+         satu di perangkat:
+
+           /system/lib/libsurfaceflinger.so   DIBUANG. Tidak ada di mana pun;
+               surfaceflinger sekarang biner statik 6,3 MB di /system/bin.
+               Sengaja TIDAK diganti dengan /system/bin/surfaceflinger:
+               tidak ada pengukuran yang menunjukkan mem-pin-nya membantu,
+               dan prosesnya toh selalu berjalan sehingga halamannya panas.
+
+           SystemUI.apk dan dua turunan dalvik-cache-nya
+               Jalurnya product/, aslinya system_ext/. SystemUI memang modul
+               system_ext di AOSP modern. Nama berkas dalvik-cache mengikuti
+               jalur apk-nya, jadi ketiganya bergeser bersama-sama.
+
+         Lima entri framework di bawah sudah benar dan diverifikasi ada. -->
     <string-array translatable="false" name="config_defaultPinnerServiceFiles">
         <item>"/system/framework/arm/boot-framework.oat"</item>
         <item>"/system/framework/framework.jar"</item>
         <item>"/system/framework/oat/arm/services.odex"</item>
         <item>"/system/framework/arm/boot.oat"</item>
         <item>"/system/framework/arm/boot-core-libart.oat"</item>
-        <item>"/system/lib/libsurfaceflinger.so"</item>
-        <item>"/system/product/priv-app/SystemUI/SystemUI.apk"</item>
-        <item>"/data/dalvik-cache/arm/system@product@priv-app@SystemUI@SystemUI.apk@classes.dex"</item>
-        <item>"/data/dalvik-cache/arm/system@product@priv-app@SystemUI@SystemUI.apk@classes.vdex"</item>
+        <item>"/system/system_ext/priv-app/SystemUI/SystemUI.apk"</item>
+        <item>"/data/dalvik-cache/arm/system@system_ext@priv-app@SystemUI@SystemUI.apk@classes.dex"</item>
+        <item>"/data/dalvik-cache/arm/system@system_ext@priv-app@SystemUI@SystemUI.apk@classes.vdex"</item>
     </string-array>
 
     <!-- Should the pinner service pin the Home application? -->
