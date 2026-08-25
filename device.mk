@@ -52,10 +52,14 @@ PRODUCT_PACKAGES += \
 # cocok dengan gejala "sebentar tidak pas lalu benar sendiri". Default AOSP
 # memang 0, jadi membuangnya = kembali ke perilaku benar.
 #
-# debug.sf.disable_backpressure=1 SENGAJA DIPERTAHANKAN dulu meski juga tersangka
-# (SurfaceFlinger.cpp:363 -> mPropagateBackpressure=false). Kalau dua-duanya
-# dibuang sekaligus dan glitch hilang, tidak akan ketahuan mana penyebabnya.
-# Kalau glitch masih ada setelah ini, itu variabel berikutnya yang diubah.
+# debug.sf.disable_backpressure DIBUANG — terbukti menghambat kelancaran UI.
+# Properti ini mematikan backpressure di SurfaceFlinger scheduler
+# (FrameTargeter.cpp: considerBackpressure=false), sehingga app yang lambat
+# render tidak ditekan dan bebas menumpuk frame di pipeline. Di Adreno 306
+# yang GPU-nya sudah kewalahan, ini memonopoli GPU dan memperparah jank.
+# Sebelumnya ditahan untuk bisection glitch wallpaper; latch_unsignaled sudah
+# teridentifikasi sebagai penyebab glitch, jadi properti ini tidak lagi
+# diperlukan. Default AOSP (0, backpressure aktif) = perilaku benar.
 #
 # Tujuh properti berikut dibuang karena NOL pembaca di seluruh tree
 # (frameworks/, hardware/, system/, vendor/qcom/) — cuma pajangan:
@@ -80,7 +84,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.shared=quicken \
     pm.dexopt.downgrade_after_inactive_days=10 \
     debug.sf.hw=1 \
-    debug.sf.disable_backpressure=1 \
     video.accelerate.hw=1
 
 # debug.hwui.renderer=opengl DIBUANG di 20 — properti MATI, dan menyesatkan.
@@ -120,14 +123,23 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # cyanogen msm8916-common memakai `threaded`; kalau `gles` bermasalah, itu
 # alternatif pertama yang dicoba.
 #
-# Empat properti sisanya BUKAN penyebab crash — semuanya penyetelan SF untuk GPU
+# debug.sf.disable_client_composition_cache DIBUANG — terbukti penyebab utama
+# GPU stall 4950ms dan 2736 HWC missed frames. Properti ini mematikan caching
+# hasil komposisi klien di SurfaceFlinger, sehingga SETIAP frame di-render
+# ulang penuh oleh GPU meski layer tidak berubah. Di Adreno 306 (19.2 GFLOPS)
+# ini membebani GPU secara masif: histogram GPU menunjukkan 31% frame Launcher
+# dan 19% frame SystemUI stuck di 4950ms (timeout GPU fence). Setelah dibuang,
+# HWC kembali melakukan device composition (usesDeviceComposition=true),
+# missed frames turun dari 2736 ke 6, dan P50 frame time Launcher turun dari
+# 42ms ke 6ms. Default AOSP (0, cache aktif) = perilaku benar.
+#
+# Tiga properti sisanya BUKAN penyebab crash — semuanya penyetelan SF untuk GPU
 # legacy yang dipunyai ROM referensi dan tidak kita punya. Ditambahkan sekaligus
 # agar konfigurasinya sepadan dengan referensi yang terbukti. ⚠️ Kalau nanti
-# muncul gejala baru di SF, keempat baris inilah yang pertama di-bisect, bukan
+# muncul gejala baru di SF, ketiga baris inilah yang pertama di-bisect, bukan
 # debug.renderengine.backend.
 PRODUCT_PROPERTY_OVERRIDES += \
     debug.renderengine.backend=gles \
-    debug.sf.disable_client_composition_cache=1 \
     debug.sf.enable_gl_backpressure=1 \
     debug.sf.enable_planner_prediction=false \
     debug.sf.recomputecrop=0
