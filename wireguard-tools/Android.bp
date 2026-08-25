@@ -1,0 +1,36 @@
+// Alat userspace WireGuard (wg), dari wireguard-tools hulu a998407.
+//
+// Dipasang SENGAJA di ROM. Modul WireGuard in-tree kernel A37 (1.0.20220627)
+// tidak bisa dipakai dari shell tanpa alat ini: pembuatan interface, penyetelan
+// kunci, dan penambahan peer semuanya lewat netlink WireGuard yang hanya `wg`
+// yang bicara. Aplikasi WireGuard Android tidak membutuhkannya -- ia membawa
+// alatnya sendiri -- jadi ini murni untuk pemakaian lewat adb/root.
+//
+// Sebelumnya modul ini tinggal di external/wireguard-tools yang TIDAK terlacak
+// repo mana pun, sehingga `wg` diam-diam ikut terpasang di ROM tanpa pernah
+// terdaftar di PRODUCT_PACKAGES. Build di mesin lain akan menghasilkan ROM yang
+// berbeda tanpa peringatan. Karena itu dipindahkan ke device tree dan
+// didaftarkan eksplisit di device.mk.
+//
+// wg-quick sengaja TIDAK dibangun: itu skrip bash, dan Android tidak punya bash.
+cc_binary {
+    name: "wg",
+    srcs: ["src/*.c"],
+    local_include_dirs: ["src", "src/uapi/linux"],
+    cflags: [
+        "-std=gnu99",
+        "-D_GNU_SOURCE",
+        "-DRUNSTATEDIR=\"/data/vendor/wireguard\"",
+        "-DWIREGUARD_TOOLS_VERSION=\"a998407\"",
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+        "-Wno-missing-field-initializers",
+        // Soong memakai set peringatan lebih ketat daripada Makefile hulu
+        // wireguard-tools. Dua ini didiamkan karena memang idiom sah di
+        // kode hulu, bukan cacat: NULL yang ditulis sebagai konstanta
+        // boolean, dan aritmetika pointer void (ekstensi GNU) di ipc.c.
+        "-Wno-bool-conversion",
+        "-Wno-gnu-pointer-arith",
+    ],
+    vendor: false,
+}

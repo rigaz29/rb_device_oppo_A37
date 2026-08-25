@@ -1196,6 +1196,16 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     libwpa_client
 
+# WireGuard
+# Modul kernelnya built-in (CONFIG_WIREGUARD=y, 1.0.20220627) tapi tidak bisa
+# dipakai dari shell tanpa alat userspace ini -- interface, kunci, dan peer
+# semuanya lewat netlink WireGuard. Sumbernya di wireguard-tools/ pada device
+# tree ini; lihat komentar Android.bp di sana soal kenapa tidak lagi di
+# external/. Aplikasi WireGuard Android membawa alatnya sendiri dan tidak
+# bergantung pada ini.
+PRODUCT_PACKAGES += \
+    wg
+
 PRODUCT_PACKAGES += \
     hostapd \
     wpa_supplicant \
