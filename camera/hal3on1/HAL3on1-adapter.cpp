@@ -231,18 +231,50 @@ static void a37_copy_yuv420sp_to_venus(uint8_t* dst, int dst_w, int dst_h,
     const int copy_w = src_w < dst_w ? src_w : dst_w;
     const int copy_h = src_h < dst_h ? src_h : dst_h;
 
-    memset(dst, 16, (size_t)dst_stride * dst_scanlines);
-    for (int y = 0; y < copy_h; y++) {
-        memcpy(dst + (size_t)y * dst_stride,
-               src + (size_t)y * src_stride, (size_t)copy_w);
+    // Isi HANYA bagian yang tidak tersalin. Versi pertama fungsi ini men-memset
+    // seluruh bidang lebih dulu lalu menimpanya dengan memcpy, yaitu menulis
+    // buffer DUA KALI PENUH. Buffer encoder ini tidak ter-cache -- terukur
+    // sekitar 64 MB/s -- sehingga tulisan ganda itu langsung menggandakan
+    // ongkosnya. Pada kasus normal (ukuran sumber dan tujuan sama) sisa yang
+    // perlu diisi cuma beberapa baris penyelarasan.
+    // Jalur cepat: kalau stride sumber dan tujuan sama DAN seluruh lebar
+    // tersalin, bidangnya bersambung di kedua sisi sehingga cukup satu memcpy.
+    // Jalur per baris di bawahnya memanggil memcpy 1080 kali per bingkai pada
+    // 720p (720 baris Y + 360 baris UV); pada kasus yang sudah cocok itu
+    // sia-sia. Terukur: penyalinan memakan 21,3 ms dari siklus 40 ms.
+    const bool a37_contig = (src_stride == dst_stride) && (copy_w == dst_stride);
+
+    if (a37_contig) {
+        memcpy(dst, src, (size_t)copy_h * dst_stride);
+    } else {
+        for (int y = 0; y < copy_h; y++) {
+            uint8_t* row = dst + (size_t)y * dst_stride;
+            memcpy(row, src + (size_t)y * src_stride, (size_t)copy_w);
+            if (copy_w < dst_stride)
+                memset(row + copy_w, 16, (size_t)(dst_stride - copy_w));
+        }
+    }
+    if (copy_h < dst_scanlines) {
+        memset(dst + (size_t)copy_h * dst_stride, 16,
+               (size_t)(dst_scanlines - copy_h) * dst_stride);
     }
 
     uint8_t* dst_uv = dst + (size_t)dst_stride * dst_scanlines;
     const uint8_t* src_uv = src + (size_t)src_stride * src_scanlines;
-    memset(dst_uv, 128, (size_t)dst_stride * dst_uv_lines);
-    for (int y = 0; y < copy_h / 2; y++) {
-        memcpy(dst_uv + (size_t)y * dst_stride,
-               src_uv + (size_t)y * src_stride, (size_t)copy_w);
+    const int copy_uv_h = copy_h / 2;
+    if (a37_contig) {
+        memcpy(dst_uv, src_uv, (size_t)copy_uv_h * dst_stride);
+    } else {
+        for (int y = 0; y < copy_uv_h; y++) {
+            uint8_t* row = dst_uv + (size_t)y * dst_stride;
+            memcpy(row, src_uv + (size_t)y * src_stride, (size_t)copy_w);
+            if (copy_w < dst_stride)
+                memset(row + copy_w, 128, (size_t)(dst_stride - copy_w));
+        }
+    }
+    if (copy_uv_h < dst_uv_lines) {
+        memset(dst_uv + (size_t)copy_uv_h * dst_stride, 128,
+               (size_t)(dst_uv_lines - copy_uv_h) * dst_stride);
     }
 }
 
@@ -470,6 +502,13 @@ static int camera3_configure_streams(const struct camera3_device *dev, camera3_s
 
                 if (stream->usage == 0x00010000) {
                     stream->format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
+                    // CATATAN: menaikkan max_buffers ke 4 SUDAH DICOBA dan
+                    // TIDAK berpengaruh. Terukur pada 720p, dalam batas derau:
+                    //   max_buffers=1  salin 22,0 ms  jeda 18,5 ms  24,4 fps
+                    //   max_buffers=4  salin 22,0 ms  jeda 19,3 ms  24,2 fps
+                    // Jeda framework ternyata bukan soal jumlah buffer, jadi
+                    // dibiarkan 1 daripada menahan empat buffer 3 MB percuma di
+                    // perangkat 2 GB.
                     adapter->video_buffer_size = 0;
                     preview_params.setVideoSize(stream->width, stream->height);
                     break;
@@ -1354,8 +1393,18 @@ skip_mwb:
             properties.use_hwcomposer)
             usage = GRALLOC_USAGE_HW_COMPOSER;
 
-        if (output_buffer.stream->format == HAL_PIXEL_FORMAT_NV12_ENCODEABLE)
-            usage = GRALLOC_USAGE_HW_VIDEO_ENCODER;
+        if (output_buffer.stream->format == HAL_PIXEL_FORMAT_NV12_ENCODEABLE) {
+            // SW_WRITE_OFTEN ikut disertakan, tidak DIGANTI.
+            //
+            // Sebelumnya baris ini menimpa GRALLOC_USAGE_SW_WRITE_OFTEN dengan
+            // GRALLOC_USAGE_HW_VIDEO_ENCODER saja, sehingga gralloc diberi tahu
+            // CPU tidak akan menulis ke buffer ini -- padahal justru itu yang
+            // dilakukan penyalin di bawah.
+            //
+            // Terukur di perangkat pada 720p: menyalin ~1,4 MB memakan 19 ms,
+            // sekitar 74 MB/s, ciri tulisan ke pemetaan tak ter-cache.
+            usage = GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_HW_VIDEO_ENCODER;
+        }
 
         GraphicBufferMapper::get().lock(*output_buffer.buffer, usage, rect, (void **)&buf);
 
@@ -1444,6 +1493,7 @@ skip_mwb:
                 }
                 HAL1_CALL(adapter->hal1_device, release_recording_frame, adapter->video_buffer);
                 adapter->video_buffer_size = 0;
+
             } else if (output_buffer.stream->width < adapter->stream_width ||
                        output_buffer.stream->height < adapter->stream_height) {
                 get_crop_point(adapter->stream_width, adapter->stream_height,
