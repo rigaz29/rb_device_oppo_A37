@@ -752,6 +752,45 @@ PRODUCT_PACKAGES += \
     android.hardware.power@1.0-impl \
     android.hardware.power@1.0-service
 
+# Thermal HAL
+#
+# Sebelum ini perangkat TIDAK punya HAL thermal sama sekali, sehingga seluruh
+# API termal framework mati: PowerManager.getCurrentThermalStatus(), listener
+# status termal, dan thermal headroom. Aplikasi tidak bisa tahu perangkat
+# sedang panas dan menyesuaikan diri.
+#
+# Perlu ditegaskan supaya tidak salah paham: HAL ini TIDAK menambah proteksi
+# panas. Mitigasi tetap sepenuhnya di kernel (msm_thermal), dan itu memang
+# sudah bekerja -- diukur dengan beban penuh 4 core selama 100 detik, suhu
+# naik 39->60 derajat C dan frekuensi tidak pernah diturunkan. Yang ditambah
+# HAL ini murni PELAPORAN status ke framework.
+#
+# Diambil dari device tree a6010 (hidl/thermal + configs), yang memakai SoC
+# yang sama persis. Kedelapan sensor yang dirujuk confignya ada semua di A37
+# dan sudah dicocokkan satu per satu di perangkat:
+#
+#   tsens_tz_sensor0/1/4/5  CPU   thermal_zone0/1/3/4   multiplier 1
+#   tsens_tz_sensor2        GPU   thermal_zone2         multiplier 1
+#   battery                 BAT   thermal_zone6         multiplier 0.001
+#   bms                     SKIN  thermal_zone7         multiplier 0.001
+#   pm8916_tz               USB   thermal_zone5         multiplier 0.001
+#
+# Multiplier berbeda karena satuannya memang berbeda: tsens melaporkan derajat
+# C bulat, sedangkan battery/bms/pm8916_tz melaporkan milli-derajat.
+#
+# Ambang HotThreshold CPU mulai 65 derajat, di atas qcom,limit-temp = 60 milik
+# kernel. Itu disengaja dan tidak berbahaya: kernel sudah membatasi lebih dulu,
+# status framework sifatnya informatif.
+PRODUCT_PACKAGES += \
+    android.hardware.thermal@2.0-service.msm8916
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/thermal_info_config.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json \
+    $(LOCAL_PATH)/configs/thermal-engine.conf:$(TARGET_COPY_OUT_VENDOR)/etc/thermal-engine.conf
+
+PRODUCT_PROPERTY_OVERRIDES += \
+    vendor.thermal.config=thermal_info_config.json
+
 # Gatekeeper — baru di 18.1, wajib (Sumber: msm8916-common lineage-18.1)
 PRODUCT_PACKAGES += \
     android.hardware.gatekeeper@1.0-service.software

@@ -77,3 +77,9 @@
 # (sebelum SELinux di-set permissive). Pola ini dicopy dari A6010
 # (sepolicy/vendor/file_contexts:13) dan dipakai luas di sepolicy QCOM hulu.
 /dev/cpuset(/.*)?    u:object_r:cgroup:s0
+
+# Thermal HAL. AOSP hanya melabeli android.hardware.thermal@1.[01]-service dan
+# thermal-service.example (system/sepolicy/vendor/file_contexts:115-116); varian
+# @2.0-service.msm8916 yang dipakai perangkat ini tidak tercakup. Pola dicopy
+# dari a6010 (sepolicy/vendor/file_contexts:60).
+/(vendor|system/vendor)/bin/hw/android\.hardware\.thermal@2\.0-service\.msm8916    u:object_r:hal_thermal_default_exec:s0
