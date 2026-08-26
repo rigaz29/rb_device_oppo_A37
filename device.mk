@@ -85,6 +85,34 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.downgrade_after_inactive_days=10 \
     debug.sf.hw=1 \
     video.accelerate.hw=1
+# Catatan dexopt: semua pm.dexopt.* compiler filter diubah dari
+# speed-profile/verify ke speed di blok terpisah di bawah. speed-profile
+# tanpa .prof file = fallback ke verify, sehingga TIDAK ADA app yang
+# di-AOT compile (semua berjalan sebagai DEX interpreted + JIT).
+# Di Cortex-A53 1.2 GHz ini sangat membebani CPU.
+
+# dex2oat compiler filter — override default AOSP (speed-profile/verify) ke
+# speed agar semua app di-AOT compile ke native code. Tanpa ini, ROM eng
+# build yang tidak menjalankan WITH_DEXPREOPT menghasilkan DEX mentah yang
+# hanya di-verify (bukan di-compile) saat boot, sehingga semua app berjalan
+# sebagai DEX interpreted + JIT — sangat lambat di Cortex-A53.
+PRODUCT_PROPERTY_OVERRIDES += \
+    pm.dexopt.first-boot=speed \
+    pm.dexopt.install=speed \
+    pm.dexopt.install-fast=speed \
+    pm.dexopt.install-bulk=speed \
+    pm.dexopt.install-bulk-secondary=speed \
+    pm.dexopt.install-bulk-downgraded=speed \
+    pm.dexopt.install-bulk-secondary-downgraded=speed \
+    pm.dexopt.bg-dexopt=speed \
+    pm.dexopt.ab-ota=speed \
+    pm.dexopt.inactive=speed \
+    pm.dexopt.cmdline=speed \
+    pm.dexopt.boot-after-ota=speed \
+    pm.dexopt.boot-after-mainline-update=speed \
+    pm.dexopt.post-boot=speed \
+    dalvik.vm.systemservercompilerfilter=speed \
+    dalvik.vm.systemuicompilerfilter=speed
 
 # debug.hwui.renderer=opengl DIBUANG di 20 — properti MATI, dan menyesatkan.
 #
@@ -1295,8 +1323,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.zygotemaxfailedboots=5 \
     dalvik.vm.foreground-heap-growth-multiplier=2.0 \
     dalvik.vm.dex2oat-flags=--no-watch-dog \
-    dalvik.vm.dex2oat-swap=false \
+    dalvik.vm.dex2oat-swap=true \
     dalvik.vm.dex2oat-threads=2 \
+    dalvik.vm.boot-dex2oat-threads=4 \
     ro.vendor.qti.am.reschedule_service=true \
     sys.use_fifo_ui=1
 

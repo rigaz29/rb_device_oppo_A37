@@ -380,14 +380,18 @@ BOARD_ROOT_EXTRA_FOLDERS := firmware persist
 #
 # Konsekuensinya: system image dan ZIP membesar (perkiraan kasar 300-800 MB),
 # dan build di host jauh lebih lama karena dex2oat mengerjakan semuanya.
+#
+# Sebelumnya di-skip untuk eng build (ifneq eng). Akibatnya ROM eng build
+# mengirim DEX mentah ke device — dex2oat harus kompilasi semua di device
+# saat boot pertama, yang sangat lambat di Cortex-A53 + RAM 2 GB.
+# Sekarang DEXPREOPT selalu aktif agar system apps sudah di-precompile
+# di host (CPU kuat), bukan di device (CPU lemah).
 ifeq ($(HOST_OS),linux)
-  ifneq ($(TARGET_BUILD_VARIANT),eng)
       WITH_DEXPREOPT := true
       WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := false
       DONT_DEXPREOPT_PREBUILTS := false
       USE_DEX2OAT_DEBUG := false
       WITH_DEXPREOPT_DEBUG_INFO := false
-  endif
 endif
 
 DISABLE_APEX_TEST_MODULE := true
