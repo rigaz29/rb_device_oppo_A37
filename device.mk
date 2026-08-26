@@ -114,8 +114,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # ke /data. Di situ speed-profile tanpa berkas .prof memang jatuh ke verify,
 # sehingga aplikasi berjalan interpreted + JIT -- lambat di Cortex-A53 1,2 GHz.
 # Menyetelnya ke speed memaksa AOT penuh saat pemasangan.
+# HANYA filter jalur PEMASANGAN yang dipaksa speed. Filter jalur BOOT sengaja
+# tidak disentuh; lihat blok berikutnya soal kenapa.
 PRODUCT_PROPERTY_OVERRIDES += \
-    pm.dexopt.first-boot=speed \
     pm.dexopt.install=speed \
     pm.dexopt.install-fast=speed \
     pm.dexopt.install-bulk=speed \
@@ -124,11 +125,37 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.install-bulk-secondary-downgraded=speed \
     pm.dexopt.ab-ota=speed \
     pm.dexopt.cmdline=speed \
-    pm.dexopt.boot-after-ota=speed \
-    pm.dexopt.boot-after-mainline-update=speed \
-    pm.dexopt.post-boot=speed \
     dalvik.vm.systemservercompilerfilter=speed \
     dalvik.vm.systemuicompilerfilter=speed
+
+# JANGAN setel keempat filter jalur boot ke speed. Ini BUKAN kehati-hatian
+# teoretis: build 20260826_135516 menyetel pm.dexopt.first-boot=speed dan
+# perangkat GAGAL BOOT -- tertahan di bootanimation lalu dilempar bootwatchdog
+# ke recovery.
+#
+# Terbaca di /data/bootfail dari kejadian itu:
+#   tertahan-detik.txt              365
+#   sys.system_server.start_count   1        (system_server TIDAK crash)
+#   baris dex2oat di logcat         2343     (2260 di antaranya dex2oat32)
+#   nol baris FATAL
+#   tiga baris terakhir: dex2oat32 masih mengompilasi androidx.fragment.app
+#   dan kotlin.reflect.jvm saat watchdog memotong, bootanimation masih berputar
+#
+# Penyebabnya: dengan first-boot=speed, PackageManager meng-AOT compile SELURUH
+# aplikasi pada boot pertama setelah flash. Di Cortex-A53 1,2 GHz itu jauh
+# melewati batas bootwatchdog, dan karena tidak pernah selesai, setiap boot
+# mengulang dari nol -- bootloop permanen, bukan sekadar boot lambat sekali.
+#
+# Diverifikasi bahwa ini memang penyebabnya: mengubah keempat properti menjadi
+# verify langsung di build.prop lewat recovery membuat perangkat boot bersih di
+# 123 detik dengan start_count=1.
+#
+# Default AOSP untuk keempatnya adalah verify (build/make/target/product/
+# runtime_libart.mk:113-116, memakai ?= sehingga override apa pun menang).
+# Karena itu keempatnya cukup TIDAK di-override sama sekali.
+#
+# Filter install-* di atas aman: jalur itu berjalan saat pengguna memasang
+# aplikasi, bukan saat boot, dan di situlah manfaat speed benar-benar terasa.
 
 # Dua filter di bawah SENGAJA tidak ikut speed.
 #
