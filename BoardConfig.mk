@@ -381,11 +381,23 @@ BOARD_ROOT_EXTRA_FOLDERS := firmware persist
 # Konsekuensinya: system image dan ZIP membesar (perkiraan kasar 300-800 MB),
 # dan build di host jauh lebih lama karena dex2oat mengerjakan semuanya.
 #
-# Sebelumnya di-skip untuk eng build (ifneq eng). Akibatnya ROM eng build
-# mengirim DEX mentah ke device — dex2oat harus kompilasi semua di device
-# saat boot pertama, yang sangat lambat di Cortex-A53 + RAM 2 GB.
-# Sekarang DEXPREOPT selalu aktif agar system apps sudah di-precompile
-# di host (CPU kuat), bukan di device (CPU lemah).
+# Sebelumnya di-skip untuk eng build (ifneq eng); guard itu kini dilepas
+# sehingga DEXPREOPT juga berlaku untuk eng build.
+#
+# KOREKSI: perubahan ini TIDAK berpengaruh pada build yang benar-benar dipakai.
+# ROM ini dibangun sebagai lineage_A37-bp4a-userdebug, dan userdebug != eng,
+# jadi guard tersebut memang sudah lolos dan WITH_DEXPREOPT sudah aktif sejak
+# awal. Diverifikasi di perangkat pada ROM sebelum perubahan: 82 dari 83 APK
+# sistem punya .odex, totalnya 95.855.736 byte kode native (SystemUI sendiri
+# 52,4 MB). Aplikasi sistem tidak pernah dikirim sebagai DEX mentah.
+#
+# Karena itu perkiraan "system image membesar 300-800 MB" di atas juga tidak
+# akan terwujud dari perubahan ini -- pembesaran itu sudah terjadi sejak dulu
+# dan sudah tercermin pada ukuran system.img sekarang (1707 MiB dari 2727 MiB
+# yang tersedia).
+#
+# Melepas guard tetap dipertahankan karena benar secara prinsip: kalau suatu
+# saat dibangun sebagai eng, perilakunya jadi konsisten.
 ifeq ($(HOST_OS),linux)
       WITH_DEXPREOPT := true
       WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := false

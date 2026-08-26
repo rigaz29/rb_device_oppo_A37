@@ -85,17 +85,35 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.downgrade_after_inactive_days=10 \
     debug.sf.hw=1 \
     video.accelerate.hw=1
-# Catatan dexopt: semua pm.dexopt.* compiler filter diubah dari
-# speed-profile/verify ke speed di blok terpisah di bawah. speed-profile
-# tanpa .prof file = fallback ke verify, sehingga TIDAK ADA app yang
-# di-AOT compile (semua berjalan sebagai DEX interpreted + JIT).
-# Di Cortex-A53 1.2 GHz ini sangat membebani CPU.
-
-# dex2oat compiler filter — override default AOSP (speed-profile/verify) ke
-# speed agar semua app di-AOT compile ke native code. Tanpa ini, ROM eng
-# build yang tidak menjalankan WITH_DEXPREOPT menghasilkan DEX mentah yang
-# hanya di-verify (bukan di-compile) saat boot, sehingga semua app berjalan
-# sebagai DEX interpreted + JIT — sangat lambat di Cortex-A53.
+# dex2oat compiler filter.
+#
+# KOREKSI terhadap catatan sebelumnya, yang menyatakan "TIDAK ADA app yang
+# di-AOT compile". Itu tidak akurat untuk aplikasi SISTEM. Diukur langsung di
+# perangkat pada ROM sebelum perubahan ini:
+#
+#   82 dari 83 APK sistem punya .odex (hanya qcrilmsgtunnel yang tidak)
+#   total .odex di /system   95.855.736 byte  (91 MB kode native, ELF)
+#   total .vdex di /system    7.806.647 byte
+#   SystemUI            .odex 52,4 MB  vs .vdex 900 KB   -> rasio 58x
+#   Launcher3QuickStep  .odex 26,2 MB  vs .vdex 333 KB   -> rasio 79x
+#
+# Rasio sebesar itu hanya mungkin kalau isinya memang kode terkompilasi penuh.
+# Aplikasi sistem SUDAH di-AOT compile lewat WITH_DEXPREOPT saat build.
+#
+# Penyebab salah baca: untuk aplikasi sistem yang sudah di-preopt, "dumpsys
+# package" melaporkan keadaan salinan di /data -- yang memang tidak ada karena
+# tidak perlu dikompilasi ulang. Itu tampak seperti status=verify, padahal
+# bukan berarti aplikasinya berjalan interpreted.
+#
+# Guard ifneq(TARGET_BUILD_VARIANT,eng) yang dilepas di BoardConfig.mk juga
+# tidak berpengaruh pada build ini: variannya userdebug, bukan eng, sehingga
+# WITH_DEXPREOPT memang sudah aktif sejak awal. Konsekuensinya perkiraan
+# "system image membesar 300-500 MB" tidak akan terjadi.
+#
+# Yang BENAR-BENAR diperbaiki blok ini adalah aplikasi yang dipasang PENGGUNA
+# ke /data. Di situ speed-profile tanpa berkas .prof memang jatuh ke verify,
+# sehingga aplikasi berjalan interpreted + JIT -- lambat di Cortex-A53 1,2 GHz.
+# Menyetelnya ke speed memaksa AOT penuh saat pemasangan.
 PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.first-boot=speed \
     pm.dexopt.install=speed \
@@ -104,15 +122,28 @@ PRODUCT_PROPERTY_OVERRIDES += \
     pm.dexopt.install-bulk-secondary=speed \
     pm.dexopt.install-bulk-downgraded=speed \
     pm.dexopt.install-bulk-secondary-downgraded=speed \
-    pm.dexopt.bg-dexopt=speed \
     pm.dexopt.ab-ota=speed \
-    pm.dexopt.inactive=speed \
     pm.dexopt.cmdline=speed \
     pm.dexopt.boot-after-ota=speed \
     pm.dexopt.boot-after-mainline-update=speed \
     pm.dexopt.post-boot=speed \
     dalvik.vm.systemservercompilerfilter=speed \
     dalvik.vm.systemuicompilerfilter=speed
+
+# Dua filter di bawah SENGAJA tidak ikut speed.
+#
+# bg-dexopt berjalan berkala di latar belakang. Dengan speed ia mengompilasi
+# ulang seluruh aplikasi setiap siklus; di Cortex-A53 dengan RAM 2 GB itu
+# mahal -- CPU penuh, panas, dan baterai terkuras, untuk pekerjaan yang sudah
+# dilakukan saat pemasangan. speed-profile membiarkannya bekerja terarah
+# berdasarkan profil pemakaian nyata.
+#
+# inactive justru ADA untuk menurunkan aplikasi yang lama tidak dipakai ke
+# verify demi menghemat penyimpanan. Menyetelnya ke speed membatalkan tujuan
+# setelan itu dan menahan kode native untuk aplikasi yang tidak dibuka.
+PRODUCT_PROPERTY_OVERRIDES += \
+    pm.dexopt.bg-dexopt=speed-profile \
+    pm.dexopt.inactive=verify
 
 # debug.hwui.renderer=opengl DIBUANG di 20 — properti MATI, dan menyesatkan.
 #
