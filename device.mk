@@ -947,13 +947,37 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.config.low_ram=true
 
 # lmkd: kernel 3.10 tidak punya PSI (baru ada di 4.20+). Tanpa ini lmkd mencoba
-# PSI dulu di init_monitors() lalu baru jatuh ke vmpressure; menyetelnya eksplisit
-# memangkas percobaan yang pasti gagal. Nilai sama dengan ROM referensi.
-# Sumber tekanan memorinya CONFIG_MEMCG=y + in-kernel LMK mati — terverifikasi di
-# .config kernel branch lineage-19.1 (Fase 1.4).
+# PSI dulu di init_monitors() (lmkd.cpp:3754) lalu baru jatuh ke vmpressure;
+# menyetelnya eksplisit memangkas percobaan yang pasti gagal.
+#
+# Jalur vmpressure-nya lengkap dan terverifikasi di perangkat:
+#   mm/vmpressure.c ada di kernel, dipanggil vmscan.c:2289 dan :2473
+#   CONFIG_MEMCG=y  -- init_mp_common() mensyaratkan cgroup v1, dan kernel 3.10
+#                      memang v1
+#   CONFIG_ANDROID_LOW_MEMORY_KILLER tidak diset, jadi lmkd userspace yang
+#                      bekerja, bukan driver in-kernel
+#   lmkd membuka 3 fd ke /dev/memcg/memory.pressure_level + 3 eventfd, satu
+#                      pasang untuk tiap tingkat (low, medium, critical)
+#
+# ro.lmk.use_new_strategy SENGAJA TIDAK DISETEL lagi. Sebelumnya diset false
+# dengan alasan "nilai sama dengan ROM referensi", tetapi properti itu HANYA
+# dibaca di jalur PSI: seluruh kemunculannya di lmkd.cpp (baris 3449, 3465,
+# 3629-3650) berada di dalam init_mp_psi() dan init_psi_monitors(). Fungsi
+# jalur vmpressure, init_mp_common() di lmkd.cpp:3658, tidak menerima parameter
+# strategi sama sekali. Karena perangkat ini tidak punya PSI, properti itu tidak
+# pernah dievaluasi -- baris mati yang tampak bermakna.
+#
+# Dan seandainya PSI suatu saat tersedia, false justru MELAWAN default yang
+# tepat: defaultnya low_ram_device || !use_minfree_levels, dan perangkat ini
+# menyetel ro.config.low_ram=true di atas, sehingga seharusnya true.
+#
+# Tuas yang benar-benar berlaku untuk jalur vmpressure adalah
+# ro.lmk.use_minfree_levels (default false). Dibiarkan pada default: perilaku
+# sekarang sudah terukur benar -- di bawah tekanan nyata lmkd membunuh 4-5
+# proses berurutan menurut oom_score_adj (975, 985, 995) tanpa menyentuh
+# aplikasi foreground, dan kernel OOM killer tidak pernah ikut campur.
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.lmk.use_psi=false \
-    ro.lmk.use_new_strategy=false
+    ro.lmk.use_psi=false
 
 # Properti baru 18.1 (Sumber: msm8916-common lineage-18.1 + a6000 ref)
 PRODUCT_PROPERTY_OVERRIDES += \
