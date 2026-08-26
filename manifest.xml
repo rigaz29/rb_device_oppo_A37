@@ -344,69 +344,44 @@
             HAL vendor.lineage.trust has a conflict." -> "No device manifest."
          Bandingkan dengan drm: fragment clearkey tidak punya tag <version>
          (hanya <fqname>), jadi deklarasi paralel di sini aman. -->
-    <!-- livedisplay: paket -legacymm dan -sysfs TIDAK membawa VINTF fragment
-         (hardware/lineage/livedisplay/{legacymm,sysfs}/Android.bp), jadi setiap
-         interface harus dideklarasikan manual di sini. Yang tidak dideklarasikan
-         tidak akan bisa diambil: dengan PRODUCT_ENFORCE_VINTF_MANIFEST,
-         getTransport() mengembalikan EMPTY dan getService() langsung null
-         (system/libhidl/transport/ServiceManagement.cpp:755-771).
+    <!-- livedisplay: DICABUT dari manifest ini pada Fase 6 (27 Agu 2026).
+         Di 23.2 HAL-nya AIDL (hardware/lineage/interfaces/livedisplay/aidl/)
+         dan paket vendor.lineage.livedisplay-service.sysfs MEMBAWA fragmen
+         VINTF-nya sendiri per fitur, dipilih lewat soong_config_variable
+         livedisplay_sysfs (aidl/sysfs/Android.bp:31-53). A37 menyalakan
+         enable_dcc, sehingga sysfs-dcc.xml yang mendeklarasikan
+         vendor.lineage.livedisplay versi 1, IDisplayColorCalibration/default.
+         Deklarasi manual di sini justru berbahaya: dua sumber untuk major
+         version yang sama membuat HalManifest::shouldAdd menolak fragmen dan
+         SELURUH device manifest gagal di-parse (lihat catatan trust di atas).
 
-         Hanya interface yang TERBUKTI akan register yang didaftarkan di sini —
-         mendeklarasikan HAL yang tak pernah muncul justru membuat getService()
-         menunggu (jalur vintfHwbinder + Waiter).
+         Kenapa HAL ini penting, bukan sekadar fitur tambahan: tanpa dia
+         LiveDisplay memakai jalur legacy yang menyetel matriks warna
+         SurfaceFlinger, dan matriks non-identitas membuat HWC2On1Adapter
+         memasang HWC_SKIP_LAYER pada semua layer sehingga MDP tidak pernah
+         boleh mengomposisi. Terukur: janky frames 97,7% jadi 48,7%.
+         Rinciannya di device.mk, blok LiveDisplay.
 
-         IPictureAdjustment  : DICABUT DI 19.1. Di 17.1/18.1 interface ini bekerja,
-                              dilayani -service-legacymm lewat libmm-disp-apis.so
-                              (legacymm/service.cpp:28) yang menyambung ke socket
-                              pps milik /system/vendor/bin/mm-pp-daemon.
-                              Di Android 12 daemon itu TIDAK BISA JALAN sama
-                              sekali: libmm-abl.so mereferensi
-                              android::IPowerManager::asInterface(sp<IBinder>
-                              const&), simbol C++ yang lenyap ketika A12
-                              mengubah IPowerManager menjadi AIDL-generated.
-                              Terbukti di perangkat: linker menolak
-                              mm-pp-daemon 103 kali, init.svc.ppd dan
-                              init.svc.vendor.livedisplay-hal-2-0-legacymm
-                              keduanya berstatus [restarting] permanen.
-                              Servisnya tidak pernah register, jadi ini persis
-                              kasus yang sama dengan IAdaptiveBacklight di bawah
-                              — lihat penjelasan mekanismenya di sana.
-         IDisplayColorCalibration : -sysfs, butuh /sys/class/graphics/fb0/rgb.
-                              mdss_livedisplay.c:797 membuat atribut rgb TANPA
-                              syarat, jadi selalu tersedia.
-         IAdaptiveBacklight  : DICABUT. Sempat ditambahkan dengan alasan panel
-                              15399 punya qcom,mdss-dsi-cabc-*-command sehingga
-                              node cabc akan dibuat. Alasan itu SALAH: driver
-                              LiveDisplay hanya membaca properti bernamespace
-                              cm,mdss-livedisplay-* (mdss_livedisplay.c:671-682),
-                              yaitu cm,mdss-livedisplay-cabc-cmd dan
-                              cm,mdss-livedisplay-cabc-ui-value. DTS A37 tidak
-                              punya satu pun properti cm,* itu — terverifikasi
-                              dari DTB hasil kompilasi. Jadi MODE_CABC tidak
-                              pernah aktif, node cabc tidak pernah ada, acl juga
-                              tidak ada, sehingga AdaptiveBacklight::isSupported()
-                              selalu false dan servisnya TIDAK PERNAH register.
-                              Akibatnya di device: getService() menempuh jalur
-                              vintfHwbinder + Waiter dan menggantung, thread
-                              system_server ikut tertahan, lalu Watchdog
-                              (Watchdog.java:79, DEFAULT_TIMEOUT 60 detik)
-                              membunuh system_server → device reboot ~1 menit
-                              setelah masuk homescreen.
+         Catatan lama yang masih berlaku dan jangan sampai hilang:
+         IPictureAdjustment TIDAK bisa dihidupkan. Paket service-legacymm
+         butuh libmm-disp-apis.so yang menyambung ke socket pps milik
+         mm-pp-daemon, dan daemon itu tidak bisa di-link sejak Android 12
+         (libmm-abl.so mencari simbol C++ android::IPowerManager::asInterface
+         yang lenyap ketika IPowerManager menjadi AIDL-generated). Terbukti di
+         perangkat: linker menolak mm-pp-daemon 103 kali, dan init.svc.ppd
+         maupun init.svc.vendor.livedisplay-hal-2-0-legacymm berstatus
+         [restarting] permanen.
 
-         TIDAK didaftarkan karena tidak ada bukti akan register di A37:
-         IAdaptiveBacklight, IDisplayModes (butuh dukungan libmm-disp-apis),
-         ISunlightEnhancement (butuh sre/hbm), IAutoContrast (aco),
-         IColorEnhancement, IReadingEnhancement.
+         IAdaptiveBacklight TIDAK boleh dideklarasikan. Driver LiveDisplay
+         hanya membaca properti bernamespace cm,mdss-livedisplay-*
+         (mdss_livedisplay.c:671-682), dan DTS A37 tidak punya satu pun
+         properti cm,* itu (terverifikasi dari DTB hasil kompilasi). Node cabc
+         dan acl tidak pernah dibuat, AdaptiveBacklight::isSupported() selalu
+         false, servisnya tidak pernah register. Mendeklarasikan HAL yang tak
+         pernah muncul membuat pengambilnya menunggu sampai Watchdog
+         (Watchdog.java:79, DEFAULT_TIMEOUT 60 detik) membunuh system_server.
 
-         Sebagai pembanding, ROM LineageOS 18.1 A37 yang beredar juga hanya
-         mendeklarasikan IDisplayColorCalibration + IPictureAdjustment. -->
-    <hal format="hidl">
-        <name>vendor.lineage.livedisplay</name>
-        <transport>hwbinder</transport>
-        <version>2.0</version>
-        <interface>
-            <name>IDisplayColorCalibration</name>
-            <instance>default</instance>
-        </interface>
-    </hal>
+         Yang tetap tidak didukung A37: IDisplayModes, ISunlightEnhancement
+         (butuh sre/hbm), IAutoContrast (aco), IColorEnhancement,
+         IReadingEnhancement. -->
 </manifest>

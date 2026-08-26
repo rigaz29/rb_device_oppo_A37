@@ -1533,16 +1533,41 @@ PRODUCT_PACKAGES += \
 # hilang saat IPowerManager jadi AIDL-generated). Servis yang tidak pernah
 # register + interface-nya terdeklarasi di manifest = getService(true)
 # menggantung selamanya dan Watchdog membunuh system_server. Lihat manifest.xml.
+#
+# FASE 6 (27 Agu 2026): DIAKTIFKAN sebagai -service.sysfs (AIDL).
+# Ini BUKAN sekadar merapikan. Tanpa HAL ini LiveDisplay memakai jalur legacy
+# LineageHardwareService.LegacyLineageHardware, yang melaksanakan
+# setDisplayColorCalibration() lewat DisplayTransformManager.setColorMatrix()
+# (LineageHardwareService.java:152). Matriks warna non-identitas di
+# SurfaceFlinger membuat HWC2On1Adapter memasang HWC_SKIP_LAYER pada SEMUA
+# layer (HWC2On1Adapter.cpp:2192, lewat mHasColorTransform di baris 889), lalu
+# MDPComp menolak setiap layer ber-skip (isSupportedForMDPComp) sehingga GPU
+# mengomposisi tiap frame di atas beban menggambar aplikasi.
+# Terukur di perangkat: mode AUTO + malam (4800K) -> janky frames 97,7%,
+# p50 77 ms. Dengan suhu netral -> 48,7%, p50 65 ms, dan flag layer berubah
+# dari Framebuffer+SkipLayer menjadi Overlay (usesDeviceComposition true).
+#
+# LineageHardwareManager mendahulukan AIDL dan baru jatuh ke legacy kalau HAL
+# tidak ada (LineageHardwareManager.java:516-537, 555-570), jadi memasang HAL
+# ini mematikan jalur matriks SF sekaligus membetulkan skalanya: getMaxValue()
+# HAL = 32768 (sesuai kernel), sedangkan legacy memakai MAX = 255.
+#
+# Diverifikasi di perangkat SEBELUM diaktifkan, karena PathManager melakukan
+# LOG(FATAL) kalau tidak ada path yang R_OK|W_OK (DualStateMode.h:41-45) dan
+# servis yang mati sementara VINTF-nya terdeklarasi akan menggantung
+# waitForDeclaredService:
+#   - /sys/class/graphics/fb0/rgb ADA, mode 0664, bisa di-chown ke system,
+#     jadi .rc bawaan paket (yang meng-chown node itu) sudah cukup.
+#   - mdss_livedisplay.c membuat atribut rgb tanpa syarat dan menerjemahkannya
+#     jadi PCC di DSPP; r=g=b=32768 berarti MDP_PP_OPS_DISABLE (baris 154-155).
+#   - Uji tulis "32768 29135 25711": warna menghangat, matriks SF TETAP
+#     identitas, dan usesDeviceComposition TETAP true saat scroll.
+# Fragmen VINTF dibawa paketnya sendiri (sysfs-dcc.xml), jadi tidak perlu
+# deklarasi manual di manifest.xml -- blok HIDL 2.0 yang lama dicabut.
 PRODUCT_PACKAGES += \
-    # FASE 2 (23.2): dinonaktifkan sementara, BUKAN dibuang.
-    # hardware/lineage/interfaces/livedisplay/ di 23.2 hanya punya aidl/.
-    # Padanan langsungnya ADA: vendor.lineage.livedisplay-service.sysfs.
-    # Tidak ditukar sekarang karena perpindahan HIDL->AIDL juga mengubah cara
-    # VINTF dideklarasikan, dan catatan di manifest.xml:356-380 mencatat bahwa
-    # salah deklarasi membuat servisnya [restarting] permanen tanpa pernah
-    # register -- gejala yang sulit dilacak kalau ditumpuk dengan perubahan lain.
-    # TODO Fase 6: tukar ke -service.sysfs sekalian rapikan blok VINTF-nya,
-    # lalu verifikasi di perangkat. Sampai itu: LiveDisplay mati, boot aman.
+    vendor.lineage.livedisplay-service.sysfs
+
+$(call soong_config_set_bool,livedisplay_sysfs,enable_dcc,true)
 
 $(call inherit-product, vendor/oppo/A37/A37-vendor.mk)
 
