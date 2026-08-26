@@ -38,7 +38,32 @@ on early-init
     # Android tidak bisa memprioritaskan CPU time: foreground app, background
     # task, dan servis sistem semua berebut core secara adil. Dicopy dari
     # init.qcom.rc A6010 (lineage-23.2 baris 34).
-    mount cgroup cpuset /dev/cpuset cpuset
+    #
+    # noprefix WAJIB, dan inilah alasan mount ini perlu ada sama sekali.
+    #
+    # Android me-mount cpuset sendiri lewat cgroups.json, tetapi dengan opsi
+    # ",noprefix,cpuset_v2_mode" (system/core/libprocessgroup/setup/
+    # cgroup_map_write.cpp:198-203). Kernel 3.10 mengenal noprefix
+    # (kernel/cgroup.c:1165) tetapi TIDAK mengenal cpuset_v2_mode sama sekali
+    # -- nol kecocokan di seluruh pohon kernel -- sehingga mount Android gagal
+    # dengan EINVAL dan cpuset tidak pernah terpasang.
+    #
+    # Tanpa noprefix di sini, mount memang berhasil tetapi berkasnya bernama
+    # cpuset.cpus / cpuset.mems, bukan cpus / mems (kernel/cgroup.c:2741-2745
+    # menambahkan prefiks "<subsys>." kecuali CGRP_ROOT_NOPREFIX diset).
+    # Akibatnya SELURUH "write /dev/cpuset/*/cpus" di init.qcom.power.rc gagal,
+    # setiap sub-cgroup ber-cpus kosong, dan cpuset berisi kosong MENOLAK
+    # penugasan task -- diuji di perangkat: menulis pid ke tasks milik cgroup
+    # ber-cpus kosong gagal. Jadi cpuset akan terpasang tapi tidak berfungsi.
+    #
+    # Dengan noprefix, nama pendek menjadi benar, dan sebagai bonus blok setup
+    # cpuset bawaan AOSP di init.rc:367-393 ("copy /dev/cpuset/cpus
+    # /dev/cpuset/foreground/cpus" dst.) yang selama ini gagal diam-diam ikut
+    # berfungsi.
+    #
+    # Kernel hanya mengizinkan noprefix bila YANG di-mount cuma cpuset
+    # (kernel/cgroup.c:1271, mask = ~(1UL << cpuset_subsys_id)) -- terpenuhi.
+    mount cgroup cpuset /dev/cpuset noprefix,cpuset
 
     mount debugfs debugfs /sys/kernel/debug
     chown system system /sys/kernel/debug
