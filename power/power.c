@@ -76,14 +76,23 @@
 
 /*
  * LOW_POWER dipakai battery saver: hemat nyata tapi perangkat tetap terpakai.
+ *
  * SUSTAINED_PERFORMANCE menuntut performa STABIL yang bisa dipertahankan tanpa
- * throttling termal, bukan performa tertinggi -- karena itu dibatasi di bawah
- * puncak. Perangkat ini tidak punya HAL thermal; proteksi panas ada di kernel
- * (msm_thermal), jadi memberi jarak dari 1209600 membuat frekuensinya tidak
- * naik-turun saat msm_thermal ikut campur.
+ * throttling termal, bukan performa tertinggi. Nilainya dipilih dari pengukuran
+ * di perangkat, bukan dikira-kira: beban penuh 4 core selama 100 detik menaikkan
+ * suhu dari 39 ke 60 derajat C dan frekuensi TIDAK pernah diturunkan -- tetap
+ * 1209600 sepanjang uji. Sensor pengatur (msm8916.dtsi qcom,sensor-id = 5)
+ * berhenti di 59 derajat, tepat di bawah qcom,limit-temp = 60.
+ *
+ * Jadi perangkat kerasnya sanggup menahan frekuensi puncak tanpa throttling.
+ * Batas di sini murni MARGIN untuk kondisi yang lebih panas dari kondisi uji
+ * (uji dilakukan tercolok USB, tergeletak datar, suhu ruangan normal; di dalam
+ * genggaman atau case suhunya lebih tinggi). Satu langkah di bawah puncak sudah
+ * cukup; nilai sebelumnya 998400 terbukti lebih konservatif daripada yang
+ * dibutuhkan perangkat kerasnya.
  */
 #define LOW_POWER_MAX_FREQ  "800000"
-#define SUSTAINED_MAX_FREQ  "998400"
+#define SUSTAINED_MAX_FREQ  "1094400"
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
