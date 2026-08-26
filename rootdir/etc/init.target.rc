@@ -93,6 +93,35 @@ on post-fs
     write /proc/sys/vm/dirty_ratio 30
     write /proc/sys/vm/vfs_cache_pressure 65
 
+    # Nyalakan kembali deteksi task menggantung.
+    #
+    # Kernel sudah dikonfigurasi untuk ini -- CONFIG_DETECT_HUNG_TASK=y dengan
+    # CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=90 -- tetapi init.rc bawaan AOSP baris 326
+    # (di blok "on init") menulis 0 ke hung_task_timeout_secs dan mematikannya.
+    # Blok "on post-fs" ini berjalan SETELAH "on init", jadi nilainya menang.
+    #
+    # Kenapa perlu: sdcardfs perangkat ini berhenti di Oktober 2018 dan masih
+    # berada di jalur I/O aplikasi untuk /storage/emulated/0/Android/data dan
+    # /obb (FUSE menangani jalur umumnya). Tanpa detektor ini, kalau terjadi
+    # deadlock saat I/O berat kita tidak akan pernah melihat laporannya --
+    # nol laporan hang selama ini TIDAK membuktikan apa pun karena yang
+    # melaporkannya memang mati.
+    #
+    # Aman terhadap tiga kernel thread msm8916 yang permanen di D-state
+    # (mdss_dsi_event, kworker msm_rpm_smd_work, kworker msm_mpm_work_fn):
+    # check_hung_task() di kernel/hung_task.c:73 membandingkan switch_count
+    # (nvcsw + nivcsw), dan ketiganya dibangunkan berkala lewat
+    # wait_for_completion sehingga hitungannya berubah -- tidak akan ditandai.
+    #
+    # 90 detik memakai nilai yang sudah disetel di defconfig, bukan angka baru.
+    # sysctl_hung_task_warnings default 10 membatasi jumlah laporan, jadi log
+    # tidak akan dibanjiri meski ada positif palsu.
+    write /proc/sys/kernel/hung_task_timeout_secs 90
+
+    # Hanya melapor, JANGAN panic. AOSP menyetel panic_on_oops 1 di baris 325,
+    # dan tanpa baris ini satu positif palsu bisa menjatuhkan perangkat.
+    write /proc/sys/kernel/hung_task_panic 0
+
 on post-fs-data
     # deadline lebih cocok untuk eMMC daripada cfq (latency lebih rendah,
     # throughput lebih tinggi untuk random I/O).
