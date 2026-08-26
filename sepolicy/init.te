@@ -105,3 +105,10 @@ allow init sysfs_kgsl:file { open read };
 allow init sysfs_spmi_dev:lnk_file read;
 allow init hal_sensors_hwservice:hwservice_manager { find add };
 allow init sysfs_sensors:lnk_file read;
+
+# Cpuset — init membuat sub-cgroup (mkdir) dan menulis cpuset.cpus/cpuset.mems
+# di init.qcom.power.rc saat trigger enable-low-power. Tanpa izin ini, semua
+# write gagal dengan "Permission denied" dan proses tidak pernah terdistribusi
+# ke cpuset yang benar (semua tetap di root cgroup).
+allow init cgroup:dir { add_name create setattr write };
+allow init cgroup:file { open read write getattr setattr };

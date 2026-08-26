@@ -70,3 +70,10 @@
 # sudah berlabel benar dari sepolicy QCOM hulu. libmemalloc tidak ikut terlabeli
 # karena ia khas era msm8916 dan tidak ada di berkas platform hulu yang lebih baru.
 /(system/vendor|vendor)/lib(64)?/libmemalloc\.so    u:object_r:same_process_hal_file:s0
+
+# Cpuset — tanpa label ini, semua berkas di bawah /dev/cpuset (termasuk
+# cpuset.cpus dan cpuset.mems di sub-cgroup yang dibuat init.qcom.power.rc)
+# mendapat label default tmpfs dan init ditolak menulisnya saat boot
+# (sebelum SELinux di-set permissive). Pola ini dicopy dari A6010
+# (sepolicy/vendor/file_contexts:13) dan dipakai luas di sepolicy QCOM hulu.
+/dev/cpuset(/.*)?    u:object_r:cgroup:s0
