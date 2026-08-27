@@ -1312,6 +1312,28 @@ PRODUCT_PACKAGES += \
 # memenuhi pendaftaran @1.1 milik rild, jadi keduanya bisa hidup berdampingan.
 PRODUCT_PACKAGES += \
     android.hardware.radio@1.4-service.msm8916
+
+# IRadioConfig 1.1, pelengkap pembungkus radio di atas.
+#
+# Tanpa modul ini com.android.phone mengulang tiga error tiap kali menyentuh
+# telephony, terukur 12 kali pada build 20260827_161656:
+#   E RadioConfig: getHidlRadioConfigProxy1_3: getService: NoSuchElementException
+#   E RadioConfig: getHidlRadioConfigProxy1_1: getService | linkToDeath: ...
+#   E RadioConfig: getRadioConfigProxy: mRadioConfigProxy == null
+#
+# Modem A37 tidak punya jalur QMI untuk permintaan RadioConfig, jadi servis ini
+# menjawab REQUEST_NOT_SUPPORTED. Itu jalur yang memang ditangani framework:
+# UiccController.onGetSlotStatusDone() menyetel mIsSlotStatusSupported = false
+# lalu kembali ke getIccCardStatus per telepon. Hasilnya jalur slot mati dengan
+# rapi, bukan lewat exception berulang.
+#
+# Disalin dari a6010 (hidl/radio_config) dengan satu penyimpangan yang disengaja:
+# RadioResponseInfo diisi serial, type, dan error. Sumber aslinya memakai struct
+# tanpa inisialisasi, padahal RadioConfig.processResponse() mencocokkan respons
+# lewat findAndRemoveRequestFromList(serial) -- serial yang tidak digemakan
+# membuat setiap RILRequest menggantung.
+PRODUCT_PACKAGES += \
+    android.hardware.radio.config@1.1-service.msm8916
 # libcutils_shim sebelumnya ada di daftar ini, padahal modulnya tidak pernah
 # terdefinisi di tree — jadi baris itu tidak menghasilkan apa pun sementara
 # pemetaan TARGET_LD_SHIM_LIBS-nya menyuntikkan DT_NEEDED ke blob RIL dan

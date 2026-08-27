@@ -233,6 +233,24 @@
         </interface>
     </hal>
     <hal format="hidl">
+        <!-- IRadioConfig 1.1. Modem A37 tidak menyediakannya, jadi servis di
+             device/oppo/A37/hidl/radio_config menjawab REQUEST_NOT_SUPPORTED
+             untuk semua permintaan. Framework menangani kode itu secara
+             eksplisit: UiccController.onGetSlotStatusDone() menyetel
+             mIsSlotStatusSupported = false lalu berhenti bertanya.
+
+             Versi 1.1 dipilih karena RadioConfig.java hanya mencoba 1.3 lalu
+             1.1 sebelum menyerah, dan compatibility_matrix.6/7.xml memang
+             menyebut radio.config versi 1.1. -->
+        <name>android.hardware.radio.config</name>
+        <transport>hwbinder</transport>
+        <version>1.1</version>
+        <interface>
+            <name>IRadioConfig</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
         <name>android.hardware.renderscript</name>
         <transport arch="32+64">passthrough</transport>
         <version>1.0</version>

@@ -85,3 +85,4 @@
 /(vendor|system/vendor)/bin/hw/android\.hardware\.thermal@2\.0-service\.msm8916    u:object_r:hal_thermal_default_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.camera\.provider-service\.lineage    u:object_r:hal_camera_default_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.radio@1\.4-service\.msm8916    u:object_r:hal_radio_default_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.radio\.config@1\.1-service\.msm8916    u:object_r:hal_radio_config_default_exec:s0
