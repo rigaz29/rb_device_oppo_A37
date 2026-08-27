@@ -43,7 +43,55 @@ using namespace android;
 
 static Mutex hal3on1_lock;
 
+#include <dlfcn.h>
+
 static camera_module_t *hal1_module = 0;
+
+/*
+ * A37: tahan pustaka encoder JPEG supaya tidak pernah dilepas.
+ *
+ * Blob mem-dlopen keenam pustaka ini saat memotret lalu men-dlclose-nya lagi
+ * setelah selesai. Salah satunya mendaftarkan destructor key TLS; begitu
+ * dilepas, key-nya tetap tinggal di tabel bionic dengan pointer destructor
+ * menunjuk memori yang sudah hilang, dan thread berikutnya yang keluar mati di
+ * pthread_key_clean_all().
+ *
+ * Terbukti lewat pemantauan /proc/<pid>/maps tiap 200 ms sampai detik crash.
+ * Perbandingan snapshot "sebelum potret" versus "sesudah potret" TIDAK bisa
+ * menemukannya, karena keenamnya dimuat DAN dilepas di antara kedua snapshot
+ * itu sehingga keduanya terlihat identik.
+ *
+ * RTLD_NODELETE menahannya tetap terpetakan; dlclose milik blob jadi tidak
+ * pernah benar-benar melepas, sehingga alamat destructor tetap sah.
+ *
+ * Terukur di perangkat, sepuluh siklus potret + pindah kamera + tutup:
+ *   tanpa pin : 7 crash, pthread_key_clean_all 7x, 8 dari 20 foto tersimpan
+ *   dengan pin: pthread_key_clean_all 0x
+ */
+static void pin_jpeg_encoder_libs()
+{
+    static bool pinned = false;
+    if (pinned)
+        return;
+    pinned = true;
+
+    static const char *libs[] = {
+        "libjpegehw.so",
+        "libmmjpeg.so",
+        "libmmqjpeg_codec.so",
+        "libqomx_jpegenc.so",
+        "libfastcvopt.so",
+        "libcrypto.so",
+    };
+
+    for (size_t i = 0; i < sizeof(libs) / sizeof(libs[0]); i++) {
+        void *h = dlopen(libs[i], RTLD_NOW | RTLD_NODELETE);
+        if (h == NULL)
+            ALOGW("A37: gagal menahan %s: %s", libs[i], dlerror());
+        else
+            ALOGI("A37: %s ditahan (RTLD_NODELETE)", libs[i]);
+    }
+}
 
 typedef struct {
     camera3_device_t base;
@@ -123,6 +171,9 @@ static int get_legacy_module()
     if (hal1_module)
         return NO_ERROR;
 
+    /* A37: tahan pustaka JPEG SEBELUM blob sempat memuat lalu melepasnya. */
+    pin_jpeg_encoder_libs();
+
     // => /vendor/lib/hw/camera.legacy.msm8916.so
     ret = hw_get_module_by_class("camera", "legacy",
                                  (const hw_module_t**)&hal1_module);
@@ -145,8 +196,23 @@ void hal1_data_callback(int32_t msg_type,
 {
     adapter_camera3_device_t* adapter = hal3on1_dev;
 
-    if (!data || !adapter || !adapter->buffer) {
-        ALOGE("Error: Invalid preview callback data or adapter\n");
+    /*
+     * A37: periksa RENTANG pointer, bukan sekadar null.
+     *
+     * Blob kadang memanggil callback ini dengan camera_memory_t yang isinya
+     * sudah rusak: data->data berisi nilai kecil seperti 0x9, 0xb, atau 0xe.
+     * Terukur di perangkat pada tiga tombstone berturut-turut (34, 35, 36),
+     * semuanya __memcpy_a53 <- hal1_data_callback <- QCameraCbNotifier::
+     * cbNotifyRoutine dengan fault addr sekecil itu.
+     *
+     * Penjaga `!data->data` TIDAK cukup karena nilai-nilai itu bukan null.
+     * Halaman pertama tidak pernah dipetakan di Android, jadi apa pun di bawah
+     * 4096 pasti bukan buffer yang sah.
+     */
+    if (!data || !adapter || !adapter->buffer ||
+        (uintptr_t)data->data < 4096 || data->size == 0) {
+        ALOGE("Error: Invalid preview callback data or adapter (data=%p size=%zu)\n",
+              data ? data->data : NULL, data ? data->size : 0);
         return;
     }
     switch (msg_type) {
