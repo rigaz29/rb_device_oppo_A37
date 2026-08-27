@@ -493,8 +493,35 @@ PRODUCT_COPY_FILES += \
 # hasilnya layar hitam di homescreen. Jadi jalur passthrough — yang terbukti
 # jalan di build 20260803_140427 — dipertahankan, dan loop-nya dihentikan
 # dengan tidak memasang service binderized-nya sama sekali.
+#
+# 27 Agu 2026: DIPINDAH KE PROVIDER AIDL atas keputusan pemilik perangkat,
+# setelah peringatan di atas ditimbang. Rinciannya di PLAN-LOS23.md bagian 12.
+#
+# Yang MENURUNKAN risikonya dibanding percobaan 20260803: a6010 menjalankan
+# kombinasi yang sama persis -- hal3on1 + provider AIDL LineageOS -- di msm8916
+# dan berhasil. Jadi bukan lompatan ke wilayah yang belum pernah dijajaki.
+#
+# Rantai HAL TIDAK berubah sama sekali. CameraProvider.cpp:190-197 memuat modul
+# lewat hw_get_module(CAMERA_HARDWARE_MODULE_ID) yang sama, jadi hal3on1 ->
+# CameraWrapper -> blob tetap apa adanya. Adapter melaporkan
+# CAMERA_DEVICE_API_VERSION_3_3 (HAL3on1-adapter.cpp:113) dan provider AIDL
+# menerima 3_3 secara eksplisit (CameraProvider.cpp:277).
+#
+# Yang BERUBAH adalah model prosesnya: dari HAL di dalam cameraserver menjadi
+# /vendor/bin/hw/android.hardware.camera.provider-service.lineage yang terpisah.
+# Itu persis perubahan yang dulu menghasilkan layar hitam. Kalau terulang,
+# tangkap log cameraserver + vendor.camera.provider saat gagal -- itu jawaban
+# yang tidak pernah didapat pada 20260803.
+#
+# Varian tanpa akhiran _32 yang dipakai: _32 hanya berarti compile_multilib 32
+# untuk platform 64-bit berblob 32-bit (Mi-Thorium). A37 TARGET_ARCH=arm murni
+# 32-bit, sama seperti a6010.
+#
+# CARA MENGEMBALIKAN kalau gagal: kembalikan paket ini ke
+# android.hardware.camera.provider@2.4-impl DAN kembalikan blok HIDL
+# android.hardware.camera.provider di manifest.xml (lihat riwayat git).
 PRODUCT_PACKAGES += \
-    android.hardware.camera.provider@2.4-impl \
+    android.hardware.camera.provider-service.lineage \
     camera.device@1.0-impl \
     libshim_camera \
     libshim_camera_sensor \

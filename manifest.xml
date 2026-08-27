@@ -77,26 +77,21 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <hal format="hidl">
-        <name>android.hardware.camera.provider</name>
-        <!-- TETAP passthrough. Pernah diubah jadi hwbinder (build
-             20260803_161352) untuk menghentikan restart loop
-             vendor.camera-provider-2-4, dan hasilnya layar hitam di
-             homescreen — HAL kamera pindah ke prosesnya sendiri dan sesuatu
-             di rantai itu tidak beres.
+    <!-- camera.provider: DICABUT 27 Agu 2026, pindah ke provider AIDL.
+         Paket android.hardware.camera.provider-service.lineage membawa fragmen
+         VINTF-nya sendiri yang mendeklarasikan ICameraProvider/internal/0
+         (perhatikan: internal/0, bukan legacy/0). Deklarasi manual di sini
+         justru akan bentrok.
 
-             Loop-nya sendiri sekarang dihentikan dari sisi lain: paket
-             @2.4-service (binderized) tidak lagi dipasang di device.mk,
-             sehingga tidak ada yang mencoba registerAsService() dan ditolak.
-             Yang dipakai hanya @2.4-impl lewat passthrough, persis seperti
-             build 20260803_140427 yang terbukti jalan. -->
-        <transport arch="32+64">passthrough</transport>
-        <version>2.4</version>
-        <interface>
-            <name>ICameraProvider</name>
-            <instance>legacy/0</instance>
-        </interface>
-    </hal>
+         Catatan lama yang JANGAN hilang: transport pernah diubah dari
+         passthrough ke hwbinder pada build 20260803_161352 untuk menghentikan
+         restart loop vendor.camera-provider-2-4, dan hasilnya layar hitam di
+         homescreen. Penyebabnya tidak pernah ditemukan. Migrasi AIDL ini
+         memindahkan HAL ke proses terpisah dengan cara yang berbeda, tetapi
+         konsekuensinya sama: HAL tidak lagi satu proses dengan cameraserver.
+         Kalau layar hitam terulang, itu petunjuk kuat bahwa akar masalahnya di
+         perpindahan proses, bukan di transport HIDL. Rinciannya di
+         PLAN-LOS23.md bagian 12. -->
     <hal format="hidl">
         <name>android.hardware.configstore</name>
         <transport>hwbinder</transport>
