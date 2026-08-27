@@ -1280,6 +1280,38 @@ PRODUCT_PACKAGES += \
     librmnetctl \
     libxml2 \
     libril_shim
+
+# Pembungkus HIDL radio 1.4, WAJIB agar seluler berfungsi di Android 16.
+#
+# RIL.java hanya mencoba TIGA versi HIDL, berurutan V1_6 -> V1_5 -> V1_4, lalu
+# menyerah dengan "IRadio <1.4 is no longer supported." (RIL.java:702-728).
+# Blob A37 era 2016 hanya menyediakan @1.0/@1.1 lewat rild, jadi ketiganya
+# gagal, mRadioProxy ditandai disabled, dan keempat sub-servis AIDL (DATA,
+# MODEM, NETWORK, VOICE) ikut disabled. Akibatnya framework tidak pernah bisa
+# bicara ke modem: gsm.sim.state KOSONG (bukan bahkan ABSENT) dan
+# mServiceState OUT_OF_SERVICE meski SIM terpasang.
+#
+# Terukur di perangkat 27 Agu 2026, langsung dari log:
+#   E RILJ: IRadio <1.4 is no longer supported. [PHONE0]
+#   E RILJ: getRadioProxy: set mRadioProxy for slot1 as disabled
+#
+# Wrapper ini TIDAK bicara ke modem. Ia mengambil IRadio@1.0 yang sudah
+# didaftarkan rild lewat getService("slotN"), membungkusnya, lalu
+# mendaftarkannya kembali dengan nama yang sama sebagai servis 1.4
+# (hidl/radio/service.cpp:42-56). Dependensinya hanya pustaka antarmuka HIDL --
+# tanpa libril, tanpa socket -- sehingga murni penerjemah 1.0 <-> 1.4.
+#
+# Sumbernya disalin apa adanya dari acroreiser/ULH a6010
+# (android_device_lenovo_a6010, hidl/radio, commit 84be99c "msm8916: radio:
+# 1.4: legacy: Initial wrapper" dan 96ff176 "switch to our in-tree radio 1.4
+# wrapper"). Nol kode khas a6010: satu-satunya penyebutan perangkat adalah
+# nama modul yang memuat msm8916, dan itu chip yang sama.
+#
+# manifest.xml WAJIB ikut dinaikkan ke <version>1.4</version>. Karena
+# getHidlTransport() mencocokkan dengan minorAtLeast(), deklarasi 1.4 tetap
+# memenuhi pendaftaran @1.1 milik rild, jadi keduanya bisa hidup berdampingan.
+PRODUCT_PACKAGES += \
+    android.hardware.radio@1.4-service.msm8916
 # libcutils_shim sebelumnya ada di daftar ini, padahal modulnya tidak pernah
 # terdefinisi di tree — jadi baris itu tidak menghasilkan apa pun sementara
 # pemetaan TARGET_LD_SHIM_LIBS-nya menyuntikkan DT_NEEDED ke blob RIL dan

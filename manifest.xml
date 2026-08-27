@@ -169,18 +169,53 @@
              deklarasi 1.0 TIDAK memenuhi permintaan 1.1 -> transport EMPTY ->
              pendaftaran gagal diam-diam, rild tetap hidup tapi IRadio tidak
              pernah muncul di hwservicemanager, dan com.android.phone
-             menggantung di IRadio.getService() sampai kena ANR. -->
-        <version>1.1</version>
-        <interface>
-            <name>IRadio</name>
-            <instance>slot1</instance>
-            <instance>slot2</instance>
-        </interface>
-        <interface>
-            <name>ISap</name>
-            <instance>slot1</instance>
-            <instance>slot2</instance>
-        </interface>
+             menggantung di IRadio.getService() sampai kena ANR.
+
+             27 Agu 2026: DINAIKKAN 1.1 -> 1.4. Catatan di atas tetap berlaku
+             dan tidak dilanggar: getHidlTransport() mencocokkan versi dengan
+             minorAtLeast(), sehingga deklarasi 1.4 MEMENUHI pendaftaran @1.1
+             milik rild, karena 1.4 lebih besar dari 1.1. Yang tidak boleh
+             adalah sebaliknya, mendeklarasikan lebih RENDAH dari yang
+             didaftarkan.
+
+             Kenaikan ini diperlukan karena RIL.java Android 16 hanya mencoba
+             V1_6, V1_5, lalu V1_4 sebelum menyerah dengan "IRadio <1.4 is no
+             longer supported.". Pembungkus di device/oppo/A37/hidl/radio
+             mendaftarkan diri sebagai @1.4::IRadio/slotN, dan tanpa deklarasi
+             ini pendaftarannya akan ditolak dengan cara yang persis sama
+             seperti yang dijelaskan di atas. -->
+        <!-- Format fqname, BUKAN version plus interface.
+             Bentuk <version> berlaku untuk SELURUH blok, sehingga menaikkan
+             IRadio ke 1.4 ikut menyeret ISap ke 1.4. Matriks kompatibilitas
+             framework hanya mengenal ISap sampai 1.2
+             (compatibility_matrix.7.xml), jadi build gagal di
+             check_vintf_compatible dengan pesan
+             "android.hardware.radio@1.4::ISap/slot1 ... not specified in
+             framework compatibility matrix".
+             Terjadi 27 Agu 2026; build berhenti sebelum image jadi.
+
+             fqname memberi versi per-interface: IRadio 1.4 untuk pembungkus,
+             ISap tetap 1.1 sesuai yang didaftarkan rild.
+
+             Kenapa @1.4::IRadio sendiri lolos padahal matrix 6/7 menyebut
+             IRadio 1.5-6? Dua sebab, keduanya diverifikasi 27 Agu 2026:
+             (1) manifest ini target-level=5, dan compatibility_matrix.5.xml
+                 nol menyebut android.hardware.radio, jadi rentang 1.5-6 di
+                 level 6/7 tidak mengikat perangkat ini;
+             (2) HalManifest.cpp:384-390 punya aturan pewarisan HIDL, yaitu kalau
+                 foo@2.0 extends foo@1.0, kehadiran 2.0 di matriks membuat 1.0
+                 dihitung terpakai. radio/1.5/IRadio.hal berbunyi
+                 "interface IRadio extends @1.4::IRadio", jadi @1.4 selalu lolos
+                 checkUnusedHals.
+             ISap gagal justru karena sebab lain: ISap hanya ada di 1.0/1.1/1.2,
+             sehingga @1.4::ISap adalah antarmuka yang TIDAK PERNAH ADA, tanpa
+             anak, tanpa kecocokan apa pun.
+             Keduanya tetap dalam SATU blok hal, jadi aturan
+             HalManifest::shouldAdd soal major version ganda tidak dilanggar. -->
+        <fqname>@1.4::IRadio/slot1</fqname>
+        <fqname>@1.4::IRadio/slot2</fqname>
+        <fqname>@1.1::ISap/slot1</fqname>
+        <fqname>@1.1::ISap/slot2</fqname>
     </hal>
     <hal format="hidl">
         <name>android.hardware.radio.deprecated</name>
