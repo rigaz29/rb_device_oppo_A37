@@ -1397,7 +1397,51 @@ PRODUCT_COPY_FILES += \
 PRODUCT_SYSTEM_SERVER_COMPILER_FILTER := speed-profile
 PRODUCT_ALWAYS_PREOPT_EXTRACTED_APK := true
 PRODUCT_USE_PROFILE_FOR_BOOT_IMAGE := true
-PRODUCT_DEXPREOPT_SPEED_APPS += SystemUI
+
+# AOT penuh untuk aplikasi berat yang sering dibuka.
+# Terukur 27 Agu 2026: dexpreopt default menghasilkan filter verify untuk 60 dari
+# 156 artefak di image ini -- termasuk Settings. Yang membedakan BUKAN ada atau
+# tidaknya .odex (odex selalu dibuat), melainkan rasio odex/vdex: yang benar-benar
+# terkompilasi 58-430x, yang verify justru di bawah 1x. Settings: odex 229.856
+# vs vdex 591.876 = 0,39x, sedangkan SystemUI 58x.
+#
+# Dampaknya diukur A/B di perangkat, pola dua putaran identik, am start -W ke
+# sub-halaman Settings dalam keadaan warm:
+#   Display  674 -> 604 ms      Sound    818 -> 682 ms
+#   Storage  497 -> 335 ms      Apps     613 -> 559 ms
+# Rata-rata sekitar 15%. Nyata tapi bukan perubahan besar, dan itu memang sesuai
+# dengan sisa profilnya: membuka menu Settings didominasi kerja SERIAL di UI
+# thread -- 490 ms CPU satu thread dari 780 ms waktu dinding, sementara sistem
+# 56% menganggur dan CPU sudah 61% waktu di frekuensi puncak 1209,6 MHz.
+# Tidak ada headroom lain yang bisa diambil.
+#
+# INI BUKAN pm.dexopt.first-boot=speed. PRODUCT_DEXPREOPT_SPEED_APPS bekerja saat
+# BUILD; tidak ada dex2oat yang berjalan di perangkat, jadi tidak ada kaitannya
+# dengan bootloop yang pernah terjadi. Lihat blok pm.dexopt di atas.
+#
+# Ongkos ruang sekitar 2,5x ukuran dex, terukur langsung dari Settings
+# (dex 21,7 MB -> odex speed 52,4 MB). Perkiraan tambahan total ~180 MB;
+# partisi system punya 948 MB kosong dari 2,6 GB.
+#
+# SENGAJA TIDAK DIMASUKKAN, ongkosnya besar tapi jarang dibuka:
+#   ThemePicker         dex 44,9 MB -> ~112 MB  (hanya saat ganti wallpaper/tema)
+#   Seedvault           dex 19,8 MB -> ~50 MB   (aplikasi backup)
+#   LineageSetupWizard                          (hanya sekali saat boot pertama)
+PRODUCT_DEXPREOPT_SPEED_APPS += \
+    SystemUI \
+    Settings \
+    TeleService \
+    Dialer \
+    Contacts \
+    messaging \
+    DocumentsUI \
+    CredentialManager \
+    Aperture \
+    Glimpse \
+    Twelve \
+    Etar \
+    Updater \
+    StorageManager
 
 # Strip debug
 PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true
