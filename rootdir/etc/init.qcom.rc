@@ -264,7 +264,35 @@ service charger /system/bin/charger
 
 #start camera server as daemon
 service qcamerasvr /system/vendor/bin/mm-qcamera-daemon
-    class late_start
+    # class hal, BUKAN late_start. Diubah 27 Agu 2026 setelah migrasi camera
+    # provider ke AIDL.
+    #
+    # Provider AIDL berjalan di prosesnya sendiri dengan `class hal`, dan ia
+    # memuat modul HAL secara EAGER saat start: CameraProvider.cpp:190-220
+    # memanggil hw_get_module() lalu langsung getNumberOfCameras(). Kalau
+    # mm-qcamera-daemon belum hidup saat itu, blob vendor menjawab 0 dan
+    # provider menyimpan hasil itu selamanya -- cameraserver melaporkan
+    # "Number of camera devices: 0" dan Aperture mati dengan
+    # androidx.camera.core.CameraUnavailableException.
+    #
+    # Dengan late_start ini BUKAN balapan melainkan urutan yang PASTI salah:
+    # class hal selalu dijalankan sebelum class late_start. Terukur di
+    # perangkat pada build 20260827_072056:
+    #   provider     84,26 detik
+    #   cameraserver 85,22 detik
+    #   qcamerasvr   85,71 detik   <- terlambat 1,4 detik
+    # Merestart provider setelah daemon hidup langsung memunculkan 2 kamera.
+    #
+    # Dulu tidak masalah karena jalur passthrough memuat modul HAL secara LAZY,
+    # baru saat aplikasi pertama membuka kamera -- daemon sudah hidup.
+    #
+    # Urutan di dalam class hal terjamin: init mem-parse init.qcom.rc (lewat
+    # import di init.rc) sebelum direktori /vendor/etc/init/ tempat .rc provider
+    # berada, dan class_start menjalankan servis sesuai urutan definisi.
+    #
+    # Sama seperti acroreiser/ULH a6010 (rootdir/etc/init.qcom.rc:315-316), yang
+    # juga memakai provider AIDL dan menaruh daemonnya di class hal.
+    class hal
     user camera
     group camera gps system inet input graphics
     writepid /dev/cpuset/camera-daemon/tasks
