@@ -85,14 +85,31 @@
  * berhenti di 59 derajat, tepat di bawah qcom,limit-temp = 60.
  *
  * Jadi perangkat kerasnya sanggup menahan frekuensi puncak tanpa throttling.
- * Batas di sini murni MARGIN untuk kondisi yang lebih panas dari kondisi uji
- * (uji dilakukan tercolok USB, tergeletak datar, suhu ruangan normal; di dalam
- * genggaman atau case suhunya lebih tinggi). Satu langkah di bawah puncak sudah
- * cukup; nilai sebelumnya 998400 terbukti lebih konservatif daripada yang
- * dibutuhkan perangkat kerasnya.
+ *
+ * 27 Agu 2026: MARGIN ITU DILEPAS atas permintaan pemilik perangkat, setelah
+ * pengukuran ulang yang lebih menyerupai gaming. Dua uji beban 3 menit:
+ *   - 4 inti CPU penuh          : 43 -> 53 C, datar
+ *   - 3 inti CPU + GPU 80-86%   : 45 -> 55 C, datar
+ * Pada keduanya scaling_max_freq TETAP 1209600, cpus_offlined tetap 0, GPU
+ * tetap 400 MHz, dan Thermal Status framework tetap 0 sepanjang uji. Perangkat
+ * ini tidak memanas cukup untuk membenarkan pembatasan pre-emptif.
+ *
+ * KONSEKUENSI yang diterima secara sadar: kalau suatu saat suhu benar-benar
+ * mencapai qcom,limit-temp = 60 (sensor-id 5, msm8916.dtsi:1650-1660), kernel
+ * yang akan bertindak REAKTIF -- turun qcom,freq-step = 2 langkah sekaligus,
+ * dan qcom,temp-hysteresis = 10 berarti tidak dilepas sampai turun ke 50 C.
+ * Batas pre-emptif satu langkah di bawah puncak justru mencegah masuk ke
+ * kondisi itu, dan itulah maksud asli SUSTAINED_PERFORMANCE. Trade-off ini
+ * dipilih karena puncak yang lebih tinggi dinilai lebih berguna, dan sangat
+ * sedikit aplikasi yang benar-benar memanggil setSustainedPerformanceMode().
+ * JANGAN kembalikan ke 1094400 tanpa mengukur ulang lebih dulu.
+ *
+ * Nilai ini kini SAMA dengan frekuensi puncak, jadi hint SUSTAINED_PERFORMANCE
+ * efektif tidak membatasi apa pun. Mekanismenya sengaja dipertahankan utuh
+ * supaya gampang dinaikkan/diturunkan lagi kalau pengukuran berubah.
  */
 #define LOW_POWER_MAX_FREQ  "800000"
-#define SUSTAINED_MAX_FREQ  "1094400"
+#define SUSTAINED_MAX_FREQ  "1209600"
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
