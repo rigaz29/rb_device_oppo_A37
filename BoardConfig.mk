@@ -454,7 +454,44 @@ TARGET_DISABLE_POSTRENDER_CLEANUP := true
 TARGET_USES_LEGACY_WFD := true
 
 # Audio
-AUDIO_FEATURE_ENABLED_MULTI_VOICE_SESSIONS := true
+# Sesi suara ganda DIMATIKAN, wajib agar panggilan suara berbunyi.
+#
+# Dengan flag ini menyala, voice_start_call() memakai voice_extn_start_call()
+# yang hanya memulai sesi kalau state.new == CALL_ACTIVE. Satu-satunya yang
+# mengisi state.new adalah voice_extn_set_parameters() dari parameter
+# "vsid" + "call_state" (voice_extn.c:308, 451-459), dan pengirimnya adalah
+# blob RIL lewat AudioSystem::setParameters().
+#
+# Di A37 parameter itu tidak pernah sampai. /vendor/lib/libmedia.so bukan
+# pustaka asli melainkan stub kita sendiri (libshims/stub/libmedia_stub.cpp),
+# yang ada karena blob RIL 2016 menuntut simbol yang sudah dicabut dari
+# libmedia modern; ia menelan setParameters dan mengembalikan NO_ERROR.
+# Meneruskannya bukan pilihan: libaudioclient tidak vendor_available
+# (frameworks/av/media/libaudioclient/Android.bp -- hanya header dan
+# aidl_interface yang vendor_available), jadi modul vendor tidak bisa
+# menautnya. Batasan ini sudah diramalkan di komentar stub tersebut.
+#
+# Terukur di perangkat 28 Agu 2026 pada panggilan masuk sungguhan:
+#   D A37LibmediaStub: setParameters diabaikan: vsid=281022464;call_state=2;call_type=GSM
+#   D voice_extn: update_calls: cur_state=1 new_state=1 vsid=10c01000   (x7 sesi)
+# 281022464 = 0x10C01000, call_state 2 = CALL_ACTIVE. Parameternya BENAR,
+# hanya tidak pernah tiba. Akibatnya tidak ada voice_start_usecase() sama
+# sekali: panggilan tersambung tapi bisu dua arah, meski adev_set_mode
+# mode 2 dan "audio_route: Apply path: voice-handset" sudah terjadi.
+#
+# Dengan flag dimatikan, voice_extn_start_call() menjadi stub -ENOSYS
+# (voice_extn.h:46-49) dan voice_start_call() jatuh ke jalur sesi-tunggal
+# voice_start_usecase(USECASE_VOICE_CALL) yang digerakkan adev->mode saja.
+# Jalur itu memakai VOICE_VSID = 0x10C01000 (voice.h:36) -- persis vsid yang
+# dikirim RIL, jadi modem dan HAL sepakat tanpa perlu parameter apa pun.
+#
+# msim_voice_extn tidak terpengaruh: ia hanya ikut terkompilasi kalau
+# AUDIO_FEATURE_HTC_DUAL_SIM atau AUDIO_FEATURE_SAMSUNG_DUAL_SIM diset
+# (Android.mk:126-133), dan A37 tidak memakai keduanya.
+#
+# Yang hilang: manajemen sesi suara per-SIM. Tidak ada ruginya di sini karena
+# jalur multi-sesi itu memang tidak pernah berfungsi sama sekali.
+AUDIO_FEATURE_ENABLED_MULTI_VOICE_SESSIONS := false
 AUDIO_FEATURE_ENABLED_SND_MONITOR := true
 BOARD_USES_ALSA_AUDIO := true
 BOARD_USES_GENERIC_AUDIO := true
