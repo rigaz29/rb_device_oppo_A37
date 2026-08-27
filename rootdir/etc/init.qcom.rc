@@ -331,6 +331,47 @@ on property:init.svc.media=restarting
 on property:init.svc.servicemanager=restarting
     restart qcamerasvr
 
+# Balapan KESIAPAN daemon kamera. Berbeda dari perbaikan class hal di atas.
+#
+# Urutan start sudah benar sejak qcamerasvr dipindah ke class hal: daemon
+# selalu dimulai lebih dulu. Tapi start bukan berarti SIAP. Provider AIDL
+# memuat modul HAL secara eager (CameraProvider.cpp:190-220: hw_get_module()
+# lalu langsung getNumberOfCameras()), dan jaraknya terlalu rapat.
+#
+# Terukur pada boot yang sehat, build 20260827_181149:
+#   qcamerasvr             19,887 detik
+#   vendor.camera.provider 19,928 detik   <- selisih hanya 41 milidetik
+#
+# Kalau daemon sedikit lebih lambat siap, camera_get_parameters() mengembalikan
+# null dan provider SIGSEGV di CameraProvider::initialize(). init menghidupkannya
+# lagi, gagal lagi, dan siklus itu tidak pernah pulih sampai reboot berikutnya.
+# Terjadi di perangkat 28 Agu 2026 antara 05:57 dan 06:26: 302 crash beruntun,
+# tiap ~5,6 detik, dengan "Number of camera devices: 0". Boot berikutnya bersih,
+# jadi ini memang intermiten, bukan kerusakan tetap.
+#
+#   F DEBUG: #00 camera.legacy.msm8916.so (camera_get_parameters+26)
+#   F DEBUG: #01 camera.msm8916.so (get_camera_info+160)
+#   F DEBUG: #02 ...lineage (CameraModule::getCameraInfo+188)
+#   F DEBUG: #03 ...lineage (CameraProvider::initialize+1120)
+#
+# Menggeser urutan lagi tidak menolong -- urutannya SUDAH benar, yang kurang
+# adalah jeda kesiapan. Maka provider direstart setelah daemon benar-benar
+# mencapai "running", meniru Mi-Thorium (rootdir/etc/init.xiaomi.rc:27-29) yang
+# memakai pola persis sama pada msm8937/8917 dengan provider AIDL yang sama.
+#
+# Tidak ada penanda kesiapan yang lebih baik untuk dipakai `wait`: daemon tidak
+# membuat soket di /dev/socket dan tidak menyetel properti apa pun (diperiksa
+# lewat strings pada blob dan /dev/socket di perangkat), jadi jeda tetap adalah
+# satu-satunya sinyal yang tersedia.
+#
+# `exec` memblokir antrean aksi init sampai perintahnya selesai, jadi restart
+# selalu terjadi setelah jeda penuh. Aksi ini juga menyala setiap kali daemon
+# restart, bukan hanya saat boot -- itu justru diinginkan: provider ikut
+# menginisialisasi ulang mengikuti daemonnya.
+on property:init.svc.qcamerasvr=running
+    exec /system/bin/sleep 1
+    restart vendor.camera.provider
+
 service qseecomd /system/vendor/bin/qseecomd
    class core
    user root
