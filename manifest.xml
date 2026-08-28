@@ -298,8 +298,7 @@
     <hal format="hidl">
         <name>android.hardware.drm</name>
         <transport>hwbinder</transport>
-        <version>1.0</version>
-        <!-- instance "widevine" dibuang bersama blob-nya: kedua
+                <!-- instance "widevine" dibuang bersama blob-nya: kedua
              android.hardware.drm@1.x-service.widevine gagal link karena
              libwvhidl.so butuh protobuf lama. Lihat catatan di
              proprietary-files.txt. Deklarasi tanpa implementasi bikin klien
@@ -322,14 +321,18 @@
 
              DRM clearkey tetap berfungsi lewat AIDL; yang dibuang hanya
              deklarasi HIDL yang tidak pernah ada implementasinya. -->
-        <interface>
-            <name>ICryptoFactory</name>
-            <instance>default</instance>
-        </interface>
-        <interface>
-            <name>IDrmFactory</name>
-            <instance>default</instance>
-        </interface>
+        <!-- Format fqname sejak 28 Agu 2026, saat instance widevine dihidupkan.
+             Widevine mendaftar sebagai @1.1, sedangkan default tetap @1.0.
+             Keduanya WAJIB berada dalam SATU blok hal: drm 1.0 dan 1.1 punya
+             major version yang sama, dan dua blok bernama sama dengan major
+             sama membuat HalManifest::shouldAdd menolak SELURUH manifest
+             perangkat dengan -22. Itu yang dulu membuat perangkat berhenti di
+             logo OPPO waktu IRadio dinaikkan ke 1.4 lewat blok terpisah.
+             fqname memberi versi per-instance tanpa memecah blok. -->
+        <fqname>@1.0::ICryptoFactory/default</fqname>
+        <fqname>@1.0::IDrmFactory/default</fqname>
+        <fqname>@1.1::ICryptoFactory/widevine</fqname>
+        <fqname>@1.1::IDrmFactory/widevine</fqname>
     </hal>
     <!-- wifi/hostapd/supplicant: dihapus — paket service bawa VINTF fragment.
          Sumber: msm8916-common lineage-18.1 -->

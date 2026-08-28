@@ -257,7 +257,30 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm-service.clearkey
+    android.hardware.drm-service.clearkey \
+    android.hardware.drm@1.1.vendor \
+    libprotobuf-cpp-lite-26-a37 \
+    libprotobuf-cpp-lite-26-a37_symlink
+
+# Widevine.
+#
+# runtime protobuf 3.0.0 dibangun dari sumber di protobuf26/; blob-nya sendiri
+# (biner service, libwvhidl.so, init rc) datang lewat A37-vendor.mk.
+# Rinciannya di proprietary-files.txt.
+#
+# android.hardware.drm@1.1.vendor WAJIB. Biner Widevine adalah prebuilt, jadi
+# Soong tidak tahu ia menautnya, dan /vendor/lib hanya punya @1.0 -- yang ikut
+# terpasang sebagai dependensi android.hardware.drm@1.0-service. Tanpa varian
+# vendor @1.1, servisnya crash-loop tiap 5 detik:
+#
+#   F linker: CANNOT LINK EXECUTABLE
+#     "/vendor/bin/hw/android.hardware.drm@1.1-service.widevine":
+#     library "android.hardware.drm@1.1.so" not found
+#
+# Uji shell sebelumnya TIDAK menangkap ini karena LD_LIBRARY_PATH-nya menyertakan
+# /system/lib; servis sungguhan berjalan di namespace linker vendor yang tidak
+# bisa melihat ke sana. Pola .vendor sama seperti android.hardware.bluetooth@1.0
+# di atas.
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608

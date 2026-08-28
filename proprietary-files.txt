@@ -236,22 +236,46 @@ lib/vendor.qti.hardware.iop@1.0.so
 lib/vendor.qti.hardware.iop@2.0.so
 vendor/bin/adsprpcd
 vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti
-# Widevine DIBUANG. Kedua service HIDL-nya gagal link dan di-restart init
-# tiap 5 detik selamanya:
-#   @1.0-service.widevine -> cannot locate symbol _ZTTN5wvdrm...WVDrmFactoryE
-#                            (pasangannya libwvhidl.so versi 1.1, tidak cocok)
-#   @1.1-service.widevine -> libwvhidl.so butuh simbol protobuf lama
-# libwvhidl.so menaut ke libprotobuf-cpp-lite.so era protobuf 3.0-beta:
-# 12 simbol hilang (empty_string_, InitEmptyString, Arena::AllocateAligned,
-# CodedOutputStream::VarintSize64, LazyStringOutputStream, dst). ABI-nya jauh
-# dari libprotobuf-cpp-lite.so di pohon ini, jadi tidak bisa di-shim seperti
-# libril_shim. libwvdrmengine.so (plugin legacy) IKUT DIBUANG setelah terbukti
-# di device tidak bisa dimuat juga:
-#   E android.hardware.drm@1.0-impl: Failed to lookup symbol createDrmFactory
-#     in library /vendor/lib/mediadrm/libwvdrmengine.so: dlopen failed: cannot
-#     locate symbol "_ZN6google8protobuf8internal13empty_string_E"
-# Simbol protobuf lama yang sama. Widevine baru bisa hidup kalau blob
-# libprotobuf-cpp-lite.so seangkatan ikut ditambahkan.
+# Widevine DIHIDUPKAN KEMBALI (28 Agu 2026), setelah penghalang protobuf
+# terpecahkan. Catatan lama menyimpulkan dengan benar: "Widevine baru bisa hidup
+# kalau blob libprotobuf-cpp-lite.so seangkatan ikut ditambahkan."
+#
+# Pustaka itu kini DIBANGUN DARI SUMBER, bukan blob: device/oppo/A37/protobuf26
+# berisi runtime lite protobuf 3.0.0, dipasang sebagai
+# libprotobuf-cpp-lite-26-a37.so dengan symlink libprotobuf-cpp-lite.so di
+# device/oppo/A37/Android.bp. Nama polos itu belum dipakai siapa pun di
+# /vendor/lib -- salinan modern bernama libprotobuf-cpp-lite-4.25.8.so -- dan
+# hanya kedua pustaka Widevine yang menautnya (diperiksa atas seluruh blob).
+#
+# Versi 3.0.0 dipilih lewat pengukuran, bukan tebakan. Percobaan dengan 2.6.1
+# GAGAL: Arena, LazyStringOutputStream, dan WriteVarint32SlowPath tidak ada di
+# versi itu sama sekali. Arena baru muncul di 3.0, sedangkan empty_string_ dan
+# GoogleOnceInit baru dibuang setelah ~3.5, jadi versinya di antara keduanya;
+# 3.0.0 sezaman dengan HAL drm@1.1 (Android 9), era blob ini.
+#
+# Satu simbol sempat tetap hilang, MessageLite::~MessageLite(). Ia inline di
+# header dan AOSP membangun dengan -fvisibility-inlines-hidden, sehingga varian
+# D2-nya menjadi LOCAL HIDDEN. Diperbaiki dengan -fvisibility=default; kini
+# seluruh 51 simbol yang dituntut blob terpenuhi.
+#
+# HANYA service @1.1 yang dipaket. Yang @1.0 gagal dengan sebab BERBEDA dan
+# tidak tersentuh perbaikan ini: cannot locate symbol _ZTTN5wvdrm...WVDrmFactoryE,
+# karena libwvhidl.so yang tersedia adalah pasangan versi 1.1.
+#
+# libwvdrmengine.so (plugin mediadrm legacy untuk drm@1.0-impl) TIDAK dipaket:
+# libwvhidl.so sudah memuat CDM-nya sendiri (806 simbol wvcdm), jadi jalur @1.1
+# tidak membutuhkannya.
+#
+# Terbukti di perangkat: service berjalan sampai registerAsService("widevine")
+# tanpa satu pun kegagalan tautan, dan hanya berhenti di gerbang VINTF -- yang
+# ditutup oleh deklarasi di manifest.xml.
+#
+# LEVEL KEAMANAN: L3, bukan L1. Seluruh implementasi kripto ada di namespace
+# wvoec3 (OEMCrypto Level 3, perangkat lunak); nol simbol QSEECom, nol tautan ke
+# libQSEEComAPI.so. widevine.mdt di /firmware memang ada, tapi blob userspace ini
+# tidak memakainya. Konsekuensinya streaming terbatas SD.
+vendor/bin/hw/android.hardware.drm@1.1-service.widevine
+vendor/lib/libwvhidl.so
 vendor/bin/hw/vendor.qti.hardware.perf@1.0-service
 vendor/bin/irsc_util
 vendor/bin/mm-pp-daemon
@@ -264,6 +288,7 @@ vendor/bin/time_daemon
 vendor/bin/vm_bms
 vendor/etc/data/dsi_config.xml
 vendor/etc/data/netmgr_config.xml
+vendor/etc/init/android.hardware.drm@1.1-service.widevine.rc
 vendor/etc/init/android.hardware.bluetooth@1.0-service-qti.rc
 vendor/etc/init/vendor.qti.hardware.perf@1.0-service.rc
 vendor/etc/perf/perfboostsconfig.xml
