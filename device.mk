@@ -1054,8 +1054,7 @@ PRODUCT_ENFORCE_RRO_TARGETS := *
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl \
     android.hardware.health@2.1-service \
-# DINONAKTIFKAN SEMENTARA -- lihat catatan di bawah.
-#    vendor.lineage.health-service.default
+    vendor.lineage.health-service.default
 
 # Konfigurasi charging control HARUS lewat soong_config di 23.2.
 #
@@ -1216,35 +1215,46 @@ PRODUCT_PACKAGES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/cgroups.json:$(TARGET_COPY_OUT_VENDOR)/etc/cgroups.json
 
-# ⚠️ vendor.lineage.health-service.default dinonaktifkan sementara.
+# Catatan penyelidikan vendor.lineage.health-service.default (SELESAI).
 #
-# Servisnya BERJALAN (init.svc.vendor.lineage_health: running, pid 830), tidak
-# crash (nol tombstone), dan nol keluaran log -- tapi tidak pernah mendaftarkan
-# IChargingControl. Akibatnya main thread system_server menggantung di
-# waitForDeclaredService dan Watchdog membunuhnya:
+# Servis ini pernah dinonaktifkan karena tidak pernah mendaftarkan
+# IChargingControl: main thread system_server menggantung di
+# waitForDeclaredService lalu dibunuh Watchdog.
 #
 #   WATCHDOG KILLING SYSTEM PROCESS: Blocked in handler on main thread for 70s
 #     at ChargingControlController.<init>(ChargingControlController.java:85)
-#
 #   159x "Waited one second for vendor.lineage.health.IChargingControl/default"
 #
-# Dua dugaan sudah gugur dengan bukti:
-#   - loop konstruktor: hilang setelah soong_config di atas disetel; biner tidak
-#     lagi memuat string "Failed to access() file" dan hanya menanam satu node.
-#   - crash: kesepuluh tombstone di perangkat semuanya milik cameraserver.
+# Penyebabnya loop tak berujung di konstruktor ChargingControl. Kalau
+# HEALTH_CHARGING_CONTROL_CHARGING_PATH tidak terdefinisi, konstruktor masuk
+# cabang "while (!mChargingEnabledNode)" yang memindai kandidat node selamanya
+# (ChargingControl.cpp:73-87) -- sebelum AServiceManager_addService sempat
+# dipanggil di service.cpp, sehingga servis hidup tapi tidak pernah terdaftar.
 #
-# waitForDeclaredService hanya menggantung kalau servis DIDEKLARASIKAN di VINTF
-# tapi tidak muncul. Dengan paketnya dilepas, fragmen VINTF-nya ikut hilang,
-# fungsi itu langsung mengembalikan null, dan framework menanganinya dengan
-# rapi -- ChargingControlController.java:88-91 mencatat "Lineage Health HAL not
-# found" lalu keluar.
+# Setelan soong_config di atas MEMANG sudah memperbaikinya, tapi dulu tidak
+# pernah terverifikasi karena perangkat belum bisa boot untuk diuji.
+# Diverifikasi 28 Agu 2026 dengan menjalankan binernya langsung di perangkat:
 #
-# Yang hilang: charging control (batas pengisian / jadwal). Fitur tambahan
-# Lineage, bukan bagian inti.
+#   makro terkompilasi : -DHEALTH_CHARGING_CONTROL_CHARGING_PATH=
+#                        "/sys/class/power_supply/battery/charging_enabled"
+#                        -DHEALTH_CHARGING_CONTROL_SUPPORTS_TOGGLE
+#   service check      : IChargingControl/default -> found
+#                        IFastCharge/default      -> found
+#   dumpsys            : node terpilih /sys/class/power_supply/battery/charging_enabled
+#                        Charging enabled: true, supported mode: 1
+#   WATCHDOG KILLING   : 0
+#   "Waited one second" : 0
+#   boot               : normal, ~60 detik
 #
-# Setelan soong_config di atas sengaja DIPERTAHANKAN supaya benar begitu servis
-# ini dihidupkan lagi. Penyelidikan lanjutan menunggu perangkat bisa boot, di
-# mana prosesnya bisa diperiksa langsung (ps, /proc/<pid>/stack, debuggerd -b).
+# supports_deadline dan supports_limit sengaja TIDAK diset: keduanya default
+# kosong di Android.bp hulu, sehingga blok berloop serupa untuk deadline
+# (ChargingControl.cpp:95-109) dan limit (:116-131) tidak ikut terkompilasi.
+# Menyetel salah satunya tanpa path yang menyertai akan menghidupkan kembali
+# bug yang sama.
+#
+# sepolicy tidak perlu ditambah: label hal_lineage_health_default_exec sudah
+# ada di device/lineage/sepolicy/common/vendor/file_contexts:10 dan diterapkan
+# otomatis lewat PRODUCT_PACKAGES.
 
 # Touchscreen
 PRODUCT_COPY_FILES += \
