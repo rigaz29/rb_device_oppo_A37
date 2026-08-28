@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_TAG "android.hardware.radio@1.4-service.legacy"
+#define LOG_TAG "android.hardware.radio@1.5-service.legacy"
 
 #include <android-base/logging.h>
 #include <hidl/HidlTransportSupport.h>
@@ -30,7 +30,7 @@ int slotId = 1;
 
 int main(int argc, char **argv) {
     // Note: Starts from slot 1
-    std::map<int, sp<V1_4::IRadio>> slotIdToRadio;
+    std::map<int, sp<V1_5::IRadio>> slotIdToRadio;
 
     for (int i = 1; i < argc ;) {
         if (0 == strcmp(argv[i], "-s")) {

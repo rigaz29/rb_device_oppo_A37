@@ -5,8 +5,8 @@
  */
 
 #pragma once
-#include <android/hardware/radio/1.4/IRadioResponse.h>
-#include <android/hardware/radio/1.4/IRadio.h>
+#include <android/hardware/radio/1.5/IRadioResponse.h>
+#include <android/hardware/radio/1.5/IRadio.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 
@@ -27,3 +27,11 @@ android::hardware::radio::V1_4::SignalStrength Create1_4SignalStrength(const and
 hidl_vec<android::hardware::radio::V1_4::CellInfo> Create1_4CellInfoList(const hidl_vec<android::hardware::radio::V1_0::CellInfo>& cellInfo);
 hidl_vec<android::hardware::radio::V1_4::CellInfo> Create1_4CellInfoList(const hidl_vec<android::hardware::radio::V1_2::CellInfo>& cellInfo);
 android::hardware::radio::V1_4::SetupDataCallResult Create1_4SetupDataCallResult(const android::hardware::radio::V1_0::SetupDataCallResult& dcResponse);
+
+// Tambahan 1.5. Semua dibangun dari data @1.0 yang disediakan blob RIL; field
+// yang tidak punya padanan diisi nilai "tidak diketahui" yang sah menurut HAL,
+// bukan nol, supaya framework tidak salah menyimpulkan.
+void Init1_5CellIdentity(const android::hardware::radio::V1_0::CellIdentity& legacyCI,
+                         android::hardware::radio::V1_5::CellIdentity& newCI);
+android::hardware::radio::V1_5::SetupDataCallResult Create1_5SetupDataCallResult(
+        const android::hardware::radio::V1_0::SetupDataCallResult& dcResponse);

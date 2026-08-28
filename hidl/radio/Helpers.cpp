@@ -182,3 +182,85 @@ V1_4::SetupDataCallResult Create1_4SetupDataCallResult(const V1_0::SetupDataCall
 
     return newDCR;
 }
+
+// ---------------------------------------------------------------------------
+// Konversi ke 1.5
+// ---------------------------------------------------------------------------
+
+void Init1_5CellIdentity(const V1_0::CellIdentity& legacyCI, V1_5::CellIdentity& newCI) {
+    // V1_5::CellIdentity adalah safe_union, bukan struct berisi vec seperti 1.2.
+    // Kalau tidak ada satu pun identitas sel yang valid, biarkan pada varian
+    // noinit -- itu nilai sah yang berarti "tidak diketahui".
+    if (legacyCI.cellIdentityGsm.size() == 1) {
+        V1_5::CellIdentityGsm gsm = {};
+        gsm.base.base = legacyCI.cellIdentityGsm[0];
+        newCI.gsm(gsm);
+    } else if (legacyCI.cellIdentityWcdma.size() == 1) {
+        V1_5::CellIdentityWcdma wcdma = {};
+        wcdma.base.base = legacyCI.cellIdentityWcdma[0];
+        newCI.wcdma(wcdma);
+    } else if (legacyCI.cellIdentityTdscdma.size() == 1) {
+        V1_5::CellIdentityTdscdma tdscdma = {};
+        tdscdma.base.base = legacyCI.cellIdentityTdscdma[0];
+        tdscdma.base.uarfcn = INT_MAX;
+        newCI.tdscdma(tdscdma);
+    } else if (legacyCI.cellIdentityCdma.size() == 1) {
+        V1_2::CellIdentityCdma cdma = {};
+        cdma.base = legacyCI.cellIdentityCdma[0];
+        newCI.cdma(cdma);
+    } else if (legacyCI.cellIdentityLte.size() == 1) {
+        V1_5::CellIdentityLte lte = {};
+        lte.base.base = legacyCI.cellIdentityLte[0];
+        // Blob @1.0 tidak melaporkan bandwidth; INT_MAX adalah sentinel
+        // "tidak diketahui" yang dipakai juga oleh jalur 1.2 di berkas ini.
+        lte.base.bandwidth = INT_MAX;
+        newCI.lte(lte);
+    }
+}
+
+V1_5::SetupDataCallResult Create1_5SetupDataCallResult(const V1_0::SetupDataCallResult& dcResponse) {
+    V1_5::SetupDataCallResult newDCR = {};
+    newDCR.cause = (V1_4::DataCallFailCause) dcResponse.status;
+    newDCR.suggestedRetryTime = dcResponse.suggestedRetryTime;
+    newDCR.cid = dcResponse.cid;
+    newDCR.active = (V1_4::DataConnActiveStatus) dcResponse.active;
+    newDCR.ifname = dcResponse.ifname;
+
+    // 1.4 punya satu field mtu; 1.5 memisahkannya per keluarga alamat. Blob
+    // hanya memberi satu nilai, jadi dipakai untuk keduanya.
+    newDCR.mtuV4 = dcResponse.mtu;
+    newDCR.mtuV6 = dcResponse.mtu;
+
+    // 1.5 mengubah addresses dari vec<string> menjadi vec<LinkAddress>.
+    // properties NONE dan waktu kedaluwarsa tak hingga (-1) adalah nilai yang
+    // dipakai AOSP untuk alamat yang tidak membawa informasi masa berlaku.
+    auto addrStrings = DelimitedStrToVec(dcResponse.addresses);
+    std::vector<V1_5::LinkAddress> linkAddrs;
+    linkAddrs.reserve(addrStrings.size());
+    for (const auto& a : addrStrings) {
+        V1_5::LinkAddress la = {};
+        la.address = a;
+        la.properties = 0;
+        la.deprecationTime = static_cast<uint64_t>(-1);
+        la.expirationTime = static_cast<uint64_t>(-1);
+        linkAddrs.push_back(la);
+    }
+    newDCR.addresses = linkAddrs;
+
+    newDCR.dnses = DelimitedStrToVec(dcResponse.dnses);
+    newDCR.gateways = DelimitedStrToVec(dcResponse.gateways);
+    newDCR.pcscf = DelimitedStrToVec(dcResponse.pcscf);
+
+    if (dcResponse.type == std::string("IP"))
+        newDCR.type = V1_4::PdpProtocolType::IP;
+    else if (dcResponse.type == std::string("IPV6"))
+        newDCR.type = V1_4::PdpProtocolType::IPV6;
+    else if (dcResponse.type == std::string("IPV4V6"))
+        newDCR.type = V1_4::PdpProtocolType::IPV4V6;
+    else if (dcResponse.type == std::string("PPP"))
+        newDCR.type = V1_4::PdpProtocolType::PPP;
+    else
+        newDCR.type = V1_4::PdpProtocolType::UNKNOWN;
+
+    return newDCR;
+}

@@ -212,8 +212,8 @@
              anak, tanpa kecocokan apa pun.
              Keduanya tetap dalam SATU blok hal, jadi aturan
              HalManifest::shouldAdd soal major version ganda tidak dilanggar. -->
-        <fqname>@1.4::IRadio/slot1</fqname>
-        <fqname>@1.4::IRadio/slot2</fqname>
+        <fqname>@1.5::IRadio/slot1</fqname>
+        <fqname>@1.5::IRadio/slot2</fqname>
         <fqname>@1.1::ISap/slot1</fqname>
         <fqname>@1.1::ISap/slot2</fqname>
     </hal>
