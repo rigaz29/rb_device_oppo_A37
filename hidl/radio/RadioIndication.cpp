@@ -53,11 +53,14 @@ Return<void> RadioIndication::currentSignalStrength(V1_0::RadioIndicationType ty
 
 Return<void> RadioIndication::dataCallListChanged(
         V1_0::RadioIndicationType type, const hidl_vec<V1_0::SetupDataCallResult>& dcList) {
-    hidl_vec<V1_4::SetupDataCallResult> newDcList;
+    // Harus 1.5 agar sebangun dengan setupDataCallResponse_1_5: kalau daftar
+    // tak-diminta ini masih bentuk 1.4 sedangkan balasan permintaan 1.5,
+    // framework melihat dua struktur berbeda untuk data call yang sama.
+    hidl_vec<V1_5::SetupDataCallResult> newDcList;
     newDcList.resize(dcList.size());
-    for(int x = 0; x < dcList.size(); ++x)
-        newDcList[x] = Create1_4SetupDataCallResult(dcList[x]);
-    return mRealRadioIndication->dataCallListChanged_1_4(type, newDcList);
+    for(size_t x = 0; x < dcList.size(); ++x)
+        newDcList[x] = Create1_5SetupDataCallResult(dcList[x]);
+    return mRealRadioIndication->dataCallListChanged_1_5(type, newDcList);
 }
 
 Return<void> RadioIndication::suppSvcNotify(V1_0::RadioIndicationType type,
@@ -309,6 +312,49 @@ Return<void> RadioIndication::dataCallListChanged_1_4(
 Return<void> RadioIndication::currentSignalStrength_1_4(
         V1_0::RadioIndicationType type, const V1_4::SignalStrength& signalStrength) {
     return mRealRadioIndication->currentSignalStrength_1_4(type, signalStrength);
+}
+
+
+
+// ---------------------------------------------------------------------------
+
+// Methods from ::android::hardware::radio::V1_5::IRadioIndication follow.
+// Penerusan langsung; radio asli A37 @1.0 tidak pernah memanggilnya.
+// ---------------------------------------------------------------------------
+
+Return<void> RadioIndication::uiccApplicationsEnablementChanged(V1_0::RadioIndicationType type,
+                                                                bool enabled) {
+    return mRealRadioIndication->uiccApplicationsEnablementChanged(type, enabled);
+}
+
+Return<void> RadioIndication::registrationFailed(V1_0::RadioIndicationType type,
+                                                 const V1_5::CellIdentity& cellIdentity,
+                                                 const hidl_string& chosenPlmn,
+                                                 hidl_bitfield<V1_5::Domain> domain,
+                                                 int32_t causeCode, int32_t additionalCauseCode) {
+    return mRealRadioIndication->registrationFailed(type, cellIdentity, chosenPlmn, domain,
+                                                    causeCode, additionalCauseCode);
+}
+
+Return<void> RadioIndication::barringInfoChanged(V1_0::RadioIndicationType type,
+                                                 const V1_5::CellIdentity& cellIdentity,
+                                                 const hidl_vec<V1_5::BarringInfo>& barringInfos) {
+    return mRealRadioIndication->barringInfoChanged(type, cellIdentity, barringInfos);
+}
+
+Return<void> RadioIndication::cellInfoList_1_5(V1_0::RadioIndicationType type,
+                                               const hidl_vec<V1_5::CellInfo>& records) {
+    return mRealRadioIndication->cellInfoList_1_5(type, records);
+}
+
+Return<void> RadioIndication::networkScanResult_1_5(V1_0::RadioIndicationType type,
+                                                    const V1_5::NetworkScanResult& result) {
+    return mRealRadioIndication->networkScanResult_1_5(type, result);
+}
+
+Return<void> RadioIndication::dataCallListChanged_1_5(
+        V1_0::RadioIndicationType type, const hidl_vec<V1_5::SetupDataCallResult>& dcList) {
+    return mRealRadioIndication->dataCallListChanged_1_5(type, dcList);
 }
 
 }  // namespace android::hardware::radio::implementation

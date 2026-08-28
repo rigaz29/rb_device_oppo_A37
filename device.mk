@@ -1312,7 +1312,7 @@ PRODUCT_PACKAGES += \
 # getHidlTransport() mencocokkan dengan minorAtLeast(), deklarasi 1.4 tetap
 # memenuhi pendaftaran @1.1 milik rild, jadi keduanya bisa hidup berdampingan.
 PRODUCT_PACKAGES += \
-    android.hardware.radio@1.4-service.msm8916
+    android.hardware.radio@1.5-service.msm8916
 
 # IRadioConfig 1.1, pelengkap pembungkus radio di atas.
 #

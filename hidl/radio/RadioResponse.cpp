@@ -165,8 +165,21 @@ Return<void> RadioResponse::getVoiceRegistrationStateResponse(
     newVRR.defaultRoamingIndicator = voiceRegResponse.defaultRoamingIndicator;
     newVRR.reasonForDenial = voiceRegResponse.reasonForDenial;
     Init1_2CellIdentity(voiceRegResponse.cellIdentity, newVRR.cellIdentity);
+    (void) newVRR;
 
-    return mRealRadioResponse->getVoiceRegistrationStateResponse_1_2(info, newVRR);
+    // Pada HAL 1.5 framework SELALU meminta lewat getVoiceRegistrationState_1_5
+    // (RadioNetworkProxy.java:301-308), jadi balasannya harus bentuk 1.5.
+    V1_5::RegStateResult res = {};
+    res.regState = voiceRegResponse.regState;
+    res.rat = (V1_4::RadioTechnology) voiceRegResponse.rat;
+    res.reasonForDenial = (V1_5::RegistrationFailCause) voiceRegResponse.reasonForDenial;
+    res.registeredPlmn = mOperatorNumeric;
+    Init1_5CellIdentity(voiceRegResponse.cellIdentity, res.cellIdentity);
+
+    // accessTechnologySpecificInfo dibiarkan pada varian noinit. Blob @1.0 tidak
+    // melaporkan LteVopsInfo maupun NrIndicators, dan mengarangnya akan membuat
+    // framework menyimpulkan dukungan VoLTE yang tidak ada.
+    return mRealRadioResponse->getVoiceRegistrationStateResponse_1_5(info, res);
 }
 
 Return<void> RadioResponse::getDataRegistrationStateResponse(
@@ -180,19 +193,30 @@ Return<void> RadioResponse::getDataRegistrationStateResponse(
     newDRR.base.reasonDataDenied = dataRegResponse.reasonDataDenied;
     newDRR.base.maxDataCalls = dataRegResponse.maxDataCalls;
     Init1_2CellIdentity(dataRegResponse.cellIdentity, newDRR.base.cellIdentity);
+    (void) newDRR;
 
-    return mRealRadioResponse->getDataRegistrationStateResponse_1_4(info, newDRR);
+    V1_5::RegStateResult res = {};
+    res.regState = dataRegResponse.regState;
+    res.rat = (V1_4::RadioTechnology) dataRegResponse.rat;
+    res.reasonForDenial = (V1_5::RegistrationFailCause) dataRegResponse.reasonDataDenied;
+    res.registeredPlmn = mOperatorNumeric;
+    Init1_5CellIdentity(dataRegResponse.cellIdentity, res.cellIdentity);
+
+    return mRealRadioResponse->getDataRegistrationStateResponse_1_5(info, res);
 }
 
 Return<void> RadioResponse::getOperatorResponse(const V1_0::RadioResponseInfo& info,
                                                 const hidl_string& longName,
                                                 const hidl_string& shortName,
                                                 const hidl_string& numeric) {
+    // Disimpan untuk mengisi RegStateResult.registeredPlmn, yang tidak ada di
+    // respons registrasi @1.0. Lihat catatan di RadioResponse.h.
+    if (numeric.size() > 0) mOperatorNumeric = numeric;
     return mRealRadioResponse->getOperatorResponse(info, longName, shortName, numeric);
 }
 
 Return<void> RadioResponse::setRadioPowerResponse(const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->setRadioPowerResponse(info);
+    return mRealRadioResponse->setRadioPowerResponse_1_5(info);
 }
 
 Return<void> RadioResponse::sendDtmfResponse(const V1_0::RadioResponseInfo& info) {
@@ -211,7 +235,7 @@ Return<void> RadioResponse::sendSMSExpectMoreResponse(const V1_0::RadioResponseI
 
 Return<void> RadioResponse::setupDataCallResponse(const V1_0::RadioResponseInfo& info,
                                                   const V1_0::SetupDataCallResult& dcResponse) {
-    return mRealRadioResponse->setupDataCallResponse_1_4(info, Create1_4SetupDataCallResult(dcResponse));
+    return mRealRadioResponse->setupDataCallResponse_1_5(info, Create1_5SetupDataCallResult(dcResponse));
 }
 
 Return<void> RadioResponse::iccIOForAppResponse(const V1_0::RadioResponseInfo& info,
@@ -294,7 +318,7 @@ Return<void> RadioResponse::setNetworkSelectionModeAutomaticResponse(
 
 Return<void> RadioResponse::setNetworkSelectionModeManualResponse(
         const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->setNetworkSelectionModeManualResponse(info);
+    return mRealRadioResponse->setNetworkSelectionModeManualResponse_1_5(info);
 }
 
 hidl_vec<V1_4::CellInfo> convertOperatorInfoToCellInfo1_4(const hidl_vec<V1_0::OperatorInfo>& networkInfos) {
@@ -383,13 +407,13 @@ Return<void> RadioResponse::getClipResponse(const V1_0::RadioResponseInfo& info,
 Return<void> RadioResponse::getDataCallListResponse(
         const V1_0::RadioResponseInfo& info,
         const hidl_vec<V1_0::SetupDataCallResult>& dcResponse) {
-    hidl_vec<V1_4::SetupDataCallResult> newResponse;
+    hidl_vec<V1_5::SetupDataCallResult> newResponse;
     newResponse.resize(dcResponse.size());
 
-    for(int x = 0; x < dcResponse.size(); ++x)
-        newResponse[x] = Create1_4SetupDataCallResult(dcResponse[x]);
+    for(size_t x = 0; x < dcResponse.size(); ++x)
+        newResponse[x] = Create1_5SetupDataCallResult(dcResponse[x]);
 
-    return mRealRadioResponse->getDataCallListResponse_1_4(info, newResponse);
+    return mRealRadioResponse->getDataCallListResponse_1_5(info, newResponse);
 }
 
 Return<void> RadioResponse::setSuppServiceNotificationsResponse(
@@ -678,7 +702,7 @@ Return<void> RadioResponse::setCellInfoListRateResponse(const V1_0::RadioRespons
 }
 
 Return<void> RadioResponse::setInitialAttachApnResponse(const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->setInitialAttachApnResponse(info);
+    return mRealRadioResponse->setInitialAttachApnResponse_1_5(info);
 }
 
 Return<void> RadioResponse::getImsRegistrationStateResponse(const V1_0::RadioResponseInfo& info,
@@ -748,7 +772,7 @@ Return<void> RadioResponse::requestIccSimAuthenticationResponse(const V1_0::Radi
 }
 
 Return<void> RadioResponse::setDataProfileResponse(const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->setDataProfileResponse(info);
+    return mRealRadioResponse->setDataProfileResponse_1_5(info);
 }
 
 Return<void> RadioResponse::requestShutdownResponse(const V1_0::RadioResponseInfo& info) {
@@ -810,7 +834,7 @@ Return<void> RadioResponse::sendDeviceStateResponse(const V1_0::RadioResponseInf
 }
 
 Return<void> RadioResponse::setIndicationFilterResponse(const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->setIndicationFilterResponse(info);
+    return mRealRadioResponse->setIndicationFilterResponse_1_5(info);
 }
 
 Return<void> RadioResponse::setSimCardPowerResponse(const V1_0::RadioResponseInfo& info) {
@@ -832,7 +856,7 @@ Return<void> RadioResponse::setSimCardPowerResponse_1_1(const V1_0::RadioRespons
 }
 
 Return<void> RadioResponse::startNetworkScanResponse(const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->startNetworkScanResponse_1_4(info);
+    return mRealRadioResponse->startNetworkScanResponse_1_5(info);
 }
 
 
@@ -896,7 +920,7 @@ Return<void> RadioResponse::getDataRegistrationStateResponse_1_2(
 // Methods from ::android::hardware::radio::V1_3::IRadioResponse follow.
 Return<void> RadioResponse::setSystemSelectionChannelsResponse(
         const V1_0::RadioResponseInfo& info) {
-    return mRealRadioResponse->setSystemSelectionChannelsResponse(info);
+    return mRealRadioResponse->setSystemSelectionChannelsResponse_1_5(info);
 }
 
 Return<void> RadioResponse::enableModemResponse(const V1_0::RadioResponseInfo& info) {
@@ -966,6 +990,117 @@ Return<void> RadioResponse::getAllowedCarriersResponse_1_4(
 Return<void> RadioResponse::getSignalStrengthResponse_1_4(
         const V1_0::RadioResponseInfo& info, const V1_4::SignalStrength& signalStrength) {
     return mRealRadioResponse->getSignalStrengthResponse_1_4(info, signalStrength);
+}
+
+
+
+// ---------------------------------------------------------------------------
+
+// Methods from ::android::hardware::radio::V1_5::IRadioResponse follow.
+//
+// Semuanya penerusan langsung. Jalur ini hanya terpakai kalau radio ASLI
+// ternyata sudah 1.5 -- di A37 tidak, blobnya @1.0 -- tapi tetap wajib ada
+// karena V1_5::IRadioResponse mendeklarasikannya sebagai pure virtual.
+// Balasan yang benar-benar dipakai perangkat ini dibangun di callback @1.0
+// di atas, bukan di sini.
+// ---------------------------------------------------------------------------
+
+Return<void> RadioResponse::setSignalStrengthReportingCriteriaResponse_1_5(
+        const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setSignalStrengthReportingCriteriaResponse_1_5(info);
+}
+
+Return<void> RadioResponse::setLinkCapacityReportingCriteriaResponse_1_5(
+        const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setLinkCapacityReportingCriteriaResponse_1_5(info);
+}
+
+Return<void> RadioResponse::enableUiccApplicationsResponse(const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->enableUiccApplicationsResponse(info);
+}
+
+Return<void> RadioResponse::areUiccApplicationsEnabledResponse(const V1_0::RadioResponseInfo& info,
+                                                               bool enabled) {
+    return mRealRadioResponse->areUiccApplicationsEnabledResponse(info, enabled);
+}
+
+Return<void> RadioResponse::setSystemSelectionChannelsResponse_1_5(
+        const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setSystemSelectionChannelsResponse_1_5(info);
+}
+
+Return<void> RadioResponse::startNetworkScanResponse_1_5(const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->startNetworkScanResponse_1_5(info);
+}
+
+Return<void> RadioResponse::setupDataCallResponse_1_5(const V1_0::RadioResponseInfo& info,
+                                                      const V1_5::SetupDataCallResult& dcResponse) {
+    return mRealRadioResponse->setupDataCallResponse_1_5(info, dcResponse);
+}
+
+Return<void> RadioResponse::getDataCallListResponse_1_5(
+        const V1_0::RadioResponseInfo& info,
+        const hidl_vec<V1_5::SetupDataCallResult>& dcResponse) {
+    return mRealRadioResponse->getDataCallListResponse_1_5(info, dcResponse);
+}
+
+Return<void> RadioResponse::setInitialAttachApnResponse_1_5(const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setInitialAttachApnResponse_1_5(info);
+}
+
+Return<void> RadioResponse::setDataProfileResponse_1_5(const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setDataProfileResponse_1_5(info);
+}
+
+Return<void> RadioResponse::setRadioPowerResponse_1_5(const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setRadioPowerResponse_1_5(info);
+}
+
+Return<void> RadioResponse::setIndicationFilterResponse_1_5(const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setIndicationFilterResponse_1_5(info);
+}
+
+Return<void> RadioResponse::getBarringInfoResponse(
+        const V1_0::RadioResponseInfo& info, const V1_5::CellIdentity& cellIdentity,
+        const hidl_vec<V1_5::BarringInfo>& barringInfos) {
+    return mRealRadioResponse->getBarringInfoResponse(info, cellIdentity, barringInfos);
+}
+
+Return<void> RadioResponse::getVoiceRegistrationStateResponse_1_5(
+        const V1_0::RadioResponseInfo& info, const V1_5::RegStateResult& voiceRegResponse) {
+    return mRealRadioResponse->getVoiceRegistrationStateResponse_1_5(info, voiceRegResponse);
+}
+
+Return<void> RadioResponse::getDataRegistrationStateResponse_1_5(
+        const V1_0::RadioResponseInfo& info, const V1_5::RegStateResult& dataRegResponse) {
+    return mRealRadioResponse->getDataRegistrationStateResponse_1_5(info, dataRegResponse);
+}
+
+Return<void> RadioResponse::getCellInfoListResponse_1_5(
+        const V1_0::RadioResponseInfo& info, const hidl_vec<V1_5::CellInfo>& cellInfo) {
+    return mRealRadioResponse->getCellInfoListResponse_1_5(info, cellInfo);
+}
+
+Return<void> RadioResponse::setNetworkSelectionModeManualResponse_1_5(
+        const V1_0::RadioResponseInfo& info) {
+    return mRealRadioResponse->setNetworkSelectionModeManualResponse_1_5(info);
+}
+
+Return<void> RadioResponse::sendCdmaSmsExpectMoreResponse(const V1_0::RadioResponseInfo& info,
+                                                          const V1_0::SendSmsResult& sms) {
+    return mRealRadioResponse->sendCdmaSmsExpectMoreResponse(info, sms);
+}
+
+Return<void> RadioResponse::supplySimDepersonalizationResponse(const V1_0::RadioResponseInfo& info,
+                                                               V1_5::PersoSubstate persoType,
+                                                               int32_t remainingRetries) {
+    return mRealRadioResponse->supplySimDepersonalizationResponse(info, persoType,
+                                                                  remainingRetries);
+}
+
+Return<void> RadioResponse::getIccCardStatusResponse_1_5(const V1_0::RadioResponseInfo& info,
+                                                         const V1_5::CardStatus& cardStatus) {
+    return mRealRadioResponse->getIccCardStatusResponse_1_5(info, cardStatus);
 }
 
 }  // namespace android::hardware::radio::implementation

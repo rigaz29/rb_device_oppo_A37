@@ -56,6 +56,15 @@
         }                                                    \
     } while (0)
 
+#define MAYBE_WRAP_V1_5_CALL(method, ...)                    \
+    do {                                                     \
+        auto realRadio_V1_5 = getRealRadio_V1_5();           \
+        if (realRadio_V1_5 != nullptr) {                     \
+            LOG(WARNING) << "Using wrapper when not needed"; \
+            return realRadio_V1_5->method(__VA_ARGS__);      \
+        }                                                    \
+    } while (0)
+
 namespace android::hardware::radio::implementation {
 sp<RadioIndication> xxRadioIndication = new RadioIndication();
 int32_t emergency_dial_serial = -1;
@@ -65,9 +74,9 @@ Radio::Radio(sp<V1_0::IRadio> realRadio) : mRealRadio(realRadio) {}
 // Methods from ::android::hardware::radio::V1_0::IRadio follow.
 Return<void> Radio::setResponseFunctions(const sp<V1_0::IRadioResponse>& radioResponse,
                                          const sp<V1_0::IRadioIndication>& radioIndication) {
-    mRadioResponse->mRealRadioResponse = V1_4::IRadioResponse::castFrom(radioResponse);
-    mRadioIndication->mRealRadioIndication = V1_4::IRadioIndication::castFrom(radioIndication);
-    xxRadioIndication->mRealRadioIndication = V1_4::IRadioIndication::castFrom(radioIndication);
+    mRadioResponse->mRealRadioResponse = V1_5::IRadioResponse::castFrom(radioResponse);
+    mRadioIndication->mRealRadioIndication = V1_5::IRadioIndication::castFrom(radioIndication);
+    xxRadioIndication->mRealRadioIndication = V1_5::IRadioIndication::castFrom(radioIndication);
     WRAP_V1_0_CALL(setResponseFunctions, mRadioResponse, mRadioIndication);
 }
 
@@ -984,6 +993,238 @@ sp<V1_3::IRadio> Radio::getRealRadio_V1_3() {
 
 sp<V1_4::IRadio> Radio::getRealRadio_V1_4() {
     return V1_4::IRadio::castFrom(mRealRadio).withDefault(nullptr);
+}
+
+sp<V1_5::IRadio> Radio::getRealRadio_V1_5() {
+    return V1_5::IRadio::castFrom(mRealRadio).withDefault(nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// Methods from ::android::hardware::radio::V1_5::IRadio follow.
+// ---------------------------------------------------------------------------
+
+// Balasan "tidak didukung" yang LENGKAP.
+//
+// Pola di berkas ini untuk metode tanpa padanan @1.0 adalah "// TODO implement"
+// lalu return Void() -- permintaan dibuang tanpa balasan apa pun. Itu membuat
+// RILRequest di framework tidak pernah diselesaikan: RIL.processResponse()
+// mencocokkan lewat serial, dan tanpa balasan entri itu menggantung sampai
+// timeout. Untuk metode 1.5 di bawah pola itu TIDAK diikuti; setiap permintaan
+// selalu dijawab, sekalipun jawabannya REQUEST_NOT_SUPPORTED.
+//
+// canMakeRequest() di RIL.java memang sudah menyaring sebagian panggilan
+// berdasarkan versi HAL, tapi penyaringan itu memakai versi yang KITA umumkan.
+// Karena kita mengumumkan 1.5, saringan itu terbuka dan permintaannya benar
+// benar sampai ke sini.
+static V1_0::RadioResponseInfo NotSupported(int32_t serial) {
+    V1_0::RadioResponseInfo info = {};
+    info.type = V1_0::RadioResponseType::SOLICITED;
+    info.serial = serial;
+    info.error = V1_0::RadioError::REQUEST_NOT_SUPPORTED;
+    return info;
+}
+
+// DataProfileInfo 1.5 identik dengan 1.4 kecuali satu hal: field mtu dipecah
+// menjadi mtuV4 dan mtuV6. Jadi jalur data 1.5 diturunkan ke 1.4 lalu
+// didelegasikan ke implementasi 1.4 yang sudah terbukti bekerja di perangkat,
+// bukan ditulis ulang.
+static V1_4::DataProfileInfo To1_4DataProfileInfo(const V1_5::DataProfileInfo& p) {
+    V1_4::DataProfileInfo out = {};
+    out.profileId = p.profileId;
+    out.apn = p.apn;
+    out.protocol = p.protocol;
+    out.roamingProtocol = p.roamingProtocol;
+    out.authType = p.authType;
+    out.user = p.user;
+    out.password = p.password;
+    out.type = p.type;
+    out.maxConnsTime = p.maxConnsTime;
+    out.maxConns = p.maxConns;
+    out.waitTime = p.waitTime;
+    out.enabled = p.enabled;
+    out.supportedApnTypesBitmap = p.supportedApnTypesBitmap;
+    out.bearerBitmap = p.bearerBitmap;
+    // Blob @1.0 hanya punya satu nilai MTU. mtuV4 dipakai karena jalur data
+    // perangkat ini IPv4 (rmnet_data0 mendapat alamat /30 dari operator).
+    out.mtu = p.mtuV4;
+    out.preferred = p.preferred;
+    out.persistent = p.persistent;
+    return out;
+}
+
+Return<void> Radio::setSignalStrengthReportingCriteria_1_5(
+        int32_t serial, const V1_5::SignalThresholdInfo& signalThresholdInfo,
+        V1_5::AccessNetwork accessNetwork) {
+    MAYBE_WRAP_V1_5_CALL(setSignalStrengthReportingCriteria_1_5, serial, signalThresholdInfo,
+                         accessNetwork);
+    // Hanya panggilan pertama untuk serial ini yang dijawab; lihat catatan
+    // mLastSignalCriteriaSerial di Radio.h.
+    if (serial == mLastSignalCriteriaSerial) return Void();
+    mLastSignalCriteriaSerial = serial;
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->setSignalStrengthReportingCriteriaResponse_1_5(NotSupported(serial));
+    return Void();
+}
+
+Return<void> Radio::setLinkCapacityReportingCriteria_1_5(
+        int32_t serial, int32_t hysteresisMs, int32_t hysteresisDlKbps, int32_t hysteresisUlKbps,
+        const hidl_vec<int32_t>& thresholdsDownlinkKbps,
+        const hidl_vec<int32_t>& thresholdsUplinkKbps, V1_5::AccessNetwork accessNetwork) {
+    MAYBE_WRAP_V1_5_CALL(setLinkCapacityReportingCriteria_1_5, serial, hysteresisMs,
+                         hysteresisDlKbps, hysteresisUlKbps, thresholdsDownlinkKbps,
+                         thresholdsUplinkKbps, accessNetwork);
+    if (serial == mLastLinkCapacitySerial) return Void();
+    mLastLinkCapacitySerial = serial;
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->setLinkCapacityReportingCriteriaResponse_1_5(NotSupported(serial));
+    return Void();
+}
+
+Return<void> Radio::enableUiccApplications(int32_t serial, bool enable) {
+    MAYBE_WRAP_V1_5_CALL(enableUiccApplications, serial, enable);
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->enableUiccApplicationsResponse(NotSupported(serial));
+    return Void();
+}
+
+Return<void> Radio::areUiccApplicationsEnabled(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(areUiccApplicationsEnabled, serial);
+    // enabled = true menyertai kode error. UiccController membaca nilai ini
+    // hanya kalau errornya NONE, tapi mengirim false bersama error akan
+    // menyesatkan kalau suatu saat pembacaannya berubah: aplikasi UICC di
+    // perangkat ini memang selalu aktif, tidak ada cara mematikannya.
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->areUiccApplicationsEnabledResponse(NotSupported(serial), true);
+    return Void();
+}
+
+Return<void> Radio::setSystemSelectionChannels_1_5(
+        int32_t serial, bool specifyChannels,
+        const hidl_vec<V1_5::RadioAccessSpecifier>& specifiers) {
+    MAYBE_WRAP_V1_5_CALL(setSystemSelectionChannels_1_5, serial, specifyChannels, specifiers);
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->setSystemSelectionChannelsResponse_1_5(NotSupported(serial));
+    return Void();
+}
+
+Return<void> Radio::startNetworkScan_1_5(int32_t serial,
+                                         const V1_5::NetworkScanRequest& request) {
+    MAYBE_WRAP_V1_5_CALL(startNetworkScan_1_5, serial, request);
+    // NetworkScanRequest 1.5 memakai RadioAccessSpecifier 1.5 dengan pita
+    // per-teknologi yang tidak punya padanan di @1.1, jadi tidak diturunkan.
+    // Dampaknya hanya pemilihan jaringan manual; pemilihan otomatis tidak
+    // memakai jalur ini.
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->startNetworkScanResponse_1_5(NotSupported(serial));
+    return Void();
+}
+
+Return<void> Radio::setupDataCall_1_5(int32_t serial, V1_5::AccessNetwork accessNetwork,
+                                      const V1_5::DataProfileInfo& dataProfileInfo,
+                                      bool roamingAllowed, V1_2::DataRequestReason reason,
+                                      const hidl_vec<V1_5::LinkAddress>& addresses,
+                                      const hidl_vec<hidl_string>& dnses) {
+    MAYBE_WRAP_V1_5_CALL(setupDataCall_1_5, serial, accessNetwork, dataProfileInfo, roamingAllowed,
+                         reason, addresses, dnses);
+
+    // LinkAddress 1.5 membawa properti dan masa berlaku; jalur @1.0 hanya
+    // mengenal string alamat, jadi sisanya dibuang.
+    std::vector<hidl_string> addrStrings;
+    addrStrings.reserve(addresses.size());
+    for (const auto& a : addresses) addrStrings.push_back(a.address);
+
+    return setupDataCall_1_4(serial, (V1_4::AccessNetwork) accessNetwork,
+                             To1_4DataProfileInfo(dataProfileInfo), roamingAllowed, reason,
+                             hidl_vec(addrStrings), dnses);
+}
+
+Return<void> Radio::setInitialAttachApn_1_5(int32_t serial,
+                                            const V1_5::DataProfileInfo& dataProfileInfo) {
+    MAYBE_WRAP_V1_5_CALL(setInitialAttachApn_1_5, serial, dataProfileInfo);
+    return setInitialAttachApn_1_4(serial, To1_4DataProfileInfo(dataProfileInfo));
+}
+
+Return<void> Radio::setDataProfile_1_5(int32_t serial,
+                                       const hidl_vec<V1_5::DataProfileInfo>& profiles) {
+    MAYBE_WRAP_V1_5_CALL(setDataProfile_1_5, serial, profiles);
+    std::vector<V1_4::DataProfileInfo> profiles14;
+    profiles14.reserve(profiles.size());
+    for (const auto& p : profiles) profiles14.push_back(To1_4DataProfileInfo(p));
+    return setDataProfile_1_4(serial, hidl_vec(profiles14));
+}
+
+Return<void> Radio::setRadioPower_1_5(int32_t serial, bool powerOn, bool forEmergencyCall,
+                                      bool preferredForEmergencyCall) {
+    MAYBE_WRAP_V1_5_CALL(setRadioPower_1_5, serial, powerOn, forEmergencyCall,
+                         preferredForEmergencyCall);
+    // Dua argumen darurat tidak punya padanan di @1.0. Membuangnya aman: modem
+    // ini tidak membedakan penyalaan radio biasa dari penyalaan untuk panggilan
+    // darurat, dan yang menentukan keduanya tetap powerOn.
+    WRAP_V1_0_CALL(setRadioPower, serial, powerOn);
+}
+
+Return<void> Radio::setIndicationFilter_1_5(
+        int32_t serial, hidl_bitfield<V1_5::IndicationFilter> indicationFilter) {
+    MAYBE_WRAP_V1_5_CALL(setIndicationFilter_1_5, serial, indicationFilter);
+    // Bit tambahan 1.2-1.5 (mis. REGISTRATION_FAILURE, BARRING_INFO) tidak
+    // dikenal @1.0; bit rendahnya identik, jadi cukup dipotong.
+    WRAP_V1_0_CALL(setIndicationFilter, serial,
+                   (hidl_bitfield<V1_0::IndicationFilter>) (indicationFilter & 0x1F));
+}
+
+Return<void> Radio::getBarringInfo(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(getBarringInfo, serial);
+    // Tidak ada padanan sama sekali di @1.0; modem tidak melaporkan barring.
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) {
+        V1_5::CellIdentity emptyCi = {};
+        resp->getBarringInfoResponse(NotSupported(serial), emptyCi, {});
+    }
+    return Void();
+}
+
+Return<void> Radio::getVoiceRegistrationState_1_5(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(getVoiceRegistrationState_1_5, serial);
+    // Diteruskan ke @1.0; balasannya dinaikkan ke bentuk 1.5 di
+    // RadioResponse::getVoiceRegistrationStateResponse.
+    WRAP_V1_0_CALL(getVoiceRegistrationState, serial);
+}
+
+Return<void> Radio::getDataRegistrationState_1_5(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(getDataRegistrationState_1_5, serial);
+    WRAP_V1_0_CALL(getDataRegistrationState, serial);
+}
+
+Return<void> Radio::setNetworkSelectionModeManual_1_5(int32_t serial,
+                                                      const hidl_string& operatorNumeric,
+                                                      V1_5::RadioAccessNetworks ran) {
+    MAYBE_WRAP_V1_5_CALL(setNetworkSelectionModeManual_1_5, serial, operatorNumeric, ran);
+    // Argumen ran (pembatasan teknologi akses) tidak ada di @1.0; operator
+    // numeriknya tetap yang menentukan jaringan yang dipilih.
+    WRAP_V1_0_CALL(setNetworkSelectionModeManual, serial, operatorNumeric);
+}
+
+Return<void> Radio::sendCdmaSmsExpectMore(int32_t serial, const V1_0::CdmaSmsMessage& sms) {
+    MAYBE_WRAP_V1_5_CALL(sendCdmaSmsExpectMore, serial, sms);
+    // Perangkat ini GSM/LTE; jalur CDMA tidak pernah dipakai.
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) {
+        V1_0::SendSmsResult empty = {};
+        resp->sendCdmaSmsExpectMoreResponse(NotSupported(serial), empty);
+    }
+    return Void();
+}
+
+Return<void> Radio::supplySimDepersonalization(int32_t serial, V1_5::PersoSubstate persoType,
+                                               const hidl_string& controlKey) {
+    MAYBE_WRAP_V1_5_CALL(supplySimDepersonalization, serial, persoType, controlKey);
+    // RIL.java punya jalur mundur eksplisit ke supplyNetworkDepersonalization
+    // untuk HAL < 1.5 (RIL.java:1583-1587), tapi karena kita mengumumkan 1.5
+    // jalur itu tidak dipakai lagi. Menjawab NOT_SUPPORTED membuat framework
+    // menampilkan kegagalan yang benar alih-alih menggantung.
+    auto resp = mRadioResponse->mRealRadioResponse;
+    if (resp != nullptr) resp->supplySimDepersonalizationResponse(NotSupported(serial), persoType, -1);
+    return Void();
 }
 
 }  // namespace android::hardware::radio::implementation

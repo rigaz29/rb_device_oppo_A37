@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <android/hardware/radio/1.4/IRadio.h>
+#include <android/hardware/radio/1.5/IRadio.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 
@@ -23,7 +23,7 @@ using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 
-struct Radio : public V1_4::IRadio {
+struct Radio : public V1_5::IRadio {
   public:
     Radio(sp<V1_0::IRadio> realRadio);
 
@@ -259,8 +259,56 @@ struct Radio : public V1_4::IRadio {
     Return<void> getAllowedCarriers_1_4(int32_t serial) override;
     Return<void> getSignalStrength_1_4(int32_t serial) override;
 
+    // Methods from ::android::hardware::radio::V1_5::IRadio follow.
+    Return<void> setSignalStrengthReportingCriteria_1_5(
+            int32_t serial, const V1_5::SignalThresholdInfo& signalThresholdInfo,
+            V1_5::AccessNetwork accessNetwork) override;
+    Return<void> setLinkCapacityReportingCriteria_1_5(
+            int32_t serial, int32_t hysteresisMs, int32_t hysteresisDlKbps,
+            int32_t hysteresisUlKbps, const hidl_vec<int32_t>& thresholdsDownlinkKbps,
+            const hidl_vec<int32_t>& thresholdsUplinkKbps,
+            V1_5::AccessNetwork accessNetwork) override;
+    Return<void> enableUiccApplications(int32_t serial, bool enable) override;
+    Return<void> areUiccApplicationsEnabled(int32_t serial) override;
+    Return<void> setSystemSelectionChannels_1_5(
+            int32_t serial, bool specifyChannels,
+            const hidl_vec<V1_5::RadioAccessSpecifier>& specifiers) override;
+    Return<void> startNetworkScan_1_5(int32_t serial,
+                                      const V1_5::NetworkScanRequest& request) override;
+    Return<void> setupDataCall_1_5(int32_t serial, V1_5::AccessNetwork accessNetwork,
+                                   const V1_5::DataProfileInfo& dataProfileInfo,
+                                   bool roamingAllowed, V1_2::DataRequestReason reason,
+                                   const hidl_vec<V1_5::LinkAddress>& addresses,
+                                   const hidl_vec<hidl_string>& dnses) override;
+    Return<void> setInitialAttachApn_1_5(int32_t serial,
+                                         const V1_5::DataProfileInfo& dataProfileInfo) override;
+    Return<void> setDataProfile_1_5(int32_t serial,
+                                    const hidl_vec<V1_5::DataProfileInfo>& profiles) override;
+    Return<void> setRadioPower_1_5(int32_t serial, bool powerOn, bool forEmergencyCall,
+                                   bool preferredForEmergencyCall) override;
+    Return<void> setIndicationFilter_1_5(
+            int32_t serial, hidl_bitfield<V1_5::IndicationFilter> indicationFilter) override;
+    Return<void> getBarringInfo(int32_t serial) override;
+    Return<void> getVoiceRegistrationState_1_5(int32_t serial) override;
+    Return<void> getDataRegistrationState_1_5(int32_t serial) override;
+    Return<void> setNetworkSelectionModeManual_1_5(int32_t serial,
+                                                   const hidl_string& operatorNumeric,
+                                                   V1_5::RadioAccessNetworks ran) override;
+    Return<void> sendCdmaSmsExpectMore(int32_t serial, const V1_0::CdmaSmsMessage& sms) override;
+    Return<void> supplySimDepersonalization(int32_t serial, V1_5::PersoSubstate persoType,
+                                            const hidl_string& controlKey) override;
+
   private:
     sp<V1_0::IRadio> mRealRadio;
+
+    // RadioNetworkProxy.java memanggil kedua metode kriteria di bawah SEKALI
+    // PER ENTRI daftar, semuanya dengan serial yang SAMA, lalu menunggu satu
+    // balasan saja. Membalas tiap panggilan membuat framework mencatat
+    // "processResponse: Unexpected response!" untuk sisanya. Serial terakhir
+    // yang sudah dijawab disimpan di sini supaya hanya panggilan pertama yang
+    // menghasilkan balasan.
+    int32_t mLastSignalCriteriaSerial = -1;
+    int32_t mLastLinkCapacitySerial = -1;
     sp<RadioResponse> mRadioResponse = new RadioResponse();
     sp<RadioIndication> mRadioIndication = new RadioIndication();
 
@@ -268,6 +316,7 @@ struct Radio : public V1_4::IRadio {
     sp<V1_2::IRadio> getRealRadio_V1_2();
     sp<V1_3::IRadio> getRealRadio_V1_3();
     sp<V1_4::IRadio> getRealRadio_V1_4();
+    sp<V1_5::IRadio> getRealRadio_V1_5();
 };
 
 }  // namespace android::hardware::radio::implementation
