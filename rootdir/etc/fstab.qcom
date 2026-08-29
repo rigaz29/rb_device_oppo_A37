@@ -3,7 +3,26 @@
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
 /dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,recoveryonly
-/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
+# FBE (file-based encryption), fscrypt v1.
+#
+# HANYA di baris f2fs. fs/ext4/ di kernel kita nol dukungan enkripsi (fscrypt 0,
+# ext4_encrypt 0, INCOMPAT_ENCRYPT 0); satu-satunya yang mendaftarkan
+# fscrypt_operations adalah f2fs (fs/f2fs/super.c:1222).
+#
+# ":v1" WAJIB. Kernel ini hanya punya kebijakan v1 -- fs/crypto/ tidak memuat
+# keyring.c maupun hkdf.c, jadi FS_IOC_ADD_ENCRYPTION_KEY tidak ada. vold
+# mendeteksinya sendiri (system/vold/KeyUtil.cpp:91-99, "Falling back to session
+# keyring") tapi versi kebijakan tetap harus diminta eksplisit; default Android
+# 16 adalah v2. Catatan: fstab TWRP TIDAK boleh memakai sufiks ini -- parsernya
+# memecah pada titik dua pertama.
+#
+# PERINGATAN -- baris ext4 di bawah adalah fallback TANPA enkripsi. fs_mgr
+# mencoba entri berurutan, jadi selama /data masih ext4 ia akan mount di situ
+# dan FBE tidak aktif, tanpa pesan apa pun. Ini disengaja: flash ROM saja jadi
+# tidak merusak (perangkat tetap boot di ext4 lama), dan enkripsi baru menyala
+# setelah /data diformat ulang menjadi f2fs. Konsekuensinya WAJIB diverifikasi
+# setelah wipe: pastikan /data benar-benar f2fs dan ro.crypto.type=file.
+/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable,fileencryption=aes-256-xts:aes-256-cts:v1
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
