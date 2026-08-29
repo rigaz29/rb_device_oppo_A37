@@ -254,9 +254,17 @@ class LIBPROTOBUF_EXPORT MessageLite {
 
   // A version of SerializeWithCachedSizesToArray, below, that does
   // not guarantee deterministic serialization.
-  virtual uint8* SerializeWithCachedSizesToArray(uint8* target) const {
-    return InternalSerializeWithCachedSizesToArray(false, target);
-  }
+  //
+  // A37 / ABI Widevine: dulu ini inline dan meneruskan ke
+  // InternalSerializeWithCachedSizesToArray secara VIRTUAL. Itu menambah satu
+  // slot vtable (ke-17) yang tidak dimiliki kelas hasil generate di
+  // libwvhidl.so -- vtable drm_metrics::Attributes hanya 16 slot (0..15),
+  // berakhir di GetCachedSize. Panggilan virtual ke slot 16 membaca di luar
+  // batas vtable dan mendarat di NULL, jadi SIGSEGV "#00 pc 00000000" begitu
+  // WVDrmPlugin::getPropertyString menyerialkan metrics. Implementasinya
+  // sekarang dipindah ke message_lite.cc dan hanya memakai slot yang memang
+  // ada (GetCachedSize slot 15, SerializeWithCachedSizes slot 13).
+  virtual uint8* SerializeWithCachedSizesToArray(uint8* target) const;
 
   // Returns the result of the last call to ByteSize().  An embedded message's
   // size is needed both to serialize it (because embedded messages are
@@ -281,8 +289,16 @@ class LIBPROTOBUF_EXPORT MessageLite {
   // must point at a byte array of at least ByteSize() bytes.  If deterministic
   // is true then we use deterministic serialization, e.g., map keys are sorted.
   // FOR INTERNAL USE ONLY!
-  virtual uint8* InternalSerializeWithCachedSizesToArray(bool deterministic,
-                                                         uint8* target) const;
+  //
+  // A37: SENGAJA NON-VIRTUAL. Menjadikannya virtual akan menambah slot vtable
+  // ke-17 yang tidak ada pada kelas generate Widevine (lihat catatan di
+  // SerializeWithCachedSizesToArray). Argumen `deterministic` diabaikan;
+  // protobuf pra-3.0 yang dipakai membangun libwvhidl.so memang belum punya
+  // serialisasi deterministik, jadi ini justru menyamai perilaku aslinya.
+  uint8* InternalSerializeWithCachedSizesToArray(bool /* deterministic */,
+                                                 uint8* target) const {
+    return SerializeWithCachedSizesToArray(target);
+  }
 
  private:
   friend class internal::WireFormatLite;

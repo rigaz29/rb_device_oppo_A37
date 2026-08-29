@@ -103,6 +103,16 @@ on post-fs-data
     chmod 2770 /data/vendor/perfd
     rm /data/vendor/perfd/default_values
 
+    # CDM Widevine L3 menyimpan device certificate dan usage table di
+    # /data/vendor/mediadrm/IDM<uid>/L3/ (string path ada di libwvhidl.so:
+    # "/data/vendor/mediadrm/IDM"). Servis berjalan sebagai user media,
+    # sedangkan /data/vendor milik root dengan mode 0771 -- jadi servis tidak
+    # bisa membuat direktorinya sendiri dan wvcdm gagal dengan
+    # "Could not create base directories for Level3FileSystem: Permission
+    # denied" lalu "OEMCrypto_Initialize failed: 28". Baris ini disalin dari
+    # acroreiser/ULH a6010 (rootdir/etc/init.qcom.rc:94), posisi dan mode sama.
+    mkdir /data/vendor/mediadrm 0700 media media
+
     #Create IOP  deamon related dirs
     mkdir /data/vendor/iop 0700 root system
 
