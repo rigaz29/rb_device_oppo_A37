@@ -16,13 +16,39 @@
 # 16 adalah v2. Catatan: fstab TWRP TIDAK boleh memakai sufiks ini -- parsernya
 # memecah pada titik dua pertama.
 #
+# Adiantum, bukan AES. Cortex-A53 di msm8916 tidak punya ARMv8 Crypto
+# Extensions, jadi AES berjalan lewat NEON biasa. Diukur di perangkat ini
+# dengan AF_ALG pada blok 4096 byte (ukuran satuan fscrypt):
+#   xts(aes)                   30,81 MB/s
+#   adiantum(xchacha12,aes)   101,90 MB/s   -> 3,31x
+# Rangkaian yang terpilih: adiantum(xchacha12-neon, aes-generic, nhpoly1305-neon).
+#
+# "adiantum" WAJIB muncul di kedua posisi. libfscrypt menolak campuran --
+# system/extras/libfscrypt/fscrypt.cpp:255 dan :262, "Adiantum must be both
+# contents and filenames mode or neither". Baris :201 sebenarnya sudah
+# menyalin contents_mode ke filenames_mode, tapi menulisnya eksplisit
+# membuat maksudnya terbaca.
+#
+# Perhatikan: fscrypt.cpp:261 SELALU menambahkan FSCRYPT_POLICY_FLAG_DIRECT_KEY
+# untuk Adiantum, tanpa cara mematikannya dari fstab. Kernel stok menyaring
+# flag itu (FS_POLICY_FLAGS_VALID = 0x03) sehingga kebijakan ditolak -EINVAL.
+# Dukungannya ditambahkan di kernel commit "fscrypt: dukung
+# FS_POLICY_FLAG_DIRECT_KEY untuk Adiantum" -- ROM ini TIDAK akan boot di
+# kernel tanpa commit tersebut.
+#
+# MENGGANTI MODE MENUNTUT /data DIFORMAT ULANG. Direktori yang sudah ada
+# menyimpan modenya sendiri di konteks fscrypt, dan vold membandingkannya
+# dengan yang diminta fstab (EnsurePolicy); begitu berbeda, penyiapan
+# penyimpanan pengguna gagal. Data ber-AES lama tetap terbaca oleh kernel
+# ini, tapi tidak bisa hidup berdampingan dengan fstab Adiantum.
+#
 # PERINGATAN -- baris ext4 di bawah adalah fallback TANPA enkripsi. fs_mgr
 # mencoba entri berurutan, jadi selama /data masih ext4 ia akan mount di situ
 # dan FBE tidak aktif, tanpa pesan apa pun. Ini disengaja: flash ROM saja jadi
 # tidak merusak (perangkat tetap boot di ext4 lama), dan enkripsi baru menyala
 # setelah /data diformat ulang menjadi f2fs. Konsekuensinya WAJIB diverifikasi
 # setelah wipe: pastikan /data benar-benar f2fs dan ro.crypto.type=file.
-/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable,fileencryption=aes-256-xts:aes-256-cts:v1
+/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable,fileencryption=adiantum:adiantum:v1
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
