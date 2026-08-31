@@ -795,10 +795,40 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     NetworkStack
 
-# FM
-PRODUCT_PACKAGES += \
-    FMRadio \
-    libfmjni
+# FM DICABUT 31 Agustus 2026. Sebelumnya:
+#
+#     PRODUCT_PACKAGES += FMRadio libfmjni
+#
+# packages/apps/FMRadio adalah varian MEDIATEK. Ia meng-hardcode /dev/fm --
+# jni/fmr/fm.h:78 dan jni/fmr/fmr.h:66 -- sedangkan perangkat ini Qualcomm dan
+# memakai /dev/radio0 lewat V4L2. Aplikasinya TIDAK AKAN PERNAH bisa bekerja
+# di sini, berapa kali pun sisi kernel diperbaiki. Terlihat di log perangkat:
+#
+#     E FMLIB_COM:  Open /dev/fm failed, No such file or directory
+#     E FMLIB_CORE: FMR_open_dev failed, [fd=-1]
+#
+# Varian Qualcomm-nya sudah tidak ada di hulu: LineageOS/android_hardware_qcom_fm
+# branch terakhirnya lineage-17.0, terakhir di-push 2022, nol branch untuk 18 ke
+# atas. Dukungan FM Qualcomm dibuang LineageOS setelah Android 10.
+#
+# acroreiser sampai pada kesimpulan yang sama di perangkat msm8916 mereka.
+# Riwayat device tree a6010:
+#     81ab0bb0  FM: Switch implementations
+#     3460807c  a6010: import RevampedFMRadio   <- impor app FM Qualcomm, ~3.800
+#                                                  baris JNI, ke device tree sendiri
+#     c1dfeec5  a6010: remove RevampedFMRadio   <- dibuang, 29 Desember 2024
+# device.mk lineage-23.2 mereka kini nol sebutan FM.
+#
+# YANG TETAP DIPERTAHANKAN, sama seperti acroreiser:
+#   CONFIG_RADIO_IRIS=y di defconfig kernel (commit 58a1664897ff) -- /dev/radio0
+#     terbentuk dan drivernya terdaftar sebagai "radio-iris", terverifikasi di
+#     perangkat. Ongkosnya 36 KB, dan ia prasyarat untuk solusi FM apa pun nanti.
+#   BOARD_HAVE_QCOM_FM := true di BoardConfig.mk:572 -- dibaca
+#     build/make/core/android_soong_config_vars.mk:421 dan diteruskan ke
+#     namespace soong qcom_bluetooth, bukan ke aplikasi FM.
+#
+# Yang dicabut hanya APLIKASINYA, supaya ROM tidak memaketkan sesuatu yang
+# pasti gagal saat dibuka.
 
 # Google Assistant
 PRODUCT_PROPERTY_OVERRIDES += \
