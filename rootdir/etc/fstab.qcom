@@ -48,7 +48,41 @@
 # tidak merusak (perangkat tetap boot di ext4 lama), dan enkripsi baru menyala
 # setelah /data diformat ulang menjadi f2fs. Konsekuensinya WAJIB diverifikasi
 # setelah wipe: pastikan /data benar-benar f2fs dan ro.crypto.type=file.
-/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable,fileencryption=adiantum:adiantum:v1
+# discard (TRIM) DINYALAKAN 31 Agustus 2026, setelah diukur di perangkat.
+#
+# TIDAK aktif secara default di sini: super.c:1187-1191 hanya menyetel DISCARD
+# otomatis untuk perangkat zoned, dan kita mode=adaptive. Sisanya --
+# background_gc, inline_data, inline_dentry, flush_merge, extent_cache --
+# memang sudah default dari default_options() di super.c:1179-1189, jadi tidak
+# perlu ditulis di sini.
+#
+# eMMC-nya mendukung: /sys/block/mmcblk0/queue/discard_max_bytes ~2 TB,
+# discard_granularity 512 KB.
+#
+# BIAYANYA NOL TERUKUR. Tulis 256 MB dengan fsync:
+#     tanpa discard   36, 36 MB/s                     (n=2)
+#     dengan discard  35, 37, 37, 30, 36, 37, 37 MB/s (n=7)
+#     buat 400x512KB  13 dtk -> 13 dtk;  hapus 1 dtk -> 0 dtk
+#     thread discard  stime 34 tik / 5 menit ~ 0,1% CPU
+#     dmesg           nol galat, nol WARN
+#
+# Sebabnya bisa dijelaskan, bukan kebetulan: f2fs tidak mengirim discard
+# seketika saat blok dibebaskan. Ia mengantrekannya dan menyalurkan bertahap di
+# latar lewat mesin dpolicy (segment.c, perombakan hulu 4.17 yang sudah ada di
+# pohon ini). Selama pengamatan "undiscard" turun dari 182.973 ke 741 --
+# antrean terkuras tanpa menyentuh jalur tulis.
+#
+# ⚠️ Yang TIDAK terbukti: manfaatnya. TRIM menjaga kolam blok bebas internal
+# eMMC tetap sehat, dan efeknya muncul dalam hitungan minggu, bukan satu sesi.
+# Yang terukur hanyalah bahwa ia tidak merugikan. Baseline juga hanya n=2,
+# jadi klaim yang sah adalah "tidak ada biaya yang terlihat", bukan "identik".
+#
+# Catatan cara mengujinya lagi: discard TIDAK bisa dinyalakan lewat remount di
+# sistem berkas ini. f2fs mencoba mengaktifkan ulang pelacakan kuota dan gagal
+# karena /data punya QUOTA_INO + PRJQUOTA:
+#     F2FS-fs (mmcblk0p38): Failed to enable quota tracking (type=0, err=-16)
+# Perlu mount segar, yaitu ubah baris ini lalu reboot.
+/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard                   wait,check,formattable,fileencryption=adiantum:adiantum:v1
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
