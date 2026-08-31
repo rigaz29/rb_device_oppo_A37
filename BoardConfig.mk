@@ -236,10 +236,30 @@ TARGET_CPU_VARIANT := cortex-a53
 #   pmsg_size   256 KB   logcat terakhir     -> /sys/fs/pstore/pmsg-ramoops-0
 #   record_size 256 KB   per dump oops/panic -> dmesg-ramoops-N (sisa ~10 slot)
 #
-# ramoops.ecc=1 — ECC Reed-Solomon 16 byte per blok 128 byte (ram.c:687
-# memetakan nilai 1 ke ecc_size 16). Ditambahkan setelah tangkapan ramoops
-# pertama dari perangkat terbaca rusak di tingkat bit: "init:" jadi "inht:",
-# "console" jadi "contzol" — galat tersebar, bukan buffer yang ter-wrap.
+# ramoops.ecc=32 — ECC Reed-Solomon 32 byte per blok 128 byte, memperbaiki
+# sampai 16 byte salah per blok (init_rs(8, 0x11d, 0, 1, nroots=ecc_size) di
+# ram_core.c:221). Ditambahkan setelah tangkapan ramoops pertama terbaca rusak
+# di tingkat bit: "init:" jadi "inht:", "console" jadi "contzol" — galat
+# tersebar, bukan buffer yang ter-wrap.
+#
+# SEMULA ecc=1 (ram.c:687 memetakan 1 ke ecc_size 16, koreksi 8 byte/blok).
+# DINAIKKAN 31 Agustus 2026 setelah diukur, bukan ditebak:
+#
+#     laju byte rusak teramati   6,9%   (dari dump 932.085 byte)
+#     kapasitas koreksi ecc=16   6,25%  (8 byte per blok 128)
+#     dilaporkan kernel          "1082 Corrected bytes, 7133 unrecoverable"
+#
+# Kerusakannya hanya SEDIKIT DI ATAS ambang koreksi, dan karena itu hampir
+# seluruh blok jatuh sekaligus -- bukan penurunan bertahap, melainkan tebing.
+# ECC-nya bekerja normal; ukurannya yang salah setel.
+#
+#     ecc=32 -> koreksi 12,5%, hampir dua kali laju kerusakan teramati
+#     ongkosnya paritas 204 KB (dari 113 KB), sisa data konsol 819 KB
+#
+# Log lebih pendek tapi TERBACA jauh lebih berguna daripada log panjang yang
+# hancur. Akar penyebabnya -- isi DRAM luruh melintasi reset, terutama pada
+# reboot paksa lewat SysRq -- ada di wilayah bootloader dan tidak bisa kita
+# sentuh; ini mitigasi, bukan penyembuhan.
 #
 # ⚠️ HARUS SAMA DI KEDUA SISI. ECC mengubah TATA LETAK buffer, bukan cuma cara
 # membacanya:
@@ -263,7 +283,7 @@ TARGET_CPU_VARIANT := cortex-a53
 # terbentuk dan terbaca, tapi halamannya tidak dilindungi dari alokasi lain.
 # Kalau isinya nanti tampak rusak, langkah berikutnya menambahkan cadangan
 # lewat DT — dan baru saat itu dt.img boleh berubah.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=1
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=32
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
