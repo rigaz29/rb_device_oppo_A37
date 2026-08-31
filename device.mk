@@ -114,19 +114,45 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # ke /data. Di situ speed-profile tanpa berkas .prof memang jatuh ke verify,
 # sehingga aplikasi berjalan interpreted + JIT -- lambat di Cortex-A53 1,2 GHz.
 # Menyetelnya ke speed memaksa AOT penuh saat pemasangan.
-# HANYA filter jalur PEMASANGAN yang dipaksa speed. Filter jalur BOOT sengaja
-# tidak disentuh; lihat blok berikutnya soal kenapa.
-PRODUCT_PROPERTY_OVERRIDES += \
-    pm.dexopt.install=speed \
-    pm.dexopt.install-fast=speed \
-    pm.dexopt.install-bulk=speed \
-    pm.dexopt.install-bulk-secondary=speed \
-    pm.dexopt.install-bulk-downgraded=speed \
-    pm.dexopt.install-bulk-secondary-downgraded=speed \
-    pm.dexopt.ab-ota=speed \
-    pm.dexopt.cmdline=speed \
-    dalvik.vm.systemservercompilerfilter=speed \
-    dalvik.vm.systemuicompilerfilter=speed
+# SELURUH BLOK INI DICABUT 31 Agustus 2026 -- kembali ke default AOSP.
+# Sebelumnya berbunyi:
+#
+#     pm.dexopt.install=speed                      (default: speed-profile)
+#     pm.dexopt.install-fast=speed                 (default: skip)
+#     pm.dexopt.install-bulk=speed                 (default: speed-profile)
+#     pm.dexopt.install-bulk-secondary=speed       (default: verify)
+#     pm.dexopt.install-bulk-downgraded=speed      (default: verify)
+#     pm.dexopt.install-bulk-secondary-downgraded=speed  (default: verify)
+#     pm.dexopt.ab-ota=speed                       (default: speed-profile)
+#     pm.dexopt.cmdline=speed                      (default: verify)
+#     dalvik.vm.systemservercompilerfilter=speed
+#     dalvik.vm.systemuicompilerfilter=speed
+#
+# Default AOSP ada di build/make/target/product/runtime_libart.mk:117-127.
+#
+# ALASAN MENCABUT: pemasangan APK jadi sangat lama, dan itu dilaporkan sebagai
+# keluhan nyata. Diukur di perangkat dengan dex2oat langsung pada
+# messaging.apk (11 MB):
+#
+#     verify         1 dtk    oat 49 KB
+#     speed-profile  1 dtk    oat 49 KB
+#     speed         12 dtk    oat 11,2 MB     <- 12x lebih lambat
+#
+# Alasan ASLI blok ini tetap SAHIH secara fakta, dan pengukuran di atas
+# membuktikannya: speed-profile tanpa berkas .prof memang menghasilkan keluaran
+# yang identik dengan verify, sehingga aplikasi baru berjalan interpreted + JIT.
+# Yang berubah bukan faktanya, melainkan penilaian atas pertukarannya --
+# 12 detik per APK setiap kali memasang, ditukar dengan kecepatan yang hanya
+# terasa sampai background dexopt mengambil alih.
+#
+# Jalur itu memang berjalan di perangkat ini: pm.dexopt.bg-dexopt=speed-profile
+# (blok di bawah, sama dengan default) dan sudah ada 188 profil di
+# /data/misc/profiles/cur/0/. Jadi aplikasi tetap akan dikompilasi penuh,
+# hanya saat perangkat idle dan mengisi daya, bukan saat pengguna menunggu.
+#
+# dalvik.vm.systemuicompilerfilter TIDAK PERLU diset di sini: LineageOS sudah
+# menyetelnya ke speed di vendor/lineage/config/common.mk:261.
+# dalvik.vm.systemservercompilerfilter dibiarkan default ART (speed-profile).
 
 # JANGAN setel keempat filter jalur boot ke speed. Ini BUKAN kehati-hatian
 # teoretis: build 20260826_135516 menyetel pm.dexopt.first-boot=speed dan
@@ -1605,6 +1631,19 @@ PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 # lebih rendah membuat lebih banyak app bertahan di background, tapi menambah
 # tekanan GC per app, dan keduanya sama-sama terasa sebagai lag.
 PRODUCT_PROPERTY_OVERRIDES += \
+# dalvik.vm.dex2oat-threads DICABUT 31 Agustus 2026 (semula =2).
+#
+# Tidak ada default AOSP maupun LineageOS untuk properti ini -- kalau tidak
+# diset, ART memilih sendiri berdasarkan jumlah inti. Baris itu SEBELUMNYA
+# TANPA KOMENTAR, berbeda dari tetangganya, dan tidak ada alasan tercatat
+# kenapa perangkat 4 inti dibatasi 2 thread.
+#
+# Diukur di perangkat, dex2oat speed pada messaging.apk:
+#     -j2   13 dtk
+#     -j4    8 dtk      -> 38% lebih cepat
+#
+# boot-dex2oat-threads=4 di bawah tetap dipertahankan: itu jalur boot, dan
+# memang sudah memakai seluruh inti.
     dalvik.vm.heapstartsize=16m \
     dalvik.vm.heapgrowthlimit=192m \
     dalvik.vm.heapsize=384m \
@@ -1615,7 +1654,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.foreground-heap-growth-multiplier=2.0 \
     dalvik.vm.dex2oat-flags=--no-watch-dog \
     dalvik.vm.dex2oat-swap=true \
-    dalvik.vm.dex2oat-threads=2 \
     dalvik.vm.boot-dex2oat-threads=4 \
     ro.vendor.qti.am.reschedule_service=true \
     sys.use_fifo_ui=1
