@@ -1660,7 +1660,10 @@ PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 # bawah kalah. Mana nilai yang lebih baik untuk 2GB belum diuji: growth limit
 # lebih rendah membuat lebih banyak app bertahan di background, tapi menambah
 # tekanan GC per app, dan keduanya sama-sama terasa sebagai lag.
-PRODUCT_PROPERTY_OVERRIDES += \
+# JANGAN taruh komentar tepat sesudah baris "+= \" di bawah. Backslash itu
+# menyambung baris, jadi komentar ikut tersambung ke pernyataan penugasan dan
+# make membuang SISA daftar tanpa galat sedikit pun. Terjadi 31 Agustus 2026
+# (347a180f) dan menghapus ke-13 properti di bawah dari build.prop.
 # dalvik.vm.dex2oat-threads DICABUT 31 Agustus 2026 (semula =2).
 #
 # Tidak ada default AOSP maupun LineageOS untuk properti ini -- kalau tidak
@@ -1674,6 +1677,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
 #
 # boot-dex2oat-threads=4 di bawah tetap dipertahankan: itu jalur boot, dan
 # memang sudah memakai seluruh inti.
+PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.heapstartsize=16m \
     dalvik.vm.heapgrowthlimit=192m \
     dalvik.vm.heapsize=384m \
