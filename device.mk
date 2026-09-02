@@ -1651,10 +1651,34 @@ PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 # ro.vendor.qti.sys.fw.bg_apps_limit tidak ada sama sekali.
 #
 # Wiring init vendor sengaja tidak dihidupkan kembali; alasannya di
-# BoardConfig.mk. Kalau mau memakai 256m/512m, ubah dua baris di bawah ini
-# langsung. Mana yang lebih baik untuk 2 GB masih belum diuji: growth limit
-# lebih rendah menahan lebih banyak app di background tapi menambah tekanan GC
-# per app, dan keduanya sama-sama terasa sebagai lag.
+# BoardConfig.mk.
+#
+# 192m/384m DIPERTAHANKAN, dan itu keputusan berdasar ukuran, bukan kebiasaan.
+# 2 September 2026 keduanya dibandingkan langsung di perangkat: A-B-A-B, tiap
+# fase restart framework lalu 3 putaran x 10 aplikasi (30 peluncuran), dengan
+# setprop dalvik.vm.heap* + `stop; start` sehingga tidak perlu flash ulang.
+#
+#   metrik                 192m/384m        256m/512m
+#   5 app awal bertahan    4/5, 4/5         4/5, 4/5
+#   lmkd kill              0, 0             0, 0
+#   peluncuran COLD        7 dari 60        6 dari 60
+#   rata-rata peluncuran   507, 420 ms      457, 419 ms
+#   GC                     2x382ms, 1x197ms 2x530ms, 3x481ms
+#   RAM bebas di akhir     26, 26 MB        40, 42 MB
+#
+# TIDAK TERBUKTI BERBEDA, dan alasannya yang penting: nol lmkd kill di keempat
+# fase berarti ujiannya tidak pernah masuk wilayah tempat growth limit bekerja.
+# Aplikasi sistem LineageOS berheap jauh di bawah 192 MB, jadi kedua batas
+# sama-sama tidak pernah mengikat. Selisih waktu peluncuran 26 ms pun lebih
+# kecil daripada sebaran dalam satu setelan (507 lawan 420 ms), jadi derau.
+#
+# Dua hal konsisten di kedua ulangan tapi lemah (n=2): GC total lebih lama
+# dengan 256m -- masuk akal, heap lebih besar berarti lebih banyak dipindai --
+# dan RAM bebas justru lebih banyak dengan 256m.
+#
+# Kalau suatu saat mau diuji ulang, ujinya HARUS memakai aplikasi yang benar
+# benar mendorong heap sampai batas (browser dengan banyak tab, galeri foto
+# besar), bukan aplikasi sistem. Tanpa itu hasilnya akan nol lagi.
 # JANGAN taruh komentar tepat sesudah baris "+= \" di bawah. Backslash itu
 # menyambung baris, jadi komentar ikut tersambung ke pernyataan penugasan dan
 # make membuang SISA daftar tanpa galat sedikit pun. Terjadi 31 Agustus 2026
