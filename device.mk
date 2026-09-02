@@ -619,9 +619,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.camera.disable.anight=1 \
     persist.camera.hal.debug.mask=0
 
-# vendor_init
-PRODUCT_PACKAGES += \
-    libinit_msm8916
+# vendor_init DICABUT 2 September 2026 -- libinit_msm8916 tidak pernah tertaut
+# ke init di 23.2, dan sebagai static lib entri PRODUCT_PACKAGES ini pun tidak
+# memasang apa pun. Sumbernya tetap di init/ kalau suatu saat mau dihidupkan;
+# caranya ada di BoardConfig.mk.
 
 # GPS
 PRODUCT_PACKAGES += \
@@ -1629,37 +1630,31 @@ PRODUCT_DEXPREOPT_SPEED_APPS += \
 PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true
 PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 
-# CATATAN dalvik: nilai di bawah ini cuma jadi cadangan di build.prop. Yang
-# benar-benar dipakai saat boot ditentukan init/init_msm8916.cpp
-# (set_device_dalvik_properties), karena vendor_load_properties() dijalankan
-# SETELAH /system/build.prop dibaca oleh init dan dalvik.vm.* bukan properti
-# ro. sehingga boleh ditimpa.
+# CATATAN dalvik: nilai di bawah inilah yang BENAR-BENAR berjalan. Ia masuk ke
+# build.prop dan tidak ada yang menimpanya.
 #
-# KEDUA TEMPAT INI TIDAK SAMA, dan yang berlaku adalah init_msm8916.cpp.
-# Diverifikasi dengan membandingkan build.prop hasil build terhadap getprop di
-# device (build 20260803_183338):
+# Komentar sebelumnya di sini menyatakan sebaliknya -- bahwa yang berlaku adalah
+# init/init_msm8916.cpp (set_device_dalvik_properties) dan empat dari enam nilai
+# di bawah tidak pernah dipakai. Itu benar untuk pohon 22.2 dan SUDAH TIDAK
+# BENAR sejak pindah ke 23.2.
 #
-#   properti              build.prop   getprop di device
-#   heapstartsize         16m          16m    <- kebetulan sama
-#   heapgrowthlimit       192m         256m
-#   heapsize              384m         512m
-#   heapminfree           4m           2m
-#   heapmaxfree           6m           8m
+# Sebabnya: LineageOS 23.2 menautkan lib init vendor lewat
+# system/core/init/Android.bp:241, select(soong_config_variable("libinit",
+# "vendor_init_lib")). BoardConfig kita memakai TARGET_INIT_VENDOR_LIB, yang
+# sudah tidak dibaca siapa pun -- grep -rn pada build/make nol hasil. Jadi
+# libinit_msm8916 tidak pernah tertaut ke init, dan vendor_load_properties()
+# tidak pernah berjalan.
 #
-# Jadi empat dari enam nilai di bawah TIDAK PERNAH dipakai — mereka hanya
-# mengisi build.prop, lalu ditimpa set_device_dalvik_properties() saat boot.
-# Nilai yang benar-benar berjalan ada di init/init_msm8916.cpp:125-134.
+# Dibuktikan di perangkat pada build 20260901_232342: getprop memberi
+# heapgrowthlimit=192m dan heapsize=384m -- nilai dari blok ini, bukan 256m/512m
+# milik init_msm8916.cpp -- sedangkan ro.alarm_boot dan
+# ro.vendor.qti.sys.fw.bg_apps_limit tidak ada sama sekali.
 #
-# Komentar sebelumnya di sini mengklaim "sekarang keduanya sama" dan
-# menjelaskan alasan memilih 192m. Klaim itu salah dan sudah dibuang: siapa pun
-# yang membaca build.prop akan menyimpulkan device berjalan dengan setelan yang
-# sebenarnya tidak dipakai.
-#
-# Sengaja TIDAK disamakan atas keputusan pengguna. Kalau suatu saat mau
-# disamakan, ubah init_msm8916.cpp — bukan blok di bawah ini, karena yang di
-# bawah kalah. Mana nilai yang lebih baik untuk 2GB belum diuji: growth limit
-# lebih rendah membuat lebih banyak app bertahan di background, tapi menambah
-# tekanan GC per app, dan keduanya sama-sama terasa sebagai lag.
+# Wiring init vendor sengaja tidak dihidupkan kembali; alasannya di
+# BoardConfig.mk. Kalau mau memakai 256m/512m, ubah dua baris di bawah ini
+# langsung. Mana yang lebih baik untuk 2 GB masih belum diuji: growth limit
+# lebih rendah menahan lebih banyak app di background tapi menambah tekanan GC
+# per app, dan keduanya sama-sama terasa sebagai lag.
 # JANGAN taruh komentar tepat sesudah baris "+= \" di bawah. Backslash itu
 # menyambung baris, jadi komentar ikut tersambung ke pernyataan penugasan dan
 # make membuang SISA daftar tanpa galat sedikit pun. Terjadi 31 Agustus 2026

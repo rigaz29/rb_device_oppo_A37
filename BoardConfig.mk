@@ -429,9 +429,34 @@ endif
 DISABLE_APEX_TEST_MODULE := true
 
 # Init
-TARGET_INIT_VENDOR_LIB := libinit_msm8916
+#
+# TARGET_INIT_VENDOR_LIB dan TARGET_RECOVERY_DEVICE_MODULES DICABUT 2 September
+# 2026. Keduanya sudah tidak dibaca siapa pun: grep -rn pada build/make nol
+# hasil untuk kedua nama itu. LineageOS 23.2 memilih lib init vendor lewat
+# system/core/init/Android.bp:241:
+#
+#     select(soong_config_variable("libinit", "vendor_init_lib"), ...)
+#
+# Akibatnya libinit_msm8916 tidak pernah tertaut ke init dan
+# vendor_load_properties() tidak pernah berjalan. Terbukti di perangkat:
+# ro.alarm_boot dan ro.vendor.qti.sys.fw.bg_apps_limit tidak ada di getprop.
+#
+# Sengaja TIDAK dihidupkan kembali. Satu-satunya efek nyatanya adalah mengubah
+# heap dalvik dari 192m/384m menjadi 256m/512m -- dan itu lebih murah dilakukan
+# langsung di device.mk. Dua properti lainnya tidak dibaca siapa pun di pohon
+# ini: satu-satunya berkas yang menyebut ro.alarm_boot maupun bg_apps_limit
+# adalah init_msm8916.cpp yang menulisnya. HAL power-off-alarm QTI dan ekstensi
+# ActivityManager QTI yang dulu membacanya tidak ada di LineageOS.
+#
+# Kalau suatu saat perlu dihidupkan:
+#     SOONG_CONFIG_NAMESPACES += libinit
+#     SOONG_CONFIG_libinit += vendor_init_lib
+#     SOONG_CONFIG_libinit_vendor_init_lib := libinit_msm8916
+#
+# TARGET_PLATFORM_DEVICE_BASE di bawah juga tidak lagi punya pembaca di
+# build/, system/, hardware/, maupun vendor/lineage/. Dibiarkan dulu karena di
+# luar cakupan perubahan ini.
 TARGET_PLATFORM_DEVICE_BASE := /devices/soc.0/
-TARGET_RECOVERY_DEVICE_MODULES := libinit_msm8916
 
 # Security Patch Level
 VENDOR_SECURITY_PATCH := 2016-01-01
