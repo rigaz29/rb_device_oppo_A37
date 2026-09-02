@@ -453,10 +453,13 @@ DISABLE_APEX_TEST_MODULE := true
 #     SOONG_CONFIG_libinit += vendor_init_lib
 #     SOONG_CONFIG_libinit_vendor_init_lib := libinit_msm8916
 #
-# TARGET_PLATFORM_DEVICE_BASE di bawah juga tidak lagi punya pembaca di
-# build/, system/, hardware/, maupun vendor/lineage/. Dibiarkan dulu karena di
-# luar cakupan perubahan ini.
-TARGET_PLATFORM_DEVICE_BASE := /devices/soc.0/
+# TARGET_PLATFORM_DEVICE_BASE ikut DICABUT 2 September 2026, alasan yang sama.
+# Ia berasal dari commit awal lettuce (2015, era CM12) dan diwarisi lewat
+# msm8916-common lalu a6000. Pembacanya dulu BoardConfigCommon.mk,
+# board/00-qcom-platform-msm8916.mk, board/init.mk, dan recovery/Android.mk --
+# keempatnya sudah tidak ada di pohon ini. Sapuan seluruh pohon atas *.mk,
+# *.bp, *.te, *.cpp, *.java, *.py, dan *.sh sampai kedalaman 10 hanya
+# menemukan definisinya sendiri.
 
 # Security Patch Level
 VENDOR_SECURITY_PATCH := 2016-01-01
