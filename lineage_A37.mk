@@ -105,7 +105,9 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 #
 # Cara mematikan nanti: KOMENTARI baris di bawah. Jangan setel `false` -- lihat
 # catatan ifdef GNU Make di atas.
-WITH_ADB_INSECURE := true
+# DIMATIKAN 3 September 2026 untuk build rilis (varian user, kunci rilis).
+# Dikomentari, BUKAN disetel `false` -- lihat catatan ifdef GNU Make di atas.
+# WITH_ADB_INSECURE := true
 
 # Kunci adb build machine, supaya `adb shell` jalan tanpa dialog RSA di layar
 # yang mungkin tak pernah menyala.
