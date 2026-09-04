@@ -436,6 +436,20 @@
     </path>
 
     <path name="speaker">
+        <!-- Volume digital jalur speaker, disetel EKSPLISIT.
+             Sebelumnya jalur ini tidak menyetelnya sama sekali, sehingga
+             nilainya diwarisi dari jalur yang kebetulan berjalan sebelumnya:
+             86 setelah boot, tapi 84 setelah menelepon karena jalur handset
+             menyetel angka itu. Volume speaker jadi bergantung pada riwayat
+             pemakaian, bukan pada konfigurasi.
+
+             96 dipilih lewat uji dengar bertahap di perangkat, 4 September
+             2026, dengan volume Android maksimum: 86 (bawaan lama) dan 96
+             sama sama bersih, 106 tidak dipakai. Nilainya sengaja ditahan di
+             bawah maksimum register (124) karena ini gain DIGITAL sebelum
+             amp; menaikkannya terlalu jauh menghasilkan clipping, yang
+             terdengar sebagai bass pecah, bukan sekadar lebih keras. -->
+        <ctl name="RX1 Digital Volume" value="96" />
         <ctl name="RX3 MIX1 INP1" value="RX1" />
         <ctl name="SPK DAC Switch" value="1" />
     </path>
