@@ -3,7 +3,34 @@
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
 /dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,recoveryonly
-# FBE (file-based encryption), fscrypt v1.
+# FBE (file-based encryption) DIMATIKAN 4 September 2026, atas permintaan
+# pengguna. Baris /data di bawah tidak lagi memuat fileencryption=.
+#
+# ⚠️ MENGUBAHNYA MENUNTUT FORMAT /data. Enkripsi ditetapkan saat partisi
+# diformat, bukan saat mount. /data yang sudah terenkripsi tidak bisa
+# tiba-tiba dibaca sebagai plaintext, dan sebaliknya.
+#
+# Ongkos yang diukur di perangkat ini sebelum dimatikan (baca berkas 200 MB,
+# cache dijatuhkan, dibandingkan dengan /data/unencrypted di partisi yang sama):
+#
+#   baca berurutan 1 MB   75 MB/s terenkripsi  vs 126 MB/s plaintext   -40%
+#   baca berurutan 4 KB   81 MB/s             vs 135 MB/s              -38%
+#   tulis 200 MB fsync    36 MB/s             vs 36 MB/s                 0%
+#   baca 2000 berkas 8 KB 2,18 dtk            vs 2,02 dtk               -8%
+#   CPU system saat baca  28,4%               vs 13,7%                   2x
+#
+# Tulis nol bedanya karena eMMC hanya ~36 MB/s, jauh di bawah kecepatan cipher.
+# Baca kena karena media bisa 126 MB/s, DI ATAS cipher ~102 MB/s.
+#
+# KONSEKUENSI KEAMANAN: data saat perangkat mati tidak lagi terlindungi. Siapa
+# pun dengan akses fisik dan custom recovery bisa membacanya.
+#
+# Seluruh catatan di bawah dipertahankan supaya bisa dinyalakan lagi: kembalikan
+# `fileencryption=adiantum:adiantum:v1` ke baris f2fs, lalu format /data.
+#
+# ---- catatan asli, tetap berlaku kalau dinyalakan lagi ----
+#
+# fscrypt v1, HANYA di baris f2fs.
 #
 # HANYA di baris f2fs. fs/ext4/ di kernel kita nol dukungan enkripsi (fscrypt 0,
 # ext4_encrypt 0, INCOMPAT_ENCRYPT 0); satu-satunya yang mendaftarkan
@@ -82,7 +109,7 @@
 # karena /data punya QUOTA_INO + PRJQUOTA:
 #     F2FS-fs (mmcblk0p38): Failed to enable quota tracking (type=0, err=-16)
 # Perlu mount segar, yaitu ubah baris ini lalu reboot.
-/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard                   wait,check,formattable,fileencryption=adiantum:adiantum:v1
+/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard                   wait,check,formattable
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
