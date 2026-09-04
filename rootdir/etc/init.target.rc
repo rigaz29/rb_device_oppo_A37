@@ -155,6 +155,37 @@ on property:sys.boot_completed=1
     write /sys/module/process_reclaim/parameters/swap_opt_eff 30
     write /sys/module/process_reclaim/parameters/pressure_min 50
     write /sys/module/process_reclaim/parameters/per_swap_size 512
+
+    # GPU: level istirahat 200 MHz, bukan 310 MHz bawaan.
+    #
+    # default_pwrlevel menentukan frekuensi yang dituju Adreno saat kembali dari
+    # idle; indeksnya 0=400, 1=310, 2=200 MHz. Bawaannya 1, dan akibatnya GPU
+    # TIDAK PERNAH turun ke 200 MHz saat perangkat menganggur.
+    #
+    # Diukur di perangkat 4 September 2026, dua jendela menganggur 90 detik yang
+    # identik dengan layar dijaga menyala:
+    #
+    #                     pwrlevel=1        pwrlevel=2
+    #     400 MHz            650 ms             0 ms
+    #     310 MHz         89.446 ms        47.007 ms
+    #     200 MHz              0 ms        43.083 ms
+    #     gpuclk akhir       310 MHz           200 MHz
+    #
+    # Jadi 48% waktu menganggur berpindah dari 310 ke 200 MHz, dan lonjakan ke
+    # 400 hilang sama sekali.
+    #
+    # min_pwrlevel/max_pwrlevel SENGAJA tidak disentuh: rentang penuh 200..400
+    # tetap diizinkan, jadi GPU masih bebas naik ke 400 MHz saat beban menuntut.
+    # Yang dibatasi hanya titik istirahatnya.
+    #
+    # Yang BELUM terbukti: dampaknya ke daya tahan baterai. Yang terukur hanyalah
+    # waktu di tiap frekuensi. Pada ponsel menganggur, layar dan SoC jauh lebih
+    # dominan daripada rel GPU.
+    #
+    # Disetel di boot_completed, bukan on boot, supaya driver KGSL sudah pasti
+    # siap. Power HAL perangkat ini tidak menyentuh kgsl (diperiksa: nol
+    # kecocokan di power/), jadi tidak ada yang menimpanya kemudian.
+    write /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2
     # EMPAT baris /sys/module/lowmemorykiller/parameters/* DIBUANG dari sini:
     #   enable_adaptive_lmk 0
     #   lmk_fast_run 0
