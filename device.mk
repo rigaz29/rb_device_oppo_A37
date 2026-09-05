@@ -1263,6 +1263,8 @@ PRODUCT_PACKAGES += \
     libnetutils.vendor \
     libandroid_a37_vendor \
     libandroid_a37_vendor_symlink \
+    libandroid_a37_vendor64 \
+    libandroid_a37_vendor64_symlink \
     libmedia_a37_vendor \
     libmedia_a37_vendor_symlink \
     libgui_vendor \

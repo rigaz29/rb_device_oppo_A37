@@ -155,6 +155,23 @@ LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE := libandroid_a37_vendor
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib
+# BUILD 64-BIT: LOCAL_MULTILIB wajib eksplisit. shared_library.mk:14-16 menolak
+# LOCAL_MODULE_PATH untuk pustaka bila multilib "both" DAN TARGET_2ND_ARCH ada,
+# karena path-nya jadi ambigu antara lib dan lib64.
+LOCAL_MULTILIB := 32
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
+
+# Varian 64-bit dari stub yang sama.
+# Konsumennya vendor/lib64/libmm-als.so, sedangkan yang 32-bit di atas melayani
+# vendor/lib/libmmcamera2_stats_modules.so. Keduanya dibutuhkan.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := stub/libandroid_stub.cpp
+LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_MODULE := libandroid_a37_vendor64
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64
+LOCAL_MULTILIB := 64
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
 
@@ -177,7 +194,11 @@ LOCAL_SHARED_LIBRARIES := libutils liblog
 # pola yang sama dengan libstdc++ di sana.
 LOCAL_MODULE := libmedia_a37_vendor
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib
+# BUILD 64-BIT: keempat konsumennya kini di vendor/lib64 -- lib-dplmedia.so,
+# lib-imscamera.so, lib-imsvt.so, dan libril-qc-qmi-1.so. Tidak ada satupun
+# blob 32-bit yang merujuk libmedia.so, jadi varian 32-bit tidak dibuat.
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64
+LOCAL_MULTILIB := 64
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
 

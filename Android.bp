@@ -59,9 +59,19 @@ install_symlink {
 }
 
 install_symlink {
+    name: "libandroid_a37_vendor64_symlink",
+    soc_specific: true,
+    installed_location: "lib64/libandroid.so",
+    symlink_target: "libandroid_a37_vendor64.so",
+}
+
+// BUILD 64-BIT: libmedia pindah ke lib64. Keempat konsumennya ada di sana
+// (lib-dplmedia, lib-imscamera, lib-imsvt, libril-qc-qmi-1) dan tidak ada blob
+// 32-bit yang merujuknya.
+install_symlink {
     name: "libmedia_a37_vendor_symlink",
     soc_specific: true,
-    installed_location: "lib/libmedia.so",
+    installed_location: "lib64/libmedia.so",
     symlink_target: "libmedia_a37_vendor.so",
 }
 
