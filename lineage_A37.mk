@@ -131,6 +131,13 @@ PRODUCT_COPY_FILES += \
 endif
 
 # Inherit from those products. Most specific first.
+#
+# BUILD 64-BIT: core_64_bit.mk menyediakan init.zygote64.rc,
+# init.zygote64_32.rc, dan ro.zygote=zygote64_32 -- zygote 64-bit dengan anak
+# 32-bit, yang dibutuhkan karena HAL kamera msm8916 hanya ada 32-bit.
+# Ia juga menyetel TARGET_SUPPORTS_32_BIT_APPS dan _64_BIT_APPS.
+# Buang baris ini kalau kembali ke build 32-bit.
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_l.mk)
 $(call inherit-product, device/oppo/A37/device.mk)

@@ -155,12 +155,28 @@ BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 
 # Architecture
-TARGET_BOARD_SUFFIX := _32
-TARGET_ARCH := arm
+#
+# BUILD 64-BIT. Userspace arm64 dengan arsitektur kedua arm, karena blob kamera
+# msm8916 hanya ada 32-bit: Qualcomm tidak pernah merilis HAL kamera 64-bit
+# untuk SoC ini, dan ROM LOS 17.1 64-bit A37 pun menjalankannya sebagai proses
+# 32-bit. Vendor tree cabang lineage-23-64bit membawa 114 pustaka di
+# vendor/lib64 dan 160 yang tetap di vendor/lib.
+#
+# Kernel TIDAK berubah: TARGET_KERNEL_ARCH sudah arm64 sejak awal (baris 334),
+# dan selama ini menjalankan userspace 32-bit lewat compat layer.
+TARGET_BOARD_SUFFIX := _64
+TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
-TARGET_CPU_ABI := armeabi-v7a
-TARGET_CPU_ABI2 := armeabi
+TARGET_CPU_ABI := arm64-v8a
 TARGET_CPU_VARIANT := cortex-a53
+
+TARGET_2ND_ARCH := arm
+TARGET_2ND_ARCH_VARIANT := armv8-a
+TARGET_2ND_CPU_ABI := armeabi-v7a
+TARGET_2ND_CPU_ABI2 := armeabi
+TARGET_2ND_CPU_VARIANT := cortex-a53
+
+TARGET_SUPPORTS_64_BIT_APPS := true
 
 # Binder
 # TARGET_USES_64_BIT_BINDER DIBUANG di LOS 21 — build/make memperingatkan

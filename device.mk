@@ -562,15 +562,19 @@ PRODUCT_COPY_FILES += \
 # tangkap log cameraserver + vendor.camera.provider saat gagal -- itu jawaban
 # yang tidak pernah didapat pada 20260803.
 #
-# Varian tanpa akhiran _32 yang dipakai: _32 hanya berarti compile_multilib 32
-# untuk platform 64-bit berblob 32-bit (Mi-Thorium). A37 TARGET_ARCH=arm murni
-# 32-bit, sama seperti a6010.
+# BUILD 64-BIT: varian _32 yang dipakai. Sejak TARGET_ARCH := arm64, A37 persis
+# menjadi kasus yang dimaksud -- platform 64-bit berblob kamera 32-bit, sama
+# seperti Mi-Thorium. Definisinya ada di
+# hardware/lineage/interfaces/camera/aidl/provider/Android.bp:38, dengan
+# compile_multilib: "32" dan init_rc-nya sendiri.
+#
+# Kalau kembali ke build 32-bit, kembalikan ke varian tanpa _32.
 #
 # CARA MENGEMBALIKAN kalau gagal: kembalikan paket ini ke
 # android.hardware.camera.provider@2.4-impl DAN kembalikan blok HIDL
 # android.hardware.camera.provider di manifest.xml (lihat riwayat git).
 PRODUCT_PACKAGES += \
-    android.hardware.camera.provider-service.lineage \
+    android.hardware.camera.provider-service_32.lineage \
     camera.device@1.0-impl \
     libshim_camera \
     libshim_camera_sensor \
