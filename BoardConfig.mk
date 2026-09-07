@@ -337,7 +337,48 @@ TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
 # Host toolchain LOS 18.1 pakai clang/lld; kernel 3.10 butuh flag ini agar
 # host tools (fixdep, conf) bisa di-link dengan lld.
 # Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
+#
+# PERINGATAN untuk LOS 24.0: vendor/lineage/config/BoardConfigKernel.mk:113-114
+# kini menambahkan HOSTCFLAGS dan HOSTLDFLAGS sendiri (sysroot glibc2.17-4.8 +
+# prebuilts/kernel-build-tools). KERNEL_MAKE_FLAGS menambahkan
+# TARGET_KERNEL_ADDITIONAL_FLAGS SESUDAH keduanya, jadi baris di bawah MENIMPA
+# HOSTCFLAGS hulu -- sysroot itu hilang. Itu disengaja: sysroot glibc 2.17 tidak
+# cocok dengan gcc host modern. HOSTLDFLAGS hulu tidak tertimpa dan tetap aktif.
 TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-line-argument"
+
+# ============================================================================
+# K-A: toolchain kernel GCC 4.9 di LineageOS 24.0
+# ============================================================================
+# LineageOS 24.0 MEMBUANG SELURUH jalur GCC dari sistem build kernel. Diukur:
+# vendor/lineage/config/BoardConfigKernel.mk turun dari 36 rujukan
+# (KERNEL_TOOLCHAIN|CLANG_COMPILE|GCC_PREBUILTS) di 23.2 menjadi NOL di 24.0.
+# Keempat knob yang dipakai A37 -- TARGET_KERNEL_CLANG_COMPILE,
+# TARGET_KERNEL_NO_GCC, TARGET_KERNEL_LLVM_BINUTILS,
+# TARGET_KERNEL_CROSS_COMPILE_PREFIX -- tidak lagi dibaca siapa pun. Dua baris
+# di atas (:73 dan :78) karena itu menjadi NO-OP SENYAP di 24.0; sengaja
+# dipertahankan sebagai catatan, bukan karena masih berfungsi.
+#
+# Prebuilt-nya pun dicabut dari manifest oleh commit LineageOS de40b978
+# "manifest: Drop GCC prebuilts"; A37-24.xml mengembalikannya sendiri.
+#
+# Kenapa ini mematikan: kernel 3.10 mati di tahap paling awal dengan clang --
+#   scripts/mod/devicetable-offsets.c:10:2: error: unexpected token at start of statement
+# yaitu integrated assembler clang menolak asm bergaya gcc yang dipakai kernel
+# 3.10 untuk menurunkan offset struktur.
+#
+# JALAN KELUARNYA, dan ini bukan akal-akalan:
+#   - KERNEL_CC didokumentasikan sebagai knob device tree di kernel.mk:53, dan
+#     gerbangnya kernel.mk:264 adalah `ifeq ($(KERNEL_CC),)` -- nilai dari sini
+#     menang, default clang tidak pernah terpasang.
+#   - KERNEL_CROSS_COMPILE TIDAK PERNAH di-assign di mana pun pada 24.0; ia
+#     hanya diekspansi di baris perintah make (kernel.mk:283, 291, 299).
+#
+# BoardConfigLineage.mk di-include dari build/make/core/config.mk:502, yaitu
+# SESUDAH berkas ini dibaca -- jadi kedua nilai di bawah sudah terpasang saat
+# gerbang ifeq dievaluasi.
+A37_KERNEL_GCC := $(abspath $(TOPDIR))prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
+KERNEL_CC := CC="$(CCACHE_BIN) $(A37_KERNEL_GCC)/aarch64-linux-android-gcc"
+KERNEL_CROSS_COMPILE := CROSS_COMPILE="$(A37_KERNEL_GCC)/aarch64-linux-android-"
 
 # File System
 TARGET_FS_CONFIG_GEN := $(PLATFORM_PATH)/config.fs
