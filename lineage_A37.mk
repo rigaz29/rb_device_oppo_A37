@@ -130,12 +130,39 @@ PRODUCT_COPY_FILES += \
     device/oppo/A37/adb_keys:$(TARGET_COPY_OUT_RAMDISK)/adb_keys
 endif
 
+# BUILD 64-BIT: zygote 64-bit SAJA, tanpa anak 32-bit.
+#
+# Harus disetel SEBELUM core_64_bit.mk di-include -- gerbangnya ada di
+# build/make/target/product/core_64_bit.mk:30, dan komentar di sana menyebut
+# "This line must be parsed before the one in core_minimal.mk".
+#
+# Alasannya empiris. Dengan zygote64_32, zygote 32-bit (zygote_secondary) dua
+# kali menjadi penyebab bootloop:
+#
+#   1. driver EGL 32-bit tidak ada -> "couldn't find an OpenGL ES
+#      implementation", SIGABRT. Diperbaiki dengan menjadikan 13 driver
+#      EGL/GLES dual-arch.
+#   2. SecondaryZygotePreload -> art::Runtime::Abort di
+#      /apex/com.android.art/lib/ (path tanpa 64 = proses 32-bit).
+#
+# Polanya bukan satu pustaka yang kurang melainkan seluruh jalur 32-bit yang
+# tidak lengkap: vendor tree berasal dari LOS 17.1 dan tidak pernah dimaksudkan
+# menyediakan dua set penuh untuk Android 16.
+#
+# Membuangnya menguntungkan dari tiga sisi pada perangkat ini:
+#   - menghilangkan sumber crash berulang
+#   - hemat RAM, dan itu menentukan di 1,84 GB: dua zygote berarti dua boot
+#     image ART di memori
+#   - HAL kamera 32-bit TETAP jalan, karena di-fork dari init bukan dari zygote
+#
+# Harganya aplikasi 32-bit tidak bisa dipasang. Di Android 16 mayoritas
+# aplikasi sudah 64-bit.
+ZYGOTE_FORCE_64 := true
+
 # Inherit from those products. Most specific first.
 #
-# BUILD 64-BIT: core_64_bit.mk menyediakan init.zygote64.rc,
-# init.zygote64_32.rc, dan ro.zygote=zygote64_32 -- zygote 64-bit dengan anak
-# 32-bit, yang dibutuhkan karena HAL kamera msm8916 hanya ada 32-bit.
-# Ia juga menyetel TARGET_SUPPORTS_32_BIT_APPS dan _64_BIT_APPS.
+# core_64_bit.mk menyediakan init.zygote64.rc dan ro.zygote. Dengan
+# ZYGOTE_FORCE_64 di atas, nilainya zygote64 (bukan zygote64_32).
 # Buang baris ini kalau kembali ke build 32-bit.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)

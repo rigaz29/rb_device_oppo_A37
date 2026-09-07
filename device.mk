@@ -1267,6 +1267,8 @@ PRODUCT_PACKAGES += \
     libandroid_a37_vendor64_symlink \
     libmedia_a37_vendor \
     libmedia_a37_vendor_symlink \
+    libmedia_a37_vendor64 \
+    libmedia_a37_vendor64_symlink \
     libgui_vendor \
     libgui_vendor_symlink \
     libcamera_client_a37_vendor \
@@ -1702,13 +1704,29 @@ PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD := false
 #
 # boot-dex2oat-threads=4 di bawah tetap dipertahankan: itu jalur boot, dan
 # memang sudah memakai seluruh inti.
+# BUILD 64-BIT: heapstartsize dan heapminfree diturunkan ke profil resmi AOSP
+# untuk perangkat 2048 MB (frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk).
+#
+# Rujukan: Mi-Thorium menjalankan userspace 64-bit pada perangkat 1-2 GB dengan
+# profil itu, memakai core_64_bit.mk tanpa ZYGOTE_FORCE_64 -- jadi dua zygote di
+# RAM 2 GB memang bisa. Yang membedakan bukan arsitekturnya melainkan ongkos
+# heap per proses.
+#
+# Pengujian A-B-A-B 2 September 2026 yang membenarkan 192m/384m hanya
+# membandingkan heapgrowthlimit dan heapsize; heapstartsize dan heapminfree
+# tidak pernah ikut diuji. Keduanya justru yang paling boros di sini:
+#   heapstartsize 16m vs 8m   -> setiap proses mulai dengan heap 2x lebih besar
+#   heapminfree   4m  vs 512k -> GC menyisakan 8x lebih banyak per heap
+# Dengan zygote64_32 ongkos itu berlipat karena ada dua zygote.
+#
+# heapgrowthlimit dan heapsize DIPERTAHANKAN pada nilai yang sudah teruji.
 PRODUCT_PROPERTY_OVERRIDES += \
-    dalvik.vm.heapstartsize=16m \
+    dalvik.vm.heapstartsize=8m \
     dalvik.vm.heapgrowthlimit=192m \
     dalvik.vm.heapsize=384m \
     dalvik.vm.heaptargetutilization=0.75 \
-    dalvik.vm.heapminfree=4m \
-    dalvik.vm.heapmaxfree=6m \
+    dalvik.vm.heapminfree=512k \
+    dalvik.vm.heapmaxfree=8m \
     dalvik.vm.zygotemaxfailedboots=5 \
     dalvik.vm.foreground-heap-growth-multiplier=2.0 \
     dalvik.vm.dex2oat-flags=--no-watch-dog \

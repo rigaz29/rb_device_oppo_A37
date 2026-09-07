@@ -194,9 +194,22 @@ LOCAL_SHARED_LIBRARIES := libutils liblog
 # pola yang sama dengan libstdc++ di sana.
 LOCAL_MODULE := libmedia_a37_vendor
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-# BUILD 64-BIT: keempat konsumennya kini di vendor/lib64 -- lib-dplmedia.so,
-# lib-imscamera.so, lib-imsvt.so, dan libril-qc-qmi-1.so. Tidak ada satupun
-# blob 32-bit yang merujuk libmedia.so, jadi varian 32-bit tidak dibuat.
+# Varian 32-bit, untuk vendor/lib/libril-qc-qmi-1.so. Konsumen ini SEMPAT HILANG
+# dari catatan ketika RIL masih 64-bit, lalu muncul kembali saat rild dan radio
+# HAL dipaksa 32-bit -- lihat uraian panjangnya di device/oppo/A37/Android.bp.
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib
+LOCAL_MULTILIB := 32
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
+
+# Varian 64-bit dari stub libmedia yang sama.
+# Konsumennya vendor/lib64: lib-dplmedia.so, lib-imscamera.so, lib-imsvt.so,
+# dan libril-qc-qmi-1.so.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := stub/libmedia_stub.cpp
+LOCAL_SHARED_LIBRARIES := libutils liblog
+LOCAL_MODULE := libmedia_a37_vendor64
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib64
 LOCAL_MULTILIB := 64
 LOCAL_MODULE_TAGS := optional

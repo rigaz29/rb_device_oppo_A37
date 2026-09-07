@@ -65,14 +65,35 @@ install_symlink {
     symlink_target: "libandroid_a37_vendor64.so",
 }
 
-// BUILD 64-BIT: libmedia pindah ke lib64. Keempat konsumennya ada di sana
-// (lib-dplmedia, lib-imscamera, lib-imsvt, libril-qc-qmi-1) dan tidak ada blob
-// 32-bit yang merujuknya.
+// libmedia.so dibutuhkan DI KEDUA ARCH. Diukur ulang 7 September 2026, sesudah
+// rild dan radio HAL dipaksa kembali 32-bit:
+//
+//   vendor/lib64  lib-dplmedia.so, lib-imscamera.so, lib-imsvt.so,
+//                 libril-qc-qmi-1.so
+//   vendor/lib    libril-qc-qmi-1.so   <-- muncul lagi begitu RIL jadi 32-bit
+//
+// Komentar sebelumnya di sini berbunyi "tidak ada blob 32-bit yang merujuknya".
+// Itu benar ketika RIL masih 64-bit, dan menjadi SALAH pada commit yang
+// memaksa RIL kembali 32-bit -- tanpa berkas ber-soname ini di vendor/lib:
+//
+//   E RILD: dlopen failed: library "libmedia.so" not found:
+//           needed by /system/vendor/lib/libril-qc-qmi-1.so
+//
+// Pelajarannya: setiap perubahan arch sebuah komponen mengubah pula arch
+// seluruh closure dependensinya. Jalankan ulang audit DT_NEEDED, jangan
+// mengandalkan catatan lama.
 install_symlink {
     name: "libmedia_a37_vendor_symlink",
     soc_specific: true,
-    installed_location: "lib64/libmedia.so",
+    installed_location: "lib/libmedia.so",
     symlink_target: "libmedia_a37_vendor.so",
+}
+
+install_symlink {
+    name: "libmedia_a37_vendor64_symlink",
+    soc_specific: true,
+    installed_location: "lib64/libmedia.so",
+    symlink_target: "libmedia_a37_vendor64.so",
 }
 
 // libgui.so untuk namespace vendor.
