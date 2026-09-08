@@ -376,7 +376,11 @@ TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-l
 # BoardConfigLineage.mk di-include dari build/make/core/config.mk:502, yaitu
 # SESUDAH berkas ini dibaca -- jadi kedua nilai di bawah sudah terpasang saat
 # gerbang ifeq dievaluasi.
-A37_KERNEL_GCC := $(abspath $(TOPDIR))prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
+# $(abspath .) dan BUKAN $(abspath $(TOPDIR)): TOPDIR kosong saat berkas ini
+# dievaluasi, sehingga path jadi RELATIF. Itu fatal secara senyap, karena
+# kernel.mk:283 menjalankan make dengan `-C $(KERNEL_SRC)` -- path relatif akan
+# resolve dari direktori kernel, bukan dari akar pohon.
+A37_KERNEL_GCC := $(abspath .)/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
 KERNEL_CC := CC="$(CCACHE_BIN) $(A37_KERNEL_GCC)/aarch64-linux-android-gcc"
 KERNEL_CROSS_COMPILE := CROSS_COMPILE="$(A37_KERNEL_GCC)/aarch64-linux-android-"
 
