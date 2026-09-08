@@ -373,6 +373,41 @@ TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
 # Ini TIDAK menyentuh kompiler target: CC dan CROSS_COMPILE tetap GCC 4.9
 # (lihat blok K-A di bawah). HOSTCC hanya membangun alat bantu di mesin
 # pembuat -- fixdep, conf, dtc.
+# WAJIB juga di KERNEL_MAKE_FLAGS, bukan hanya TARGET_KERNEL_ADDITIONAL_FLAGS.
+#
+# Ada DUA pemanggil kernel yang berbeda, dan hanya satu membaca
+# TARGET_KERNEL_ADDITIONAL_FLAGS:
+#
+#   1. vendor/lineage/build/tasks/kernel.mk  -> membangun Image/boot.img.
+#      kernel.mk:276 menambahkan TARGET_KERNEL_ADDITIONAL_FLAGS ke
+#      KERNEL_MAKE_FLAGS, jadi HOSTCC kita sampai. Inilah sebabnya
+#      `m bootimage` berhasil.
+#
+#   2. vendor/lineage/build/soong/Android.bp -> generated_kernel_includes,
+#      yang menjalankan `make ... headers_install` untuk menyediakan header
+#      uapi bagi modul cc_*. Aturan itu memakai $(KERNEL_MAKE_FLAGS) apa
+#      adanya, dan nilainya sudah DIBEKUKAN lebih awal: BoardConfigLineage.mk
+#      meng-include BoardConfigKernel.mk (:7) lalu BoardConfigSoong.mk (:13),
+#      sedangkan kernel.mk baru dibaca belakangan. Jadi soong menerima
+#      KERNEL_MAKE_FLAGS TANPA tambahan kita, dan headers_install mati:
+#
+#        HOSTCC  scripts/basic/fixdep
+#        /bin/sh: 1: gcc: not found
+#
+#      Ini tidak pernah terlihat di `m bootimage` karena target itu tidak
+#      membutuhkan header uapi kernel.
+#
+# Menyetel KERNEL_MAKE_FLAGS di sini berhasil karena BoardConfig.mk device
+# dibaca SEBELUM keduanya (build/make/core/config.mk:502).
+# Disetel lewat BOARD_KERNEL_EXTRA_MAKE_FLAGS, BUKAN KERNEL_MAKE_FLAGS
+# langsung: BoardConfigKernel.mk:99 menyetel `KERNEL_MAKE_FLAGS :=` yang
+# membuang nilai apa pun dari sini. Hook-nya ada di
+# vendor/lineage/config/BoardConfigLineage.mk, tepat sebelum nilainya
+# diekspor ke soong.
+BOARD_KERNEL_EXTRA_MAKE_FLAGS := HOSTCC=clang \
+    HOSTCFLAGS="-I/usr/include -I/usr/include/x86_64-linux-gnu -fuse-ld=lld -Wno-unused-command-line-argument" \
+    HOSTLDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/lib64 -fuse-ld=lld"
+
 TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCC=clang \
     HOSTCFLAGS="-I/usr/include -I/usr/include/x86_64-linux-gnu -fuse-ld=lld -Wno-unused-command-line-argument" \
     HOSTLDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/lib64 -fuse-ld=lld"
