@@ -19,7 +19,12 @@
 # android.hardware.light@2.0-service.oppo_msm8916 (lihat lights/Android.bp),
 # jadi biner aslinya tidak pernah dapat label dan init tidak bisa transisi ke
 # domain hal_light_default.
-/(system/vendor|vendor)/bin/hw/android\.hardware\.light@2\.0-service\.oppo_msm8916    u:object_r:hal_light_default_exec:s0
+#
+# DIPERBARUI untuk LineageOS 24.0: Android 17 membuang HIDL light@2.0, dan HAL
+# ini dipindah ke AIDL. Nama binernya ikut berubah, jadi labelnya harus ikut --
+# kalau tidak, kekeliruan yang sama persis terulang: biner tanpa label, init
+# tidak bisa transisi ke hal_light_default.
+/(system/vendor|vendor)/bin/hw/android\.hardware\.light-service\.oppo_msm8916    u:object_r:hal_light_default_exec:s0
 # HAL vibrator AIDL yang menggantikan jalur HIDL 1.0 (dihapus hulu di 23.2).
 # Domain hal_vibrator_default sudah ada di system/sepolicy/vendor/
 # hal_vibrator_default.te; yang kurang hanya label untuk biner bernama msm8916.

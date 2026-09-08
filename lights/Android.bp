@@ -12,22 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Android 17 membuang android.hardware.light@2.0 (HIDL) dari
+// hardware/interfaces; yang tersisa hanya aidl/ dan utils/. HAL ini karena itu
+// dipindah ke AIDL ILights V2, dengan logika sysfs dipertahankan PERSIS --
+// termasuk kedip gaya QCOM lewat grpfreq/grppwm, yang tidak direproduksi HAL
+// generik android.hardware.light-service.lineage (ia memakai node tunggal
+// /sys/class/leds/rgb/rgb_blink).
+
 cc_binary {
-    relative_install_path: "hw",
-    defaults: ["hidl_defaults"],
-    name: "android.hardware.light@2.0-service.oppo_msm8916",
-    init_rc: ["android.hardware.light@2.0-service.oppo_msm8916.rc"],
-    srcs: ["service.cpp", "Light.cpp"],
+    name: "android.hardware.light-service.oppo_msm8916",
     vendor: true,
+    relative_install_path: "hw",
+    init_rc: ["android.hardware.light-service.oppo_msm8916.rc"],
+    vintf_fragments: ["android.hardware.light-service.oppo_msm8916.xml"],
+    srcs: [
+        "Lights.cpp",
+        "service.cpp",
+    ],
     shared_libs: [
         "libbase",
-        "libhardware",
-        // libhidltransport + libhwbinder dilebur ke libhidlbase di Android 11
-        // dan visibility-nya dibatasi ke :__subpackages__
-        // (system/libhidl/Android.bp:113-119, system/libhwbinder/Android.bp:64-69).
-        "libhidlbase",
-        "liblog",
-        "libutils",
-        "android.hardware.light@2.0",
+        "libbinder_ndk",
+        "android.hardware.light-V2-ndk",
     ],
 }

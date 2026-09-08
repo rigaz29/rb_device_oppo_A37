@@ -30,13 +30,59 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.allocator@2.0-service \
     android.hardware.graphics.mapper@2.0-impl-2.1 \
     android.hardware.graphics.composer@2.1-service \
-    android.hardware.memtrack@1.0-impl \
-    android.hardware.memtrack@1.0-service \
     gralloc.msm8916 \
     hwcomposer.msm8916 \
     libtinyxml \
-    memtrack.msm8916 \
     copybit.msm8916
+
+# Dua modul di bawah datang dari base product AOSP, BUKAN dari device tree ini,
+# dan sumbernya memang belum ada di pohon 24.0. Keduanya dimasukkan ke allowlist
+# resmi PRODUCT_ENFORCE_PACKAGES_EXIST_ALLOW_LIST (build/make/core/main.mk:1065)
+# -- mekanisme per-produk, bukan ALLOW_MISSING_DEPENDENCIES yang mematikan
+# seluruh pemeriksaan dan ikut menyembunyikan kesalahan kita sendiri.
+#
+#   com.android.ranging          base_system.mk:417, digerbangi
+#                                RELEASE_RANGING_STACK yang cp2a set true.
+#                                Tidak ada satu pun project di manifest 24.0
+#                                yang menyediakan apex ini; packages/modules/Uwb
+#                                hanya mendefinisikan com.android.uwb.
+#
+#   vendor_tracing_descriptors   base_vendor.mk:79, tanpa syarat. Penyedianya
+#                                belum ditulis di hulu -- external/perfetto
+#                                Android.bp:22225 menandainya sendiri:
+#                                "Those targets are defined in /system/core and
+#                                TODO(primiano): /vendor", dengan padanan system
+#                                pun masih dikomentari menunggu ag/38422283.
+#
+# Keduanya harus DICABUT dari allowlist begitu hulu menyediakannya; kalau tidak,
+# modul yang benar-benar hilang nanti ikut lolos tanpa ketahuan.
+# TIDAK BISA dipasang dari sini. Kuncinya PRODUCTS.<mk-produk-teratas>.<VAR>,
+# dan $(lastword $(_include_stack)) menghasilkan lineage_A37.mk baik dipanggil
+# dari device tree maupun dari vendor/lineage -- jadi kunci keduanya SAMA.
+# Karena product.mk:571-572 menjadikannya .KATI_READONLY, panggilan kedua mana
+# pun langsung galat:
+#
+#   vendor/lineage/config/common.mk:133: error: cannot assign to readonly
+#   variable: PRODUCTS.device/oppo/A37/lineage_A37.mk.PRODUCT_ENFORCE_PACKAGES_EXIST
+#
+# Menambahinya dengan `+=` juga percuma, karena alasan readonly yang sama.
+# Jadi hanya boleh ada SATU panggilan per produk, dan vendor/lineage sudah
+# memakainya di common.mk:133. Kedua modul ditambahkan di sana lewat fork.
+
+# Memtrack
+#
+# Android 17 membuang android.hardware.memtrack@1.0 dari hardware/interfaces
+# (tersisa hanya aidl/), jadi -impl dan -service HIDL beserta hw_module
+# memtrack.msm8916 yang dibungkusnya tidak bisa dipakai lagi.
+#
+# Penggantinya sudah ada di repo yang memang kita fork:
+# hardware/qcom-caf/common/memtrack/ menyediakan servis AIDL
+# vendor.qti.hardware.memtrack-service, lengkap dengan memtrack_kgsl.cpp --
+# yaitu pelacakan memori GPU Adreno, persis yang dipakai perangkat ini.
+# Fragmen VINTF dibawa paketnya sendiri (memtrack_qti.xml), jadi manifest.xml
+# tidak perlu mendeklarasikannya manual.
+PRODUCT_PACKAGES += \
+    vendor.qti.hardware.memtrack-service
 
 # RenderScript HAL
 PRODUCT_PACKAGES += \
@@ -493,11 +539,18 @@ PRODUCT_COPY_FILES += \
 #   "device/oppo/A37/lineage_A37.mk includes non-existent modules in
 #    PRODUCT_PACKAGES: libbt-vendor"
 # padahal modulnya ada di hardware/qcom-caf/bt/libbt-vendor/Android.bp:10.
-PRODUCT_SOONG_NAMESPACES += \
-    hardware/qcom-caf/bt/libbt-vendor
-
-PRODUCT_PACKAGES += \
-    libbt-vendor \
+# KOREKSI untuk LineageOS 24.0: repo hardware/qcom-caf/bt DIHAPUS dari manifest
+# 24.0 (diperiksa di snippets/lineage.xml: nol kecocokan
+# android_hardware_qcom_bt; direktorinya tidak ada di pohon). Jadi baik
+# namespace maupun modulnya tidak bisa dirujuk lagi, dan keduanya dicabut.
+#
+# Konsekuensinya nyata dan harus diuji di perangkat: libbt-vendor adalah
+# lapisan vendor Bluetooth QCOM. Kalau Bluetooth tidak hidup, di sinilah
+# pertama kali harus dilihat -- pilihannya mem-fork hardware/qcom-caf/bt dari
+# branch 23.2 dan mengembalikan dua baris di bawah.
+#
+# PRODUCT_SOONG_NAMESPACES += hardware/qcom-caf/bt/libbt-vendor
+# PRODUCT_PACKAGES += libbt-vendor
 
 # Salinan libbase-v28.so DIBUANG di LOS 21.
 #
@@ -1448,8 +1501,15 @@ PRODUCT_PACKAGES += \
     set_baseband.sh
 
 # Lights
+# Android 17 membuang android.hardware.light@2.0 dari hardware/interfaces
+# (tersisa hanya aidl/ dan utils/), jadi HAL ini dipindah ke AIDL ILights V2.
+# Logika sysfs dipertahankan PERSIS, termasuk kedip gaya QCOM lewat
+# grpfreq/grppwm -- HAL generik android.hardware.light-service.lineage tidak
+# mereproduksinya karena memakai node tunggal /sys/class/leds/rgb/rgb_blink.
+# Fragmen VINTF dibawa paketnya sendiri, jadi manifest.xml TIDAK perlu
+# mendeklarasikannya manual (pola yang sama seperti LiveDisplay dan kamera AIDL).
 PRODUCT_PACKAGES += \
-    android.hardware.light@2.0-service.oppo_msm8916
+    android.hardware.light-service.oppo_msm8916
 
 # Properties
 # ccodec=0 mematikan SELURUH Codec 2.0 (Codec2InfoBuilder.cpp:407:

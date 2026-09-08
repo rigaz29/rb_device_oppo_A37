@@ -338,13 +338,44 @@ TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
 # host tools (fixdep, conf) bisa di-link dengan lld.
 # Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
 #
-# PERINGATAN untuk LOS 24.0: vendor/lineage/config/BoardConfigKernel.mk:113-114
-# kini menambahkan HOSTCFLAGS dan HOSTLDFLAGS sendiri (sysroot glibc2.17-4.8 +
-# prebuilts/kernel-build-tools). KERNEL_MAKE_FLAGS menambahkan
-# TARGET_KERNEL_ADDITIONAL_FLAGS SESUDAH keduanya, jadi baris di bawah MENIMPA
-# HOSTCFLAGS hulu -- sysroot itu hilang. Itu disengaja: sysroot glibc 2.17 tidak
-# cocok dengan gcc host modern. HOSTLDFLAGS hulu tidak tertimpa dan tetap aktif.
-TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-line-argument"
+# HOST TOOLS: HOSTCFLAGS *dan* HOSTLDFLAGS harus ditimpa BERSAMAAN.
+#
+# BoardConfigKernel.mk:113-114 di 24.0 menyetel keduanya memakai sysroot
+# prebuilts glibc 2.17. Versi pertama baris ini hanya menimpa HOSTCFLAGS dan
+# membiarkan HOSTLDFLAGS hulu -- akibatnya kompilasi memakai header glibc
+# SISTEM (2.39) sementara link memakai pustaka glibc 2.17, dan modpost mati:
+#
+#   ld.lld: error: undefined symbol: __isoc23_strtoul
+#   >>> referenced by modpost.c
+#
+# __isoc23_strtoul adalah simbol glibc 2.38+; header modern mengalihkan strtoul
+# ke sana, tapi pustaka 2.17 tidak memilikinya.
+#
+# Nilai di bawah MEMULIHKAN jalur yang dipakai LineageOS 23.2 untuk kernel yang
+# dibangun GCC (BoardConfigKernel.mk:198 di sana):
+#   HOSTCFLAGS="-I/usr/include -I/usr/include/x86_64-linux-gnu"
+#   HOSTLDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/lib64 -fuse-ld=lld"
+# Baris itu ikut terhapus di 24.0 bersama seluruh dukungan GCC. Keduanya
+# konsisten memakai glibc sistem, jadi header dan pustaka sepadan.
+# HOSTCC=clang WAJIB disetel eksplisit. kernel/oppo/msm8939/Makefile:243
+# menetapkan `HOSTCC = gcc` secara mati, dan kernel 3.10 tidak mengenal LLVM=1
+# (nol kecocokan `ifneq ($(LLVM),)` di Makefile-nya) sehingga tidak pernah
+# beralih sendiri ke clang meski flag itu diteruskan BoardConfigKernel.mk.
+#
+# Akibatnya build kernel dari dalam pohon mati di alat host pertama:
+#   /bin/sh: 1: gcc: not found
+#   make[2]: *** [scripts/Makefile.host:118: scripts/basic/fixdep] Error 127
+# karena PATH yang dipakai ninja hanya memuat prebuilts, tanpa /usr/bin.
+#
+# clang memang yang dimaksudkan sejak 23.2: kedua flag HOSTCFLAGS di bawah
+# (-fuse-ld=lld, -Wno-unused-command-line-argument) khas clang, bukan gcc.
+#
+# Ini TIDAK menyentuh kompiler target: CC dan CROSS_COMPILE tetap GCC 4.9
+# (lihat blok K-A di bawah). HOSTCC hanya membangun alat bantu di mesin
+# pembuat -- fixdep, conf, dtc.
+TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCC=clang \
+    HOSTCFLAGS="-I/usr/include -I/usr/include/x86_64-linux-gnu -fuse-ld=lld -Wno-unused-command-line-argument" \
+    HOSTLDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/lib64 -fuse-ld=lld"
 
 # ============================================================================
 # K-A: toolchain kernel GCC 4.9 di LineageOS 24.0
