@@ -1,8 +1,25 @@
-<!-- target-level="5" — terendah yang masih punya matrix di Android 14.
+<!-- target-level="7" — terendah yang masih punya matrix di Android 17.
      "legacy" tidak bisa dibangun: matrix FCM legacy dicabut, VintfObject.cpp:1014
      menolak, dan check_vintf_compatible ikut droid_targets (Makefile:5418).
-     Konsekuensi runtime menaikkannya ke 5 belum pernah diuji — PLAN.md §4.6. -->
-<manifest version="1.0" type="device" target-level="5">
+
+     Dinaikkan dari 5 ke 7 pada 9 Sep 2026. Alasannya bukan pilihan: Android 17
+     hanya mengirim compatibility_matrix untuk level 7, 8, 202404, 202504,
+     202604 dan 202704. Level 5 sudah dicabut, sehingga checkvintf berhenti
+     dengan "Cannot find framework matrix at FCM version 5".
+
+     Risiko yang dikhawatirkan tidak terwujud, dan diuji sebelum diterapkan.
+     Catatan di blok RIL di bawah mencatat bahwa level 5 dipilih justru karena
+     compatibility_matrix.5.xml nol menyebut android.hardware.radio, sehingga
+     rentang IRadio 1.5-6 di level 6/7 tidak mengikat perangkat ini yang hanya
+     mendaftarkan @1.4::IRadio. Ternyata di level 7 pun tetap lolos, karena
+     aturan pewarisan HIDL di HalManifest.cpp:384-390: @1.5::IRadio extends
+     @1.4::IRadio, jadi kehadiran 1.5-6 di matriks membuat @1.4 terhitung cocok.
+
+     Diverifikasi dengan menjalankan out/host/linux-x86/bin/checkvintf dengan
+     opsi check-compat langsung terhadap pohon hasil build, memakai dirmap dan
+     properti yang sama persis dengan yang dipakai check_vintf_compatible:
+     hasilnya COMPATIBLE, rc=0. -->
+<manifest version="1.0" type="device" target-level="7">
     <!-- Jalur HIDL agar proses VENDOR bisa memakai kamera. Yang mendaftarkannya
          justru cameraserver sendiri: CameraService.cpp:174 memanggil
          HidlCameraService::getInstance(this)->registerAsService().
