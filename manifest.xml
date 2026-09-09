@@ -68,15 +68,15 @@
          tidak pernah diset. A2DP offload memang tidak didukung msm8916; yang
          dipakai adalah jalur software encode lewat bluetooth.audio@2.0 di
          bawah. Deklarasi kosong hanya bikin getService() menggantung. -->
-    <hal format="hidl">
-        <name>android.hardware.bluetooth.audio</name>
-        <transport>hwbinder</transport>
-        <version>2.0</version>
-        <interface>
-            <name>IBluetoothAudioProvidersFactory</name>
-            <instance>default</instance>
-        </interface>
-    </hal>
+    <!-- bluetooth.audio: DICABUT 9 Sep 2026, pindah ke impl AIDL.
+         compatibility_matrix.202604.xml:126-133 hanya mencantumkan
+         android.hardware.bluetooth.audio sebagai AIDL versi 3-6; varian HIDL
+         2.0 sudah dilepas dari FCM Android 17, sehingga deklarasi ini membuat
+         check_vintf menolak build. Paket android.hardware.bluetooth.audio-impl
+         membawa vintf_fragment sendiri (bluetooth_audio.xml), jadi tidak perlu
+         dideklarasikan ulang di sini, sama seperti camera.provider dan
+         health di atas. Jalur software encode tetap, hanya transportnya
+         berpindah dari hwbinder ke binder. -->
     <!-- camera.provider: DICABUT 27 Agu 2026, pindah ke provider AIDL.
          Paket android.hardware.camera.provider-service.lineage membawa fragmen
          VINTF-nya sendiri yang mendeklarasikan ICameraProvider/internal/0

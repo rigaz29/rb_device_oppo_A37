@@ -414,7 +414,7 @@ PRODUCT_PACKAGES += \
     android.hardware.audio@6.0-impl \
     android.hardware.audio.service \
     android.hardware.audio.effect@6.0-impl \
-    android.hardware.bluetooth.audio@2.0-impl
+    android.hardware.bluetooth.audio-impl
 
 # Bluetooth: pustaka antarmuka HIDL untuk blob QTI.
 #
@@ -1195,9 +1195,15 @@ PRODUCT_ENFORCE_RRO_TARGETS := *
 
 # Health
 # 18.1: @2.0 → @2.1 (Sumber: msm8916-common lineage-18.1)
+# 24.0: @2.1 HIDL → AIDL. compatibility_matrix.202604.xml:268-275 hanya
+#       mencantumkan android.hardware.health sebagai AIDL versi 3-5; varian
+#       HIDL-nya sudah dilepas dari FCM, sehingga check_vintf menolak build
+#       dengan "instances in the device manifest but not specified in framework
+#       compatibility matrix: android.hardware.health@2.1::IHealth/default".
+#       Layanan example AOSP membaca /sys/class/power_supply lewat libhealthd,
+#       jalur yang sama dengan implementasi HIDL lama.
 PRODUCT_PACKAGES += \
-    android.hardware.health@2.1-impl \
-    android.hardware.health@2.1-service \
+    android.hardware.health-service.example \
     vendor.lineage.health-service.default
 
 # Konfigurasi charging control HARUS lewat soong_config di 23.2.
