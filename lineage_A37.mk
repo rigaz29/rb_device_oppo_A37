@@ -107,7 +107,27 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # catatan ifdef GNU Make di atas.
 # DIMATIKAN 3 September 2026 untuk build rilis (varian user, kunci rilis).
 # Dikomentari, BUKAN disetel `false` -- lihat catatan ifdef GNU Make di atas.
-# WITH_ADB_INSECURE := true
+#
+# ⚠️⚠️ DINYALAKAN LAGI 9 September 2026 untuk bring-up LOS 24. ⚠️⚠️
+#
+# Alasan sama persis seperti bring-up LOS 21 dan 22: Fase 5 LOS 24 belum pernah
+# dijalani di perangkat ini, dan kelas kegagalan yang paling melumpuhkan --
+# "berhenti di logo OPPO tanpa satu pun entri USB" -- justru yang menutup jalur
+# diagnosis. Dialog otorisasi RSA muncul DI LAYAR perangkat; kalau layar hitam
+# atau UI membeku, dialog itu tak bisa ditekan, sehingga adb jadi tidak berguna
+# tepat ketika paling dibutuhkan.
+#
+# Efeknya dua, bukan satu. Selain ro.adb.secure=0, menyetel flag ini juga
+# melewati PRODUCT_NOT_DEBUGGABLE_IN_USERDEBUG di vendor/lineage/config/common.mk
+# (baris 42-43), yang kalau aktif memberi ro.debuggable=0 bahkan pada varian
+# userdebug -- terukur di build 23.2 20260903_183402, dan itulah yang dulu ikut
+# menutup `adb root`. Jadi flag ini yang mengembalikan ro.debuggable=1.
+#
+# KONSEKUENSI: ROM ini memberi shell adb tanpa otorisasi kepada SIAPA PUN yang
+# mencolokkan USB. Pilihan sadar untuk perangkat uji. JANGAN DIBAGIKAN.
+#
+# Cara mematikan nanti: KOMENTARI baris di bawah. Jangan setel `false`.
+WITH_ADB_INSECURE := true
 
 # Kunci adb build machine, supaya `adb shell` jalan tanpa dialog RSA di layar
 # yang mungkin tak pernah menyala.
