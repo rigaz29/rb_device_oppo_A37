@@ -125,8 +125,24 @@
 # Perlu mount segar, yaitu ubah baris ini lalu reboot.
 /dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard                   wait,check,formattable
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
-/dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
+# [24.0] ext4 DIDAHULUKAN untuk /cache. Partisi mmcblk0p26 di perangkat ini
+# berisi superblock ext4 yang sah (magic 0x53ef di offset 1080, diperiksa
+# langsung lewat dd dari TWRP), sedangkan offset 1024 bukan magic f2fs.
+# Dengan f2fs didaftarkan lebih dulu, log boot berisi "Invalid f2fs
+# superblock" lalu "skipping mount due to invalid magic" untuk /cache.
+#
+# Ini bukan sekadar berisik. /cache tidak punya flag nofail, sehingga
+# kegagalannya membuat fs_mgr_mount_all mengembalikan -1. builtins.cpp:604
+# hanya memicu trigger "nonencrypted" untuk kode 0 atau kode terenkripsi;
+# untuk nilai negatif ia jatuh ke Error("Invalid code"). Akibatnya
+# init.rc:1271 tidak pernah berjalan, class main tidak pernah dimulai, dan
+# zygote tidak pernah hidup. Cocok dengan gejala: nol tombstone, nol ANR,
+# dalvik-cache kosong, dan boot berhenti tanpa crash.
+#
+# Urutan /data DIBIARKAN f2fs lebih dulu, karena userdata memang F2FS dan
+# log memastikan ia ter-mount dengan benar.
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
+/dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/persist        /persist     ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait
 /dev/block/bootdevice/by-name/boot           /boot        emmc    defaults                                                    defaults
 /dev/block/bootdevice/by-name/recovery       /recovery    emmc    defaults                                                    defaults
