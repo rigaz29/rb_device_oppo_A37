@@ -2,7 +2,12 @@
 # The filesystem that contains the filesystem checker binary (typically /system) cannot
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
-/dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,recoveryonly
+# [24.0] recoveryonly -> first_stage_mount. Android 17 mewajibkan init tahap
+# pertama menyediakan /system sebelum ia exec /system/bin/init; cmdline A37
+# tidak punya root= dan perangkat ini bukan system-as-root, jadi tidak ada
+# pihak lain yang me-mount-nya. Dengan recoveryonly, fs_mgr melewatinya saat
+# boot normal dan init mati dengan "Attempted to kill init".
+/dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,first_stage_mount
 # FBE (file-based encryption) DIMATIKAN 4 September 2026, atas permintaan
 # pengguna. Baris /data di bawah tidak lagi memuat fileencryption=.
 #

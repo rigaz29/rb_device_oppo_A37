@@ -888,6 +888,21 @@ PRODUCT_PACKAGES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opa.eligible_device=true
 
+# fstab di RAMDISK BOOT, bukan hanya di vendor/etc.
+#
+# GetFstabPath() (libfstab/fstab.cpp:469-491) mencari fstab.$(hardware) berurutan
+# di /odm/etc, /vendor/etc, /system/etc, /first_stage_ramdisk/system/etc, /fstab.
+# dan /first_stage_ramdisk/fstab. Saat init tahap pertama berjalan, TIDAK SATU pun
+# partisi sudah ter-mount, sehingga hanya dua jalur terakhir yang terjangkau --
+# keduanya di dalam ramdisk boot.
+#
+# Modul fstab.qcom di rootdir/Android.mk memasang ke TARGET_OUT_VENDOR_ETC, yakni
+# ke dalam system image, yang belum ada saat itu. Akibatnya boot 24.0 pertama mati
+# di detik 4,15 dengan "failed to find device default fstab" lalu
+# "Kernel panic - not syncing: Attempted to kill init!".
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/rootdir/etc/fstab.qcom:$(TARGET_COPY_OUT_RAMDISK)/fstab.qcom
+
 # Init scripts
 PRODUCT_PACKAGES += \
     bootwatchdog.sh \
