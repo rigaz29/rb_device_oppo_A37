@@ -7,7 +7,16 @@
 # tidak punya root= dan perangkat ini bukan system-as-root, jadi tidak ada
 # pihak lain yang me-mount-nya. Dengan recoveryonly, fs_mgr melewatinya saat
 # boot normal dan init mati dengan "Attempted to kill init".
-/dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,first_stage_mount
+# Jalur platform PENUH, bukan alias bootdevice. devices.cpp:567 selalu membuat
+# /dev/block/platform/<str>/by-name/<partisi>, tetapi
+# /dev/block/by-name/<partisi> hanya dibuat bila is_boot_device benar
+# (devices.cpp:271), dan itu membandingkan info.str apa adanya dengan
+# androidboot.bootdevice. Di A37 info.str adalah "soc.0/7824900.sdhci"
+# sedangkan cmdline menyebut "7824900.sdhci", sehingga tidak cocok.
+# Alias /dev/block/bootdevice sendiri tidak dibuat init tahap pertama.
+# Boot kedua menunggu 20 detik lalu mati dengan
+# "Failed to open '/dev/block/bootdevice/by-name/system'".
+/dev/block/platform/soc.0/7824900.sdhci/by-name/system  /system  ext4  ro,barrier=1  wait,first_stage_mount
 # FBE (file-based encryption) DIMATIKAN 4 September 2026, atas permintaan
 # pengguna. Baris /data di bawah tidak lagi memuat fileencryption=.
 #
