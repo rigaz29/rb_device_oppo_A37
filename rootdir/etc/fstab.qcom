@@ -143,7 +143,19 @@
 # log memastikan ia ter-mount dengan benar.
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
-/dev/block/bootdevice/by-name/persist        /persist     ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait
+# [24.0] nofail pada /persist dan /firmware.
+#
+# fs_mgr.cpp:1782-1795 menambah error_count untuk SETIAP mount yang gagal
+# tanpa flag nofail, dan baris 1815 mengubah error_count bukan nol menjadi
+# FS_MGR_MNTALL_FAIL. builtins.cpp:579-607 hanya memicu trigger
+# "nonencrypted" untuk kode 0 atau kode terenkripsi; nilai negatif jatuh ke
+# Error("Invalid code"). Akibatnya init.rc:1271 tidak pernah berjalan dan
+# class main -- tempat zygote hidup -- tidak pernah dimulai.
+#
+# Keduanya bukan syarat boot: /persist menyimpan kalibrasi sensor dan
+# /firmware berisi image modem. Tanpa nofail, kegagalan salah satunya
+# menjatuhkan seluruh boot secara sunyi, tanpa crash maupun tombstone.
+/dev/block/bootdevice/by-name/persist        /persist     ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,nofail
 /dev/block/bootdevice/by-name/boot           /boot        emmc    defaults                                                    defaults
 /dev/block/bootdevice/by-name/recovery       /recovery    emmc    defaults                                                    defaults
 /dev/block/bootdevice/by-name/misc           /misc        emmc    defaults                                                    defaults
@@ -157,7 +169,7 @@
 # plus hal_drm/esepmdaemon di device/qcom/sepolicy-legacy. Tanpa opsi ini aturan
 # itu tidak pernah cocok dan pembacaan firmware modem/DRM ditolak saat enforcing.
 # ROM LineageOS 18.1 A37 yang beredar memakai opsi yang sama.
-/dev/block/bootdevice/by-name/modem          /firmware    vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337,context=u:object_r:firmware_file:s0    wait
+/dev/block/bootdevice/by-name/modem          /firmware    vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337,context=u:object_r:firmware_file:s0    wait,nofail
 
 # encryptable=userdata DICABUT di 20, menyusul pencabutan enkripsi pada /data.
 # Warisan dari 19.1; ia menyuruh vold memperlakukan SD sebagai volume yang
