@@ -36,6 +36,25 @@ on boot
     write /sys/class/android_usb/android0/f_rndis/vendorID ${ro.usb.vid}
     setprop persist.sys.usb.config.extra none
 
+# [A37 DIAGNOSTIK] paksa adbd hidup di post-fs-data.
+#
+# adbd dideklarasikan `disabled` di /apex/com.android.adbd/etc/init.rc, dan
+# hanya dijalankan pemicu init.usb.rc:36
+#   on property:sys.usb.config=adb && property:sys.usb.configfs=0
+# yang bergantung pada rantai: trigger boot -> init.usb.rc:104 menyalin
+# persist.sys.usb.config ke sys.usb.config -> pemicu di atas -> start adbd.
+#
+# Pada bring-up yang berhenti sebelum class main, rantai itu tidak pernah
+# tuntas sehingga adbd tidak pernah hidup -- tepat ketika ia paling dibutuhkan.
+# Blok ini memotong jalan: setel kedua properti dan mulai adbd langsung.
+#
+# HAPUS setelah perangkat boot normal; ini alat diagnosis, bukan konfigurasi
+# yang benar.
+on post-fs-data
+    setprop sys.usb.configfs 0
+    setprop sys.usb.config adb
+    start adbd
+
 on charger
     setprop sys.usb.config mass_storage
 

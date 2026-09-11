@@ -231,10 +231,34 @@ TARGET_CPU_VARIANT := cortex-a53
 # terakhir. Semua ukuran harus pangkat dua — ram.c:533-543 membulatkannya ke
 # bawah tanpa memberi tahu.
 #
-#   mem_size      4 MB   total
-#   console_size  1 MB   log kernel berjalan -> /sys/fs/pstore/console-ramoops
+#   mem_size      1 MB   total
+#   console_size 256 KB  log kernel berjalan -> /sys/fs/pstore/console-ramoops
 #   pmsg_size   256 KB   logcat terakhir     -> /sys/fs/pstore/pmsg-ramoops-0
-#   record_size 256 KB   per dump oops/panic -> dmesg-ramoops-N (sisa ~10 slot)
+#   record_size 128 KB   per dump oops/panic -> dmesg-ramoops-N (4 slot)
+#
+# ⚠️ UKURAN DIKOREKSI 11 September 2026, dari 4 MB menjadi 1 MB.
+#
+# Angka 4 MB dipilih tanpa memeriksa berapa yang benar-benar dicadangkan, dan
+# itu keliru. /proc/iomem pada perangkat menunjukkan wilayahnya hanya 1 MB:
+#
+#   9ff00000-9ff3ffff : persistent_ram
+#   9ff40000-9ff7ffff : persistent_ram
+#   9ff80000-9ffbffff : persistent_ram
+#   9ffc0000-9fffffff : persistent_ram      <- berakhir di sini
+#   a0300000-ffffffff : System RAM          <- a0000000-a02fffff tidak terdaftar
+#
+# Dengan mem_size 4 MB, ramoops menjulur ke 0xa0000000-0xa02fffff yang bukan
+# System RAM maupun persistent_ram, kemungkinan milik firmware modem. Pembagian
+# lamanya pun sudah melebihi kapasitas: console 1 MB + dmesg 2x256 KB +
+# pmsg 256 KB = 1,75 MB untuk wilayah 1 MB.
+#
+# Akibatnya terukur dan konsisten dengan yang diamati selama bring-up: console,
+# yang muat di 1 MB pertama, MASIH terbaca; sedangkan dmesg dan pmsg yang jatuh
+# di luar wilayah sah hancur dengan pola 0x55 berselang-seling dan 1638 blok tak
+# terpulihkan. Itu melumpuhkan diagnosis boot selama berhari-hari, dan sempat
+# membuat kesimpulan diambil dari potongan log yang tidak utuh.
+#
+# Pembagian baru muat persis: 256 KB console + 256 KB pmsg + 4 x 128 KB dmesg.
 #
 # ramoops.ecc=32 — ECC Reed-Solomon 32 byte per blok 128 byte, memperbaiki
 # sampai 16 byte salah per blok (init_rs(8, 0x11d, 0, 1, nroots=ecc_size) di
@@ -283,7 +307,7 @@ TARGET_CPU_VARIANT := cortex-a53
 # terbentuk dan terbaca, tapi halamannya tidak dilindungi dari alokasi lain.
 # Kalau isinya nanti tampak rusak, langkah berikutnya menambahkan cadangan
 # lewat DT — dan baru saat itu dt.img boleh berubah.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=32
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x100000 ramoops.record_size=0x20000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=32
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
