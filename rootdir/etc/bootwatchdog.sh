@@ -87,10 +87,10 @@
 # dan untuk itu ada persist.a37.bootwatchdog=0.
 BATAS="$(getprop persist.a37.bootwatchdog.timeout)"
 case "$BATAS" in
-    ''|*[!0-9]*) BATAS=300 ;;
+    ''|*[!0-9]*) BATAS=45 ;;
 esac
-[ "$BATAS" -lt 30 ] && BATAS=300
-JEDA=5
+[ "$BATAS" -lt 20 ] && BATAS=45
+JEDA=1
 OUT=/data/bootfail
 
 # Jangan pernah aktif di mode selain boot normal. Di charger mode, reboot ke
@@ -105,15 +105,68 @@ esac
 # ini menunggu selamanya — persis kegagalan yang ia ada untuk ditangkap.
 BATAS_MAKS="$(getprop persist.a37.bootwatchdog.timeout.maks)"
 case "$BATAS_MAKS" in
-    ''|*[!0-9]*) BATAS_MAKS=600 ;;
+    ''|*[!0-9]*) BATAS_MAKS=120 ;;
 esac
 [ "$BATAS_MAKS" -lt "$BATAS" ] && BATAS_MAKS=$((BATAS * 4))
 
 habis=0      # detik TANPA kemajuan — hanya ini yang dibandingkan dengan BATAS
 total=0      # detik sebenarnya sejak start, dibandingkan dengan pagu mutlak
 kompilasi=0  # detik yang dihabiskan ART untuk mengompilasi, untuk laporan
+# [24.0 DIAGNOSTIK] Cuplikan tiap iterasi, bukan hanya saat timeout.
+#
+# Pada bring-up ini perangkat sempat restart 10 detik sesudah logo. Watchdog yang
+# hanya menulis di akhir tidak akan pernah sempat: ia baru memicu setelah BATAS
+# detik. Menulis ulang cuplikan tiap detik membuat keadaan TERAKHIR sebelum
+# restart selalu tersimpan, berapa pun cepatnya.
+#
+# Ditulis ke /cache (ter-mount di `on fs`) dan /data. Keduanya dicoba; yang gagal
+# dilewati diam-diam. Biaya per iterasi hanya beberapa getprop, dan pengaman ini
+# memang hanya hidup sampai boot selesai.
+snapshot() {
+    for CD in /cache/bootfail /data/bootfail; do
+        mkdir -p "$CD" 2>/dev/null || continue
+        # Streaming dimulai DI SINI, bukan sebelum loop. Pengaman ini hidup sejak
+        # `on init`, yaitu SEBELUM /cache ter-mount; mkdir di titik itu hanya
+        # membuat direktori di tmpfs pra-mount yang lalu tertutup oleh mount
+        # sebenarnya, sehingga berkasnya lenyap. Di dalam loop, /cache sudah nyata.
+        if [ ! -e "$CD/.stream" ]; then
+            touch "$CD/.stream" 2>/dev/null
+            ( cat /dev/kmsg > "$CD/kmsg-live.txt" 2>/dev/null ) &
+        fi
+        {
+            echo "detik=$total tanpa-kemajuan=$habis kompilasi-ART=$kompilasi"
+            echo "sys.boot_completed=$(getprop sys.boot_completed)"
+            echo "ro.crypto.state=$(getprop ro.crypto.state)"
+            echo "init.svc.zygote=$(getprop init.svc.zygote)"
+            echo "init.svc.surfaceflinger=$(getprop init.svc.surfaceflinger)"
+            echo "init.svc.servicemanager=$(getprop init.svc.servicemanager)"
+            echo "init.svc.vold=$(getprop init.svc.vold)"
+            echo "init.svc.adbd=$(getprop init.svc.adbd)"
+            echo "sys.usb.state=$(getprop sys.usb.state)"
+            echo "sys.usb.config=$(getprop sys.usb.config)"
+            echo "sys.usb.configfs=$(getprop sys.usb.configfs)"
+            echo "odsign.verification.done=$(getprop odsign.verification.done)"
+            echo "apexd.status=$(getprop apexd.status)"
+        } > "$CD/ringkas.txt" 2>/dev/null
+        # dmesg tiap iterasi. Init menulis pesan FATAL-nya ke kmsg, dan di
+        # perangkat ini console-ramoops terlalu rusak untuk dibaca; menyalinnya
+        # ke berkas membuat pesan terakhir sebelum reboot selalu terbaca.
+        dmesg > "$CD/dmesg.txt" 2>/dev/null
+    done
+}
+
+# [24.0 DIAGNOSTIK] Alirkan /dev/kmsg ke berkas, jangan snapshot.
+#
+# Snapshot per detik tetap kehilangan detik TERAKHIR sebelum reboot, dan justru
+# di situlah penyebabnya. Pada bring-up ini perangkat reboot sekitar satu detik
+# sesudah cuplikan terakhir, berkali-kali.
+#
+# `cat /dev/kmsg` mengalir terus, jadi yang hilang hanya isi buffer tulis --
+# bukan satu detik penuh. Dijalankan di latar; ia mati sendiri saat reboot.
+snapshot
 while [ "$habis" -lt "$BATAS" ] && [ "$total" -lt "$BATAS_MAKS" ]; do
     [ "$(getprop sys.boot_completed)" = "1" ] && exit 0
+    snapshot
     sleep "$JEDA"
     total=$((total + JEDA))
     # odsign membungkus seluruh odrefresh -> dex2oat. Dipakai getprop dan bukan
@@ -144,6 +197,37 @@ echo "bootwatchdog: sys.usb.state=$(getprop sys.usb.state) ro.bootmode=$(getprop
 # ter-mount. Kalau begitu, menulis ke $OUT hanya membuat berkas di tmpfs yang
 # hilang saat reboot — dan lebih buruk, ia tertimpa mount /data berikutnya.
 # Jadi dites dulu; kalau gagal, cukup kmsg di atas yang jadi jejaknya.
+# [24.0] Salinan ke /cache, karena /data ternyata tidak selalu bisa ditulis di
+# titik ini. Pada bring-up 24.0 perangkat hidup 459 detik lalu reboot, tetapi
+# /data/bootfail nol ada -- sementara console-ramoops 86 persen rusak sehingga
+# jejak kmsg di atas pun tidak terbaca. Akibatnya kegagalan itu tidak
+# meninggalkan bukti apa pun yang bisa dibaca.
+#
+# /cache ter-mount di `on fs`, jauh lebih awal dari /data, dan bertahan lintas
+# reboot. Ditulis SEBELUM blok /data supaya tetap ada walau /data gagal.
+for CD in /cache/bootfail /data/bootfail; do
+    mkdir -p "$CD" 2>/dev/null || continue
+    touch "$CD/.w" 2>/dev/null || continue
+    rm -f "$CD/.w" 2>/dev/null
+    {
+        echo "tertahan-detik=$total tanpa-kemajuan=$habis batas=$BATAS kompilasi-ART=$kompilasi"
+        echo "init.svc.zygote=$(getprop init.svc.zygote)"
+        echo "init.svc.surfaceflinger=$(getprop init.svc.surfaceflinger)"
+        echo "init.svc.adbd=$(getprop init.svc.adbd)"
+        echo "init.svc.servicemanager=$(getprop init.svc.servicemanager)"
+        echo "init.svc.vold=$(getprop init.svc.vold)"
+        echo "sys.usb.state=$(getprop sys.usb.state)"
+        echo "sys.usb.config=$(getprop sys.usb.config)"
+        echo "sys.usb.configfs=$(getprop sys.usb.configfs)"
+        echo "ro.crypto.state=$(getprop ro.crypto.state)"
+        echo "sys.boot_completed=$(getprop sys.boot_completed)"
+        echo "dev.bootcomplete=$(getprop dev.bootcomplete)"
+    } > "$CD/ringkas.txt" 2>/dev/null
+    getprop > "$CD/getprop.txt" 2>/dev/null
+    dmesg   > "$CD/dmesg.txt"   2>/dev/null
+    logcat -d > "$CD/logcat.txt" 2>/dev/null
+done
+
 if mkdir -p "$OUT" 2>/dev/null && touch "$OUT/.w" 2>/dev/null; then
     rm -f "$OUT/.w" 2>/dev/null
     # $total, bukan $habis — namanya "tertahan berapa detik", jadi yang dimaksud
