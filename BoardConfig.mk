@@ -516,7 +516,18 @@ BOARD_SUPPRESS_EMMC_WIPE := true
 # di-port ke kernel. Membiarkan variabel ini hanya menyamarkan masalahnya.
 TARGET_RECOVERY_FSTAB := $(PLATFORM_PATH)/rootdir/etc/fstab.qcom
 TARGET_USES_MKE2FS := true
-BOARD_ROOT_EXTRA_FOLDERS := firmware persist
+# metadata ditambahkan 11 September 2026. init melakukan
+# "Switching root to '/system'" pada detik 2,91, sehingga / menjadi partisi
+# system dan direktori /metadata milik ramdisk ikut lenyap.
+# create_root_structure.mk hanya membuatnya bila BOARD_USES_METADATA_PARTITION
+# diset -- dan A37 tidak punya partisi metadata, jadi menyalakan flag itu akan
+# menyatakan sesuatu yang tidak benar tentang perangkat kerasnya. Daftar ini
+# hanya menambah nama ke mkdir di create_root_structure.mk:31, tanpa mengklaim
+# apa pun soal partisi. Titik-kaitnya ditimpa tmpfs di init.qcom.rc.
+#
+# Tanpa ini tiga layanan aconfigd gagal (penyimpanan flag tidak terbentuk, flag
+# jatuh ke default bawaan) dan apexd tidak dapat menulis konfigurasinya.
+BOARD_ROOT_EXTRA_FOLDERS := firmware persist metadata
 
 # Dexpreopt
 #
@@ -595,6 +606,25 @@ DISABLE_APEX_TEST_MODULE := true
 # keempatnya sudah tidak ada di pohon ini. Sapuan seluruh pohon atas *.mk,
 # *.bp, *.te, *.cpp, *.java, *.py, dan *.sh sampai kedalaman 10 hanya
 # menemukan definisinya sendiri.
+
+# libui: paksa jalur gralloc lama.
+#
+# GraphicBufferMapper mencoba Gralloc5, lalu Gralloc4, dan baru turun ke
+# Gralloc3/Gralloc2 bila requireMapper4() bernilai salah
+# (frameworks/native/libs/ui/GraphicBufferMapper.cpp:56):
+#
+#     return android_get_device_api_level() >= 36 && flags::require_gralloc4_or_newer();
+#
+# API level perangkat ini 37, jadi cabang Gralloc2 tertutup dan konstruktornya
+# berakhir di LOG_ALWAYS_FATAL("gralloc-mapper is missing") -- surfaceflinger
+# SIGABRT berulang tiap 5 detik dan boot tidak pernah selesai.
+#
+# A37 hanya punya blob gralloc1: mapper@2.0-impl-2.1, allocator@2.0-service,
+# dan gralloc.msm8916.so. IMapper 4.0 tidak ada dan tidak bisa diadakan.
+# LEGACY_GRALLOC adalah jalur resmi hulu untuk perangkat seperti ini.
+SOONG_CONFIG_NAMESPACES += libui
+SOONG_CONFIG_libui += legacy_gralloc
+SOONG_CONFIG_libui_legacy_gralloc := true
 
 # Security Patch Level
 VENDOR_SECURITY_PATCH := 2016-01-01

@@ -72,6 +72,26 @@ on early-init
     # Turn off backlight on blank
     write /sys/class/leds/lcd-backlight/trigger "backlight"
 
+    # tmpfs di atas /metadata.
+    #
+    # A37 tidak punya partisi metadata, sedangkan init melakukan
+    # "Switching root to '/system'" pada detik 2,91 sehingga direktori
+    # /metadata milik ramdisk lenyap. Titik-kaitnya disediakan lewat
+    # BOARD_ROOT_EXTRA_FOLDERS di BoardConfig.mk; di sini ia diberi isi.
+    #
+    # WAJIB di early-init dan WAJIB di berkas ini. aconfigd.rc membuat
+    # /metadata/aconfig lalu menjalankan early_system_aconfigd_platform_init
+    # pada trigger early-init juga; yang menentukan siapa lebih dulu adalah
+    # urutan parse, dan init.qcom.rc diparse ke-5 sementara aconfigd.rc ke-14.
+    #
+    # tmpfs berarti isinya hilang tiap boot. Untuk perangkat ini itu memang
+    # yang bisa dicapai, dan konsekuensinya terbatas: override flag dari server
+    # tidak bertahan (flag kembali ke default bawaan), sesi pemasangan APEX
+    # tidak bertahan, dan alasan boot terakhir tidak tercatat. /metadata/vold
+    # serta password_slots hanya dipakai oleh enkripsi metadata, yang tidak
+    # aktif di sini -- ro.crypto.state=unsupported.
+    mount tmpfs tmpfs /metadata mode=0771,uid=0,gid=1000
+
 on fs
     wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
     symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
