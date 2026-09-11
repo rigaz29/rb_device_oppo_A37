@@ -625,6 +625,14 @@ DISABLE_APEX_TEST_MODULE := true
 SOONG_CONFIG_NAMESPACES += libui
 SOONG_CONFIG_libui += legacy_gralloc
 SOONG_CONFIG_libui_legacy_gralloc := true
+# TYPE wajib. Tanpa baris ini variabel terdaftar sebagai string, sedangkan
+# cabang `true:` pada select() di Android.bp bertipe bool, dan soong menolak:
+#   module "libui": cflags: Expected all branches of a select on condition
+#   soong_config_variable("libui", "legacy_gralloc") to have type string,
+#   found bool
+# Ini persis hasil ekspansi $(call soong_config_set_bool,...); bentuk mentah
+# dipakai agar tidak bergantung pada kapan fungsi itu terdefinisi.
+SOONG_CONFIG_TYPE_libui_legacy_gralloc := bool
 
 # Security Patch Level
 VENDOR_SECURITY_PATCH := 2016-01-01
