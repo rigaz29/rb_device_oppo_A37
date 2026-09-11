@@ -87,5 +87,8 @@ LOCAL_MODULE_STEM  := ueventd.rc
 LOCAL_MODULE_TAGS  := optional
 LOCAL_MODULE_CLASS := ETC
 LOCAL_SRC_FILES    := etc/ueventd.qcom.rc
-LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR)
+# [A37] init membaca /vendor/etc/ueventd.rc, bukan /vendor/ueventd.rc (layout
+# pra-Oreo). Dipasang di TARGET_OUT_VENDOR file tidak pernah terbaca, sehingga
+# /dev/kgsl-3d0 tetap 0600 root:root dan surfaceflinger gagal buka GPU (EACCES).
+LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_ETC)
 include $(BUILD_PREBUILT)
