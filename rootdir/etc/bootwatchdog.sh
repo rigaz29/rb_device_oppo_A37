@@ -87,9 +87,9 @@
 # dan untuk itu ada persist.a37.bootwatchdog=0.
 BATAS="$(getprop persist.a37.bootwatchdog.timeout)"
 case "$BATAS" in
-    ''|*[!0-9]*) BATAS=60 ;;
+    ''|*[!0-9]*) BATAS=600 ;;
 esac
-[ "$BATAS" -lt 20 ] && BATAS=60
+[ "$BATAS" -lt 20 ] && BATAS=600
 JEDA=1
 OUT=/data/bootfail
 
@@ -105,7 +105,7 @@ esac
 # ini menunggu selamanya — persis kegagalan yang ia ada untuk ditangkap.
 BATAS_MAKS="$(getprop persist.a37.bootwatchdog.timeout.maks)"
 case "$BATAS_MAKS" in
-    ''|*[!0-9]*) BATAS_MAKS=240 ;;
+    ''|*[!0-9]*) BATAS_MAKS=600 ;;
 esac
 [ "$BATAS_MAKS" -lt "$BATAS" ] && BATAS_MAKS=$((BATAS * 4))
 
