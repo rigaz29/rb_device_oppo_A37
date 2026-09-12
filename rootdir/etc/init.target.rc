@@ -186,6 +186,36 @@ on property:sys.boot_completed=1
     # siap. Power HAL perangkat ini tidak menyentuh kgsl (diperiksa: nol
     # kecocokan di power/), jadi tidak ada yang menimpanya kemudian.
     write /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2
+
+# Pemulihan GPU saat page fault.
+#
+# Bawaan kernel adalah KGSL_FT_PAGEFAULT_INT_ENABLE saja (0x1,
+# adreno.h:649). Dengan nilai itu penangan fault hanya mencatat dan
+# menandai iommu_dev->fault = 1; jalur pemulihannya dibungkus
+# 'if (ft_pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)'
+# (kgsl_iommu.c:374), jadi tidak pernah dijalankan. IOMMU menahan
+# transaksi, GPU menggantung selamanya, dan seluruh tumpukan grafis
+# ikut terblokir.
+#
+# Terjadi nyata di perangkat ini: SystemUI membaca 9 KB melewati
+# alokasi egl_surface 4 KB, dua kali, lalu SoC me-reset paksa karena
+# watchdog perangkat keras tidak terpet selama 20 detik:
+#
+#   kgsl kgsl-3d0: GPU PAGE FAULT: addr = BF049400 pid = 5944
+#     [BF047000 - BF048000] (+guard) (egl_surface)
+#      <- fault @ BF049400
+#   Watchdog bark! Now = 2107.88, last pet at 2087.49
+#   Causing a watchdog bite!
+#
+# Bit 0x2 mengaktifkan jalur itu: fault ditandai sebagai gpu fault,
+# IRQ GPU dimatikan sementara, lalu adreno_dispatcher_schedule()
+# menjalankan dispatcher_do_fault() untuk mereset GPU dan melanjutkan.
+# Konteks yang bersalah mati dan grafis tersendat sesaat -- jauh lebih
+# murah daripada perangkat reboot.
+#
+# Ini MENANGANI gejalanya, bukan menghilangkan sebabnya. Pembacaan di
+# luar batas itu sendiri belum ditemukan akarnya; lihat FASE-6.md.
+write /sys/class/kgsl/kgsl-3d0/ft_pagefault_policy 3
     # EMPAT baris /sys/module/lowmemorykiller/parameters/* DIBUANG dari sini:
     #   enable_adaptive_lmk 0
     #   lmk_fast_run 0
