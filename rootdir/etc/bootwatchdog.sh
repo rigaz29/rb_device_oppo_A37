@@ -90,7 +90,10 @@ case "$BATAS" in
     ''|*[!0-9]*) BATAS=600 ;;
 esac
 [ "$BATAS" -lt 20 ] && BATAS=600
-JEDA=1
+# [RILIS] JEDA kembali 5 detik. Angka 1 dipakai selama bring-up agar cuplikan
+# terakhir sebelum restart mendadak tersimpan; pada ROM yang sudah boot normal
+# itu hanya membakar I/O tanpa guna.
+JEDA=5
 OUT=/data/bootfail
 
 # Jangan pernah aktif di mode selain boot normal. Di charger mode, reboot ke
@@ -122,7 +125,21 @@ kompilasi=0  # detik yang dihabiskan ART untuk mengompilasi, untuk laporan
 # Ditulis ke /cache (ter-mount di `on fs`) dan /data. Keduanya dicoba; yang gagal
 # dilewati diam-diam. Biaya per iterasi hanya beberapa getprop, dan pengaman ini
 # memang hanya hidup sampai boot selesai.
+# [RILIS] Perekaman rinci kini OPT-IN, tidak lagi selalu aktif.
+#
+# Cuplikan tiap iterasi dan aliran /dev/kmsg sangat berguna saat bring-up, tetapi
+# pada ROM yang dipakai sehari-hari keduanya menulis terus-menerus ke /data tanpa
+# ada yang membacanya. Kemampuannya tidak dibuang -- cukup dinyalakan kembali
+# ketika dibutuhkan, tanpa membangun ulang:
+#
+#     setprop persist.a37.bootwatchdog.diag 1
+#
+# Laporan saat boot GAGAL tetap ditulis apa adanya di bawah; yang dikendalikan
+# flag ini hanya perekaman selama boot BERJALAN.
+DIAG="$(getprop persist.a37.bootwatchdog.diag)"
+
 snapshot() {
+    [ "$DIAG" = "1" ] || return 0
     for CD in /cache/bootfail /data/bootfail; do
         mkdir -p "$CD" 2>/dev/null || continue
         # Streaming dimulai DI SINI, bukan sebelum loop. Pengaman ini hidup sejak

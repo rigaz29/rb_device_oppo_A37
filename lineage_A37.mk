@@ -127,7 +127,16 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # mencolokkan USB. Pilihan sadar untuk perangkat uji. JANGAN DIBAGIKAN.
 #
 # Cara mematikan nanti: KOMENTARI baris di bawah. Jangan setel `false`.
-WITH_ADB_INSECURE := true
+#
+# DICABUT 13 September 2026 untuk rilis publik pertama. Dikomentari, BUKAN
+# disetel `false`, persis seperti peringatan di atas: `ifdef` bernilai benar
+# untuk nilai apa pun yang tidak kosong, dan itu sudah terbukti sekali di
+# build 20260808_130028 -- ro.adb.secure tetap 0 meski flag sudah "false".
+#
+# Akibatnya dua, sesuai catatan di atas: ro.adb.secure kembali 1 sehingga adb
+# menuntut otorisasi RSA, dan PRODUCT_NOT_DEBUGGABLE_IN_USERDEBUG kembali
+# berlaku sehingga ro.debuggable=0 dan `adb root` tertutup.
+#WITH_ADB_INSECURE := true
 
 # Kunci adb build machine, supaya `adb shell` jalan tanpa dialog RSA di layar
 # yang mungkin tak pernah menyala.
