@@ -77,18 +77,40 @@
     </hal>
     <hal format="hidl">
         <name>android.hardware.camera.provider</name>
-        <!-- TETAP passthrough. Pernah diubah jadi hwbinder (build
-             20260803_161352) untuk menghentikan restart loop
-             vendor.camera-provider-2-4, dan hasilnya layar hitam di
-             homescreen — HAL kamera pindah ke prosesnya sendiri dan sesuatu
-             di rantai itu tidak beres.
+        <!-- BINDERIZED, dan di build 64-bit ini tidak ada pilihan lain.
 
-             Loop-nya sendiri sekarang dihentikan dari sisi lain: paket
-             @2.4-service (binderized) tidak lagi dipasang di device.mk,
-             sehingga tidak ada yang mencoba registerAsService() dan ditolak.
-             Yang dipakai hanya @2.4-impl lewat passthrough, persis seperti
-             build 20260803_140427 yang terbukti jalan. -->
-        <transport arch="32+64">passthrough</transport>
+             Passthrough berarti .so HAL dimuat KE DALAM proses kliennya, yaitu
+             cameraserver. Di build arm64 cameraserver adalah proses 64-bit,
+             sedangkan camera.vendor.msm8916.so hanya ada 32-bit — Qualcomm tidak
+             pernah merilis HAL kamera 64-bit untuk msm8916. Proses 64-bit tidak
+             bisa memuat pustaka 32-bit, jadi jalur passthrough mati secara
+             ARSITEKTURAL, bukan karena bug yang bisa ditambal.
+
+             Yang mengambil alih: android.hardware.camera.provider@2.4-service,
+             yang AOSP 13 sudah sediakan dengan compile_multilib "32"
+             (hardware/interfaces/camera/provider/2.4/default/Android.bp:180-183).
+             Ia proses 32-bit tersendiri, memuat @2.4-impl 32-bit lewat
+             defaultPassthroughServiceImplementation, dan berbicara dengan
+             cameraserver 64-bit lewat binder.
+
+             RIWAYAT YANG HARUS DIINGAT. Kombinasi hwbinder pernah dicoba di build
+             32-bit 20260803_161352 dan hasilnya LAYAR HITAM di homescreen; akarnya
+             tidak pernah ditemukan, dan jalur passthrough dipilih untuk
+             menghindarinya. Dua hal berbeda sekarang:
+               1. Preseden berhasil: ROM LOS 23.2 64-bit menjalankan camera provider
+                  sebagai proses 32-bit terpisah dan boot normal di perangkat ini.
+               2. Alat diagnosis ada: kernel lineage-24 membawa LOG_BUF_SHIFT=19
+                  (dmesg 512 KB), yang tidak dimiliki percobaan 2026-08-03.
+
+             KALAU LAYAR HITAM TERULANG: kumpulkan logcat cameraserver +
+             vendor.camera-provider-2-4 + SurfaceFlinger, `lshal | grep camera`, dan
+             dmesg SEBELUM menyimpulkan apa pun. Rencana cadangan HAL3on1 ada di
+             PLAN-64BIT sec.4.1. JANGAN kembali ke passthrough — di build 64-bit ia
+             tidak akan pernah bekerja.
+
+             CARA MENGEMBALIKAN ke 32-bit: transport kembali ke passthrough DAN
+             buang @2.4-service dari device.mk, bersama pengembalian TARGET_ARCH. -->
+        <transport>hwbinder</transport>
         <version>2.4</version>
         <interface>
             <name>ICameraProvider</name>
