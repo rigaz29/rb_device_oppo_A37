@@ -72,6 +72,27 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 #WITH_ADB_INSECURE := true
 
 # Inherit from those products. Most specific first.
+#
+# BUILD 64-BIT: core_64_bit.mk menyediakan init.zygote64.rc, init.zygote64_32.rc,
+# dan ro.zygote. TANPA ZYGOTE_FORCE_64 nilainya zygote64_32 -- zygote 64-bit
+# dengan anak 32-bit.
+#
+# zygote64_32 DIPILIH, berbeda dari proyek LOS 23.2 yang memakai ZYGOTE_FORCE_64.
+# Alasannya dua, dan keduanya khas Android 13:
+#   1. Alasan 23.2 memakai satu zygote sudah sebagian hilang -- tumpukan EGL
+#      32-bit lengkap (9 driver + libgsl + libadreno_utils) sudah dibawa cabang
+#      vendor lineage-20-64bit, dan itulah yang dulu menjatuhkan zygote_secondary.
+#   2. Di Android 13 aplikasi 32-bit-saja masih banyak. zygote64 membuat
+#      ro.product.cpu.abilist hanya berisi arm64-v8a, sehingga aplikasi seperti
+#      itu TIDAK BISA DIPASANG sama sekali. Di Android 16 pertukaran itu wajar;
+#      di Android 13 tidak.
+#
+# Ongkosnya dua boot image ART di memori. Itu harus DIUKUR di Fase 8, bukan
+# diasumsikan; kalau RAM tidak cukup, `ZYGOTE_FORCE_64 := true` satu baris --
+# taruh SEBELUM baris inherit ini (gerbangnya core_64_bit.mk:30).
+#
+# Buang baris ini kalau kembali ke build 32-bit.
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_l.mk)
 $(call inherit-product, device/oppo/A37/device.mk)

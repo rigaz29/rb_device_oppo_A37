@@ -132,12 +132,36 @@ BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 
 # Architecture
-TARGET_BOARD_SUFFIX := _32
-TARGET_ARCH := arm
+#
+# BUILD 64-BIT. Userspace arm64 dengan arsitektur kedua arm, karena blob kamera
+# msm8916 hanya ada 32-bit: Qualcomm tidak pernah merilis HAL kamera 64-bit
+# untuk SoC ini, dan ROM LOS 17.1 64-bit A37 pun menjalankannya sebagai proses
+# 32-bit. Diukur di Fase 0 atas set blob yang benar-benar dikirim LOS 20:
+#   114 pustaka naik ke vendor/lib64, 159 tetap 32-bit (129 di antaranya kamera),
+#    71 dikirim dua arch. Seluruh 13 biner vendor/bin tetap 32-bit.
+#
+# Kernel TIDAK berubah: TARGET_KERNEL_ARCH sudah arm64 sejak Fase 1 proyek ini,
+# dan selama ini menjalankan userspace 32-bit lewat compat layer.
+#
+# WAJIB BERPASANGAN dengan vendor/oppo cabang lineage-20-64bit. Keduanya tidak
+# bisa hidup terpisah: Android.bp vendor 64-bit mendefinisikan libtime_genoff
+# sebagai arm64-saja, sehingga pada TARGET_ARCH=arm modul itu tidak ada dan
+# enforce-product-packages-exist menggagalkan build sebelum mengompilasi apa pun
+# ("non-existent modules in PRODUCT_PACKAGES: libtime_genoff"). Kebalikannya
+# juga berlaku. Kembali ke 32-bit berarti mengembalikan KEDUANYA.
+TARGET_BOARD_SUFFIX := _64
+TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
-TARGET_CPU_ABI := armeabi-v7a
-TARGET_CPU_ABI2 := armeabi
+TARGET_CPU_ABI := arm64-v8a
 TARGET_CPU_VARIANT := cortex-a53
+
+TARGET_2ND_ARCH := arm
+TARGET_2ND_ARCH_VARIANT := armv8-a
+TARGET_2ND_CPU_ABI := armeabi-v7a
+TARGET_2ND_CPU_ABI2 := armeabi
+TARGET_2ND_CPU_VARIANT := cortex-a53
+
+TARGET_SUPPORTS_64_BIT_APPS := true
 
 # Binder
 TARGET_USES_64_BIT_BINDER := true
