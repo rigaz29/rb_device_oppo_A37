@@ -77,40 +77,43 @@
     </hal>
     <hal format="hidl">
         <name>android.hardware.camera.provider</name>
-        <!-- BINDERIZED, dan di build 64-bit ini tidak ada pilihan lain.
+        <!-- TETAP passthrough, TERMASUK di build 64-bit.
 
-             Passthrough berarti .so HAL dimuat KE DALAM proses kliennya, yaitu
-             cameraserver. Di build arm64 cameraserver adalah proses 64-bit,
-             sedangkan camera.vendor.msm8916.so hanya ada 32-bit — Qualcomm tidak
-             pernah merilis HAL kamera 64-bit untuk msm8916. Proses 64-bit tidak
-             bisa memuat pustaka 32-bit, jadi jalur passthrough mati secara
-             ARSITEKTURAL, bukan karena bug yang bisa ditambal.
+             KOREKSI 13 Sep 2026. Fase 4 sempat memindahkannya ke hwbinder dengan
+             alasan "cameraserver di build arm64 adalah proses 64-bit sehingga tidak
+             bisa memuat camera.vendor.msm8916.so yang 32-bit". Alasan itu SALAH, dan
+             audit closure Fase 7 atas image yang benar-benar terbangun membuktikannya:
 
-             Yang mengambil alih: android.hardware.camera.provider@2.4-service,
-             yang AOSP 13 sudah sediakan dengan compile_multilib "32"
-             (hardware/interfaces/camera/provider/2.4/default/Android.bp:180-183).
-             Ia proses 32-bit tersendiri, memuat @2.4-impl 32-bit lewat
-             defaultPassthroughServiceImplementation, dan berbicara dengan
-             cameraserver 64-bit lewat binder.
+               bin/cameraserver          TIDAK DIKIRIM
+               bin/mediaserver           ELF 32-bit LSB pie executable
+               lib/libcameraservice.so   ELF 32-bit saja
 
-             RIWAYAT YANG HARUS DIINGAT. Kombinasi hwbinder pernah dicoba di build
-             32-bit 20260803_161352 dan hasilnya LAYAR HITAM di homescreen; akarnya
-             tidak pernah ditemukan, dan jalur passthrough dipilih untuk
-             menghindarinya. Dua hal berbeda sekarang:
-               1. Preseden berhasil: ROM LOS 23.2 64-bit menjalankan camera provider
-                  sebagai proses 32-bit terpisah dan boot normal di perangkat ini.
-               2. Alat diagnosis ada: kernel lineage-24 membawa LOG_BUF_SHIFT=19
-                  (dmesg 512 KB), yang tidak dimiliki percobaan 2026-08-03.
+             Di LOS 20 servis kamera ditaut KE DALAM mediaserver, bukan berdiri
+             sendiri: vendor/lineage/build/soong/Android.bp:326
+             camera_in_mediaserver_defaults bergerbang has_legacy_camera_hal1 dan
+             berisi overrides:["cameraserver"] (dihidupkan seri patch kita sendiri,
+             vendor_lineage/0010). Dan mediaserver ber-compile_multilib "prefer32"
+             dari AOSP sendiri (frameworks/av/media/mediaserver/Android.bp), jadi ia
+             32-bit bahkan pada TARGET_ARCH=arm64.
 
-             KALAU LAYAR HITAM TERULANG: kumpulkan logcat cameraserver +
-             vendor.camera-provider-2-4 + SurfaceFlinger, `lshal | grep camera`, dan
-             dmesg SEBELUM menyimpulkan apa pun. Rencana cadangan HAL3on1 ada di
-             PLAN-64BIT sec.4.1. JANGAN kembali ke passthrough — di build 64-bit ia
-             tidak akan pernah bekerja.
+             Klien HAL kamera karena itu 32-bit, dan passthrough memuat blob 32-bit
+             persis seperti di ROM 32-bit. Tidak ada yang mati secara arsitektural.
 
-             CARA MENGEMBALIKAN ke 32-bit: transport kembali ke passthrough DAN
-             buang @2.4-service dari device.mk, bersama pengembalian TARGET_ARCH. -->
-        <transport>hwbinder</transport>
+             KENAPA KEMBALI KE SINI, bukan sekadar boleh: jalur passthrough TERBUKTI
+             jalan di perangkat ini, sedangkan hwbinder punya riwayat LAYAR HITAM di
+             homescreen (build 20260803_161352) yang akarnya tidak pernah ditemukan.
+             Memilih jalur dengan bukti kegagalan, demi alasan yang ternyata tidak
+             ada, adalah pertukaran yang buruk.
+
+             Paket @2.4-service (binderized) karena itu TIDAK dipasang di device.mk.
+             Memasang keduanya sekaligus adalah sumber restart loop 5 detik: service
+             binderized memanggil registerAsService(), ditolak karena transport di
+             manifest bukan HWBINDER (ServiceManagement.cpp:838-847), lalu keluar dan
+             di-restart init selamanya.
+
+             Pelajaran yang dicatat: jangan menyimpulkan dari nama proses tanpa
+             memeriksa apakah proses itu benar-benar ada di image. -->
+        <transport arch="32+64">passthrough</transport>
         <version>2.4</version>
         <interface>
             <name>ICameraProvider</name>

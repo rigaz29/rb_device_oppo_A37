@@ -275,36 +275,33 @@ PRODUCT_COPY_FILES += \
 
 # Camera
 #
-# BUILD 64-BIT: @2.4-service (binderized) DIPASANG, dan manifest.xml dipindahkan
-# dari passthrough ke hwbinder. Ini bukan penyetelan melainkan keharusan
-# arsitektural.
+# @2.4-service (binderized) SENGAJA TIDAK dipasang; yang dipakai hanya @2.4-impl
+# lewat jalur passthrough, sesuai deklarasi passthrough di manifest.xml.
 #
-# Passthrough memuat .so HAL ke DALAM proses kliennya, yaitu cameraserver. Di
-# build arm64 cameraserver adalah proses 64-bit, sedangkan
-# camera.vendor.msm8916.so hanya ada 32-bit (Qualcomm tidak pernah merilis HAL
-# kamera 64-bit untuk msm8916; Fase 0 mengukur 129 dari 159 pustaka yang tetap
-# 32-bit adalah kamera/JPEG). Proses 64-bit tidak bisa memuat pustaka 32-bit.
+# KOREKSI 13 Sep 2026. Fase 4 sempat memasang @2.4-service dan memindahkan
+# transport ke hwbinder, dengan alasan "cameraserver di build arm64 adalah proses
+# 64-bit sehingga tidak bisa memuat camera.vendor.msm8916.so yang 32-bit". Alasan
+# itu SALAH. Audit Fase 7 atas image yang benar-benar terbangun:
 #
-# @2.4-service sudah disediakan AOSP 13 dengan compile_multilib "32"
-# (hardware/interfaces/camera/provider/2.4/default/Android.bp:180-183) — tidak
-# ada yang perlu ditulis. Ia proses 32-bit tersendiri yang memuat @2.4-impl
-# 32-bit lewat defaultPassthroughServiceImplementation("legacy/0"), lalu bicara
-# dengan cameraserver 64-bit lewat binder. sepolicy-nya pun sudah ada di hulu:
-# system/sepolicy/vendor/file_contexts:25 melabelinya hal_camera_default_exec.
+#   bin/cameraserver          TIDAK DIKIRIM
+#   bin/mediaserver           ELF 32-bit LSB pie executable
+#   lib/libcameraservice.so   ELF 32-bit saja
 #
-# @2.4-impl TETAP dipasang dan itu WAJIB — service binderized men-dlopen-nya.
-# Ia cc_library_shared tanpa compile_multilib eksplisit, jadi terbangun untuk
-# kedua arch dan varian 32-bitnyalah yang dipakai service ini.
+# Servis kamera LOS 20 ditaut KE DALAM mediaserver lewat
+# camera_in_mediaserver_defaults (vendor/lineage/build/soong/Android.bp:326,
+# bergerbang has_legacy_camera_hal1, berisi overrides:["cameraserver"]) yang
+# dihidupkan seri patch kita sendiri. Dan mediaserver ber-compile_multilib
+# "prefer32" dari AOSP, jadi 32-bit bahkan pada TARGET_ARCH=arm64.
 #
-# RIWAYAT: kombinasi hwbinder pernah dicoba di build 32-bit 20260803_161352 dan
-# hasilnya layar hitam di homescreen, akar tidak ditemukan. Yang berbeda
-# sekarang: ROM LOS 23.2 64-bit menjalankan camera provider sebagai proses
-# 32-bit terpisah dan boot normal di perangkat ini, dan kernel lineage-24
-# membawa dmesg 512 KB untuk diagnosis. Rencana cadangan HAL3on1: PLAN-64BIT
-# sec.4.1. JANGAN kembali ke passthrough di build 64-bit — ia tidak akan pernah
-# bekerja.
+# Klien HAL kameranya 32-bit, jadi passthrough memuat blob 32-bit persis seperti di
+# ROM 32-bit. Tidak ada yang mati secara arsitektural, dan jalur inilah yang TERBUKTI
+# jalan di perangkat ini -- sedangkan hwbinder punya riwayat layar hitam di
+# homescreen (build 20260803_161352) dengan akar yang tidak pernah ditemukan.
+#
+# Memasang keduanya sekaligus adalah sumber restart loop 5 detik: service binderized
+# memanggil registerAsService(), ditolak karena transport menurut manifest bukan
+# HWBINDER (ServiceManagement.cpp:838-847), lalu keluar dan di-restart init selamanya.
 PRODUCT_PACKAGES += \
-    android.hardware.camera.provider@2.4-service \
     android.hardware.camera.provider@2.4-impl \
     camera.device@1.0-impl \
     libshim_camera \
