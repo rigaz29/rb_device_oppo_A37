@@ -595,7 +595,23 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # system_prop.mk:65 — dan ROM gt58wifi yang boot, system-build.prop:69).
 # linkerconfig (system/linkerconfig/modules/environment.cc:27) membaca properti
 # ini; kosong = namespace VNDK tidak dibangun. Bukan BOARD_VNDK_VERSION: itu
-# ikut membangun vndk_package yang tidak dipakai non-treble 32-bit ini.
+# ikut membangun vndk_package yang tidak dipakai perangkat non-treble ini.
+#
+# BUILD 64-BIT: keputusan ini ikut menyelamatkan rantai RIL dan kamera, dan itu
+# baru disadari di Fase 5. Karena BOARD_VNDK_VERSION tidak disetel, penegakan
+# VNDK mati -- modul vendor boleh menaut pustaka platform, dan namespace vendor
+# di runtime tidak mengisolasinya.
+#
+# Yang bergantung padanya, diverifikasi 13 Sep 2026:
+#   libril-qc-qmi-1.so 32-bit  DT_NEEDED libmedia.so, libsqlite.so, libxml2.so
+#   libshim_camera (modul VENDOR) menaut libmedia, libstagefright, libui, libsensor
+# libsqlite dan libxml2 punya vendor_available:true + vndk, tetapi libmedia TIDAK
+# punya vendor_available sama sekali. Di proyek LOS 23.2 celah itu memaksa mereka
+# membangun stub libmedia_a37_vendor; di sini tidak perlu, karena VNDK memang tidak
+# ditegakkan. Terbukti: ketiganya terbangun 32-bit ke system/lib, dan
+# libshim_camera terbangun di KEDUA arch.
+#
+# JANGAN menyetel BOARD_VNDK_VERSION tanpa menyiapkan stub-stub itu lebih dulu.
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.vndk.version=current
 
