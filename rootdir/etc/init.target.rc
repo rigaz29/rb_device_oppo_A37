@@ -89,6 +89,31 @@ on post-fs
     write /proc/sys/vm/dirty_ratio 30
     write /proc/sys/vm/vfs_cache_pressure 65
 
+    # Nyalakan kembali deteksi task menggantung (T-B7, 14 Sep 2026).
+    #
+    # Kernel sudah dikonfigurasi untuk ini -- CONFIG_DETECT_HUNG_TASK=y dan
+    # CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=90 di lineageos_a37f_defconfig:46-47 --
+    # tetapi init.rc bawaan AOSP baris 295 (blok "on init") menulis 0 ke
+    # hung_task_timeout_secs dan mematikannya. Terukur di perangkat sebelum
+    # perubahan: hung_task_timeout_secs = 0. Blok "on post-fs" ini berjalan
+    # SETELAH "on init", jadi nilainya menang.
+    #
+    # 90 memakai nilai yang sudah ada di defconfig, bukan angka baru.
+    # sysctl_hung_task_warnings default 10 membatasi jumlah laporan.
+    #
+    # hung_task_panic SENGAJA TIDAK ditulis di sini. BoardConfig.mk:267 meminta
+    # hung_task_panic=1 lewat cmdline sebagai jaring pengaman boot, dan
+    # parameter itu MEMANG sampai (terbaca di /proc/cmdline). Tetapi sysctl-nya
+    # terbaca 0 di perangkat, padahal kernel/hung_task.c:51-57 punya
+    # __setup("hung_task_panic=") dan tidak ada penulis sysctl lain selain
+    # init.rc AOSP yang hanya menyentuh timeout. Percanggahan itu BELUM
+    # terjelaskan -- butuh dmesg boot yang segar. Menulis nilai apa pun di sini
+    # akan mengubur pertanyaannya: menulis 0 mematikan permanen niat
+    # BoardConfig, menulis 1 mempersenjatai reboot yang selama ini tidak pernah
+    # aktif. Dibiarkan apa adanya, sehingga menyalakan detektor hanya menambah
+    # PELAPORAN, bukan mengubah perilaku saat hang terdeteksi.
+    write /proc/sys/kernel/hung_task_timeout_secs 90
+
 on post-fs-data
     # deadline lebih cocok untuk eMMC daripada cfq (latency lebih rendah,
     # throughput lebih tinggi untuk random I/O).
@@ -122,6 +147,35 @@ on property:sys.boot_completed=1
     write /sys/module/process_reclaim/parameters/swap_opt_eff 30
     write /sys/module/process_reclaim/parameters/pressure_min 50
     write /sys/module/process_reclaim/parameters/per_swap_size 512
+
+    # GPU: level istirahat 200 MHz, bukan 310 MHz bawaan (T-B6, 14 Sep 2026).
+    #
+    # default_pwrlevel menentukan frekuensi yang dituju Adreno saat kembali dari
+    # idle; indeksnya 0=400, 1=310, 2=200 MHz. Terukur di perangkat ini sebelum
+    # perubahan: default_pwrlevel = 1 dan gpuclk = 310000000 saat menganggur,
+    # jadi GPU memang TIDAK PERNAH turun ke 200 MHz.
+    #
+    # Pengukuran dampaknya berasal dari proyek LOS 23.2 pada perangkat yang sama
+    # (4 Sep 2026), dua jendela menganggur 90 detik dengan layar dijaga menyala:
+    #
+    #                     pwrlevel=1        pwrlevel=2
+    #     400 MHz            650 ms             0 ms
+    #     310 MHz         89.446 ms        47.007 ms
+    #     200 MHz              0 ms        43.083 ms
+    #
+    # min_pwrlevel/max_pwrlevel SENGAJA tidak disentuh: rentang penuh 200..400
+    # tetap diizinkan, jadi GPU masih bebas naik ke 400 MHz saat beban menuntut.
+    # Yang dibatasi hanya titik istirahatnya.
+    #
+    # BELUM terbukti: dampaknya ke daya tahan baterai. Yang terukur hanya waktu
+    # di tiap frekuensi. Pada ponsel menganggur, layar dan SoC jauh lebih
+    # dominan daripada rel GPU.
+    #
+    # Disetel di boot_completed, bukan on boot, supaya driver KGSL pasti siap.
+    # Power HAL perangkat ini tidak menyentuh kgsl -- diperiksa ulang 14 Sep
+    # 2026 setelah T-B3 menambah penanganan hint baru: nol kecocokan "kgsl" di
+    # power/, yang hanya menyentuh cpufreq dan interactive.
+    write /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2
     # EMPAT baris /sys/module/lowmemorykiller/parameters/* DIBUANG dari sini:
     #   enable_adaptive_lmk 0
     #   lmk_fast_run 0

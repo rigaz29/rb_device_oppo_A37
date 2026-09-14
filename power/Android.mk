@@ -21,5 +21,6 @@ LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := power.msm8916
+LOCAL_HEADER_LIBRARIES += libhardware_headers libutils_headers
 LOCAL_PROPRIETARY_MODULE      := true
 include $(BUILD_SHARED_LIBRARY)

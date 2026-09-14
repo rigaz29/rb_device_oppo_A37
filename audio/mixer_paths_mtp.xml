@@ -503,6 +503,31 @@
     <!-- Gionee Driver, XiongLin, 20150412, enable ext Spk PA. -->
 
   <path name="speaker">
+        <!-- Volume digital jalur speaker, disetel EKSPLISIT (T-B6, 14 Sep 2026).
+             Jalur ini tidak pernah menyetelnya, sehingga nilainya diwarisi dari
+             jalur yang kebetulan berjalan sebelumnya. Terbaca di berkas ini:
+               baris  25  default global   86
+               baris 525  handset          84
+               baris 563/572/581/592       90 / 84 / 84 / 78
+             Diukur di perangkat: tinymix melaporkan 86 setelah boot, cocok
+             dengan default global. Jadi sesudah menelepon (handset = 84) volume
+             speaker turun sendiri dan tidak kembali sampai boot berikutnya.
+             Volume yang bergantung riwayat pemakaian, bukan konfigurasi.
+
+             Berkas INI yang dipakai A37, bukan mixer_paths.xml: sound card
+             perangkat bernama msm8x16-snd-card-mtp (/proc/asound/cards), dan
+             query_platform() di hardware/qcom-caf/msm8916/audio/hal/msm8916/
+             platform.c:838-841 memetakan nama itu ke MIXER_XML_PATH_MTP.
+             mixer_paths.xml sengaja TIDAK disentuh; jalur speaker di sana
+             berbeda isinya dan tidak pernah dibaca perangkat ini.
+
+             96 berasal dari uji dengar bertahap proyek LOS 23.2 pada perangkat
+             yang sama: 86 dan 96 sama-sama bersih, 106 tidak dipakai. Ditahan
+             jauh di bawah maksimum register 124 karena ini gain DIGITAL sebelum
+             amp; terlalu tinggi menghasilkan clipping yang terdengar sebagai
+             bass pecah, bukan sekadar lebih keras. Yang diperbaiki terutama
+             KETIDAKPASTIANNYA, terlepas dari angka yang dipilih. -->
+        <ctl name="RX1 Digital Volume" value="96" />
         <ctl name="MI2S_RX Channels" value="One" />
         <ctl name="RX1 MIX1 INP1" value="RX1" />
         <ctl name="HPHL" value="Switch" />

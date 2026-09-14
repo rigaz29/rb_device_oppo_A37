@@ -900,6 +900,24 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     libwpa_client
 
+# WireGuard (T-B4, 14 September 2026)
+#
+# Modul kernelnya sudah built-in dan TERBUKTI hidup di perangkat ini:
+# CONFIG_WIREGUARD=y di lineageos_a37f_defconfig:138 (defconfig yang benar-benar
+# dipakai, BoardConfig.mk:275), /sys/module/wireguard ada, dan
+# "ip link add dev wgtest type wireguard" berhasil membuat interface.
+#
+# Yang hilang cuma alat userspace-nya: /system/bin/wg tidak ada di ROM. Tanpa
+# itu modul kernel tak bisa dipakai dari shell -- pembuatan interface,
+# penyetelan kunci, dan penambahan peer semuanya lewat netlink WireGuard yang
+# hanya alat ini yang bicara. Aplikasi WireGuard Android membawa alatnya
+# sendiri dan tidak bergantung pada ini.
+#
+# Sumbernya di wireguard-tools/ pada device tree ini, bukan di external/ --
+# lihat Android.bp di sana untuk alasannya.
+PRODUCT_PACKAGES += \
+    wg
+
 PRODUCT_PACKAGES += \
     hostapd \
     wpa_supplicant \
