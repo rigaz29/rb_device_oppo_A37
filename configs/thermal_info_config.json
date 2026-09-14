@@ -118,10 +118,10 @@
             "HotThreshold": [
                 "NAN",
                 "NAN",
-                55.0,
-                62.0,
-                70.0,
+                65.0,
+                72.0,
                 80.0,
+                90.0,
                 "NAN"
             ],
             "VrThreshold": "NAN",

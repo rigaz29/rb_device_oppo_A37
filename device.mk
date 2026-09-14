@@ -780,6 +780,34 @@ PRODUCT_COPY_FILES += \
 #      lebih panas, karena itu die BMS/PMIC.
 #   2. pm8916_tz: USB_PORT -> SKIN. Satu-satunya sensor tingkat-papan yang
 #      responsif, dan USB_PORT tidak punya pembaca sama sekali di services/core.
+#
+#      AMBANGNYA DIKOREKSI 14 Sep 2026 malam, setelah peringatan termal muncul
+#      tiap kali kamera dibuka. Angka lama [-, -, 55, 62, 70, 80, -] adalah
+#      TEBAKAN saya dari pengukuran 70 detik (35,9 -> 46,6). Pengukuran yang
+#      lebih panjang membantahnya:
+#
+#        idle, dicolok charger        35 - 42 C
+#        beban 4 inti, mendatar       57 C     (lewat 55 dalam 60 detik)
+#        trip kernel sensor ini       hot 105 C, critical 145 C
+#
+#      Jadi framework meneriakkan MODERATE saat perangkat keras belum mendekati
+#      batasnya, dan marginnya hanya 2 derajat di atas dataran beban penuh.
+#      Aperture menampilkan snackbar mulai THERMAL_STATUS_MODERATE
+#      (CameraActivity.kt:437-440), sehingga setiap rekaman video memicunya.
+#      Ambang baru [-, -, 65, 72, 80, 90, -] memberi ~8 derajat di atas dataran
+#      terukur.
+#
+#      Perlu dicatat: sensor ini die PMIC, dan PMIC menangani pengisian daya.
+#      Terukur saat CPU idle dan charger tercolok, ia duduk ~9 derajat di atas
+#      suhu baterai. Jadi ia BUKAN proxy kulit yang murni; sebagian panasnya
+#      datang dari mengisi daya, bukan dari beban. Itu diterima karena tetap
+#      satu-satunya sensor tingkat-papan yang responsif di perangkat ini.
+#
+#      Ambang tsens CPU SENGAJA tidak disentuh walau juga terlewati saat beban
+#      penuh (65/70 versus puncak 70). Sensor bertipe CPU tidak menentukan status
+#      termal global -- hanya SKIN yang menentukannya
+#      (ThermalManagerService.java:205) -- sehingga tidak memicu peringatan
+#      apa pun, dan slot SHUTDOWN-nya sudah NAN.
 #   3. SHUTDOWN dicabut (jadi NAN) di seluruh sensor proxy: empat tsens CPU
 #      (dulu 85) dan pm8916_tz (dulu 120). Alasannya konsisten dengan sifat HAL
 #      ini: mitigasi milik kernel msm_thermal, bukan framework. Mematikan telepon
