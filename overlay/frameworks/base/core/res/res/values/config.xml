@@ -280,7 +280,7 @@
                odex-nya ada di oat/arm64/, bukan oat/arm/.
 
            /system/lib/libsurfaceflinger.so               DIBUANG
-               Tidak ada di /system/lib MAUPUN /system/lib64 -- Android 13 tidak
+               Tidak ada di /system/lib MAUPUN /system/lib64; Android 13 tidak
                mengirimnya sebagai pustaka terpisah sama sekali. Sengaja tidak
                diganti /system/bin/surfaceflinger: tidak ada pengukuran yang
                menunjukkan mem-pin-nya membantu, dan prosesnya toh selalu jalan
@@ -293,11 +293,11 @@
                Dua alasan terpisah, masing-masing sudah cukup. Pertama, SystemUI
                di ROM ini DIPREOPT DI IMAGE (system_ext/priv-app/SystemUI/oat/
                arm64/) dan /data/dalvik-cache tidak memuat entri SystemUI sama
-               sekali -- jadi jalur dalvik-cache mana pun akan tetap gagal.
+               sekali — jadi jalur dalvik-cache mana pun akan tetap gagal.
                Kedua, entri itu memang tidak perlu: PinnerService.java:315-336
                otomatis mencari dan mem-pin artefak kompilasi untuk setiap entri
                berakhiran .jar atau .apk, memakai Build.SUPPORTED_ABIS[0].
-               Terbukti hidup di perangkat -- "dumpsys pinner" memuat
+               Terbukti hidup di perangkat — "dumpsys pinner" memuat
                boot-framework.oat dan .vdex arm64 yang TIDAK ada di daftar ini,
                diturunkan dari entri framework.jar.
 
@@ -313,7 +313,7 @@
 
          Itu pertukaran nyata di perangkat 2 GB: pinning membantu justru saat
          memori tertekan, tetapi RAM terkunci juga paling menyakitkan saat itu.
-         Kalau terasa memperburuk, hapus dua entri terakhir -- bukan seluruh
+         Kalau terasa memperburuk, hapus dua entri terakhir — bukan seluruh
          daftar, karena lima entri framework di atas sudah benar dan murah. -->
     <string-array translatable="false" name="config_defaultPinnerServiceFiles">
         <item>"/system/framework/arm/boot-framework.oat"</item>
