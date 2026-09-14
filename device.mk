@@ -715,6 +715,69 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.usb.accessory.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.accessory.xml
 
+# Thermal HAL 2.0 (T-A3, 14 September 2026)
+#
+# Sebelum ini perangkat TIDAK punya HAL thermal sama sekali, sehingga seluruh API
+# termal framework mati: PowerManager.getCurrentThermalStatus(), listener status
+# termal, dan thermal headroom. Terukur di perangkat sebelum perubahan --
+# dumpsys thermalservice memuat enam listener terdaftar yang menunggu data yang
+# tidak pernah datang.
+#
+# PERLU DITEGASKAN: HAL ini TIDAK menambah proteksi panas. Mitigasi tetap
+# sepenuhnya di kernel (msm_thermal). Yang ditambahkan murni PELAPORAN status ke
+# framework.
+#
+# HIDL 2.0, bukan AIDL. Di Android 13 itu bukan sekadar boleh melainkan jalur
+# UTAMA: ThermalManagerService.java:141 mencoba ThermalHal20Wrapper lebih dulu,
+# dan wrapper AIDL belum ada sama sekali di rilis ini (baru Android 14).
+#
+# Config sensor BUKAN salinan mentah a6010. Delapan zona dicocokkan lalu diukur
+# di A37 sendiri (14 Sep 2026, beban 4 core 70 detik, idle -> puncak):
+#   tsens_tz_sensor0/1/2/4/5  zone0-4  derajat C bulat   37-40  ->  53-62   (+20)
+#   pm8916_tz                 zone5    milli-derajat     35,9  ->  46,6    (+10,7)
+#   battery                   zone6    milli-derajat     32,9  ->  33,6    (+0,7)
+#   bms                       zone7    milli-derajat     42,8  ->  43,6    (+0,8)
+#
+# Tiga koreksi terhadap config warisan, semuanya berakar pada satu fakta framework:
+# ThermalManagerService.java:205 menetapkan HANYA sensor bertipe SKIN yang
+# menentukan status termal global, dan :269-288 mengubah status SHUTDOWN pada tipe
+# CPU/GPU/NPU/SKIN/BATTERY menjadi PowerManager.shutdown() sungguhan.
+#
+#   1. bms: SKIN -> UNKNOWN, semua ambang NAN. Ia naik cuma 0,8 derajat di bawah
+#      beban penuh, jadi sebagai SKIN ia akan mengunci status global di NONE
+#      selamanya -- HAL terpasang tetapi tidak melaporkan apa pun. Ia juga bukan
+#      suhu baterai: baterai sungguhan 32,9 sementara bms 42,8, sepuluh derajat
+#      lebih panas, karena itu die BMS/PMIC.
+#   2. pm8916_tz: USB_PORT -> SKIN. Satu-satunya sensor tingkat-papan yang
+#      responsif, dan USB_PORT tidak punya pembaca sama sekali di services/core.
+#   3. SHUTDOWN dicabut (jadi NAN) di seluruh sensor proxy: empat tsens CPU
+#      (dulu 85) dan pm8916_tz (dulu 120). Alasannya konsisten dengan sifat HAL
+#      ini: mitigasi milik kernel msm_thermal, bukan framework. Mematikan telepon
+#      berdasar sensor proxy yang baru dikarakterisasi 70 detik bukan pertukaran
+#      yang pantas -- puncak 62 derajat pada tsens berarti beban berkelanjutan di
+#      hari panas bisa menyentuh 85 dan mematikan perangkat tanpa sebab nyata.
+#
+# battery mempertahankan SHUTDOWN 70: itu pembacaan langsung lagi akurat (cocok
+# persis dengan /sys/class/power_supply/battery/temp) dan baterai 70 derajat
+# memang peristiwa keselamatan. Trip kernel sendiri jauh di atas rentang nyata:
+# pm8916_tz critical 145, hot 125/105; tsens tidak punya trip shutdown.
+#
+# Sumber berkas: device tree a6010 (msm8916, SoC sama) lewat cabang lineage-23.
+PRODUCT_PACKAGES += \
+    android.hardware.thermal@2.0-service.msm8916
+
+# thermal-engine.conf TIDAK disalin. Berkas itu ikut dari device tree a6010,
+# tetapi daemon pembacanya (/vendor/bin/thermal-engine) tidak ada di A37: bukan
+# di blob vendor, bukan pula di ROM yang sedang jalan. Mitigasi di perangkat ini
+# dikerjakan tiga thread kernel msm_thermal (hot/fre/the). HAL sendiri hanya
+# membaca thermal_info_config.json lewat properti vendor.thermal.config
+# (thermal-helper.cpp:52). Menyalinnya hanya menambah berkas yang nol pembaca.
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/thermal_info_config.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json
+
+PRODUCT_PROPERTY_OVERRIDES += \
+    vendor.thermal.config=thermal_info_config.json
+
 # Vibrator
 PRODUCT_PACKAGES += \
     android.hardware.vibrator@1.0-impl

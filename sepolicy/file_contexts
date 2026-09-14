@@ -31,3 +31,8 @@
 # TimeKeep
 /sys/devices/soc\.0/qpnp-rtc-[0-9]/rtc/rtc0(/.*)?                         u:object_r:sysfs_rtc:s0
 /(system/vendor|vendor)/bin/timekeep                                      u:object_r:timekeep_exec:s0
+
+# Thermal HAL. AOSP hanya melabeli android.hardware.thermal@1.[01]-service dan
+# thermal-service.example (system/sepolicy/vendor/file_contexts:115-116); varian
+# @2.0-service.msm8916 yang dipakai perangkat ini tidak tercakup.
+/(vendor|system/vendor)/bin/hw/android\.hardware\.thermal@2\.0-service\.msm8916    u:object_r:hal_thermal_default_exec:s0
