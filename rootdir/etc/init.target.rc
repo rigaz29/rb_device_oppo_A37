@@ -80,9 +80,10 @@ on post-fs
     chmod 0222 /sys/kernel/debug/tracing/trace_marker
     swapon_all /vendor/etc/fstab.qcom
     write /proc/sys/vm/page-cluster 0
-    # swappiness 60: dengan LZ4 zram, swap murah — manfaatkan untuk
-    # menjaga lebih banyak app di background.
-    write /proc/sys/vm/swappiness 60
+    # swappiness 60 -> 100, 14 September 2026 (T-A2). Nilai 60 adalah default
+    # untuk swap ke DISK. Di sini swap-nya ke RAM terkompresi (zram LZ4), jauh
+    # lebih murah daripada membunuh aplikasi lalu memuatnya ulang dari eMMC.
+    write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_background_ratio 10
     write /proc/sys/vm/dirty_expire_centisecs 200
     write /proc/sys/vm/dirty_ratio 30

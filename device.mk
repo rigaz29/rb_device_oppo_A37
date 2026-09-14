@@ -448,10 +448,25 @@ PRODUCT_PACKAGES += \
     InProcessNetworkStack \
     com.android.tethering.inprocess
 
-# FM
-PRODUCT_PACKAGES += \
-    FMRadio \
-    libfmjni
+# FM — TIDAK ADA PAKET YANG DIPASANG.
+#
+# FMRadio dan libfmjni DIBUANG 14 September 2026 (T-A7).
+#
+# Aplikasi FMRadio di pohon LineageOS adalah varian MEDIATEK dan tidak akan
+# pernah bekerja di perangkat keras Qualcomm ini: packages/apps/FMRadio
+# meng-hardcode /dev/fm (jni/fmr/fm.h:78, jni/fmr/fmr.h:66), sedangkan
+# Qualcomm memakai /dev/radio0 lewat V4L2.
+#
+# Penggantinya tidak ada di hulu: LineageOS/android_hardware_qcom_fm berhenti
+# di lineage-17.0 dan LineageOS membuang dukungan FM Qualcomm setelah
+# Android 10. acroreiser sampai kesimpulan yang sama di msm8916 mereka —
+# mereka sempat mengimpor RevampedFMRadio lalu membuangnya lagi.
+#
+# YANG TETAP DIPERTAHANKAN: CONFIG_RADIO_IRIS di defconfig kernel (datang
+# bersama lineage-24) dan BOARD_HAVE_QCOM_FM di BoardConfig. Yang pertama
+# membentuk /dev/radio0 dengan ongkos 36 KB dan menjadi prasyarat solusi FM
+# apa pun nanti; yang kedua dibaca android_soong_config_vars.mk dan diteruskan
+# ke namespace soong qcom_bluetooth — bukan ke aplikasi FM.
 
 # Google Assistant
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -618,13 +633,29 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.config.low_ram=true
 
-# lmkd: kernel 3.10 tidak punya PSI (baru ada di 4.20+). Tanpa ini lmkd mencoba
-# PSI dulu di init_monitors() lalu baru jatuh ke vmpressure; menyetelnya eksplisit
-# memangkas percobaan yang pasti gagal. Nilai sama dengan ROM referensi.
-# Sumber tekanan memorinya CONFIG_MEMCG=y + in-kernel LMK mati — terverifikasi di
-# .config kernel branch lineage-19.1 (Fase 1.4).
+# lmkd: PSI DINYALAKAN 14 September 2026 (T-A6 sec.6 -> T-A1).
+#
+# ⚠️ KOREKSI. Komentar lama di sini berbunyi "kernel 3.10 tidak punya PSI (baru ada
+# di 4.20+)" dan menyetelnya false, dengan bukti dari ".config kernel branch
+# lineage-19.1". Premis itu BENAR untuk kernel itu, dan sudah KEDALUWARSA sejak
+# Fase 3: kernel lineage-20-64bit membawa backport PSI tanpa cgroup
+# (367e1f5c7d0), CONFIG_PSI=y, dan /proc/pressure/memory terbukti hidup di
+# perangkat — terukur 14 Sep 2026: some avg10=0,06 full avg10=0,03.
+#
+# lmkd Android 13 membacanya di lmkd.cpp:3330
+#   use_psi_monitors = GET_LMK_PROPERTY(bool, "use_psi", true) && init_psi_monitors();
+# Defaultnya memang true; baris false-lah yang selama ini mematikannya. Kalau
+# init_psi_monitors() gagal, lmkd JATUH SENDIRI ke vmpressure (lmkd.cpp:3333),
+# jadi menyalakannya tidak berisiko menghilangkan pelindung.
+#
+# Kenapa ini layak: vmpressure bekerja pada granularitas reclaim, PSI mengukur
+# waktu yang benar-benar hilang karena menunggu memori. Di perangkat 1,84 GB yang
+# lmkd-nya sudah membunuh tiga proses saat boot pertama, sinyal yang lebih tajam
+# berarti keputusan membunuh yang lebih tepat waktu.
+#
+# ro.lmk.use_new_strategy TETAP false — ia properti terpisah dan belum diukur.
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.lmk.use_psi=false \
+    ro.lmk.use_psi=true \
     ro.lmk.use_new_strategy=false
 
 # Properti baru 18.1 (Sumber: msm8916-common lineage-18.1 + a6000 ref)

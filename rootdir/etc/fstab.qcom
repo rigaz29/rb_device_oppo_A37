@@ -3,7 +3,13 @@
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
 /dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,recoveryonly
-/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
+# discard (TRIM) DINYALAKAN 14 September 2026 (T-A5). eMMC perangkat ini
+# mendukungnya — diverifikasi langsung, bukan diwarisi:
+#   /sys/block/mmcblk0/queue/discard_max_bytes    2199023255040 (~2 TB)
+#   /sys/block/mmcblk0/queue/discard_granularity  524288 (512 KB)
+# Tanpa TRIM, blok yang sudah dihapus tetap dianggap terpakai oleh controller
+# eMMC sehingga write amplification naik seiring umur pemakaian.
+/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard                   wait,check,formattable
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
@@ -30,4 +36,9 @@
 # lihat ref/evidence/ramdisk-fstab.qcom.
 /devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto
 /devices/platform/msm_hsusb*                 auto         auto    defaults                                                    voldmanaged=usb:auto
-/dev/block/zram0                             none         swap    defaults zramsize=268435456
+# zram 256 -> 768 MB, 14 September 2026 (T-A2).
+# Dengan LZ4 rasio ~2,5:1, 768 MB menampung ~1,9 GB data efektif; ongkosnya hanya
+# RAM yang benar-benar terisi. 768 MB = 40% dari 1,84 GB, batas atas rentang lazim
+# 25-50%. Diukur di perangkat 14 Sep 2026: zram 256 MB sudah terpakai 122 MB
+# (48%) hanya 4 menit sesudah boot -- ruangnya memang kurang.
+/dev/block/zram0                             none         swap    defaults zramsize=805306368
