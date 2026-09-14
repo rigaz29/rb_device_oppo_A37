@@ -33,6 +33,11 @@
 # biner @1.1-service.widevine tidak terlabeli tanpa entri ini.
 /(system/vendor|vendor)/bin/hw/android\.hardware\.drm@1\.1-service\.widevine    u:object_r:hal_drm_default_exec:s0
 
+# Direktori kerja CDM Widevine L3. init.qcom.rc membuat /data/vendor/mediadrm
+# di post-fs-data; CDM lalu membuat IDM<uid>/L3/ di bawahnya. Pola (/.*)? ikut
+# melabeli seluruh isinya.
+/data/vendor/mediadrm(/.*)?    u:object_r:mediadrm_vendor_data_file:s0
+
 # TimeKeep
 /sys/devices/soc\.0/qpnp-rtc-[0-9]/rtc/rtc0(/.*)?                         u:object_r:sysfs_rtc:s0
 /(system/vendor|vendor)/bin/timekeep                                      u:object_r:timekeep_exec:s0

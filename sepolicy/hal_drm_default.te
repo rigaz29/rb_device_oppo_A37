@@ -1,0 +1,21 @@
+# Widevine DRM L3 (T-A4, 14 September 2026).
+#
+# Biner /vendor/bin/hw/android.hardware.drm@1.1-service.widevine dilabeli
+# hal_drm_default_exec di file_contexts, sehingga berjalan di domain ini --
+# dikonfirmasi di perangkat, seluruh denial berbunyi
+# scontext=u:r:hal_drm_default:s0.
+#
+# CDM menulis device certificate dan usage table ke
+# /data/vendor/mediadrm/IDM<uid>/L3/. Denial yang benar-benar terukur di
+# perangkat (19 unik, semuanya permissive=1):
+#
+#   dir   { write add_name create read open }   pada mediadrm/ dan L3/
+#   file  { create read write open getattr }    pada ay64.dat6 dsb.
+#
+# create_dir_perms dan create_file_perms sengaja dipakai alih-alih daftar
+# persis di atas: sesi yang terukur itu berhenti sebelum provisioning selesai,
+# jadi rename/unlink/setattr belum sempat muncul padahal CDM jelas akan
+# memakainya saat memperbarui usage table. Kedua makro itu pula yang dipakai
+# goldfish dan cuttlefish untuk pasangan tipe/domain yang sama persis.
+allow hal_drm_default mediadrm_vendor_data_file:dir create_dir_perms;
+allow hal_drm_default mediadrm_vendor_data_file:file create_file_perms;

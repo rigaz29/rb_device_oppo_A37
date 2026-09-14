@@ -1,1 +1,18 @@
 type proc_touchpanel, fs_type, proc_type;
+
+# Tipe untuk /data/vendor/mediadrm, tempat CDM Widevine L3 menyimpan device
+# certificate dan usage table (T-A4, 14 September 2026).
+#
+# Tanpa ini direktori itu mewarisi vendor_data_file dari /data/vendor, dan
+# domain hal_drm_default tidak punya aturan untuknya. Terukur di perangkat:
+# 19 denial unik saat CDM menulis berkasnya, semuanya lolos HANYA karena
+# perangkat ini Permissive. Di Enforcing, Widevine akan gagal menulis device
+# certificate dan OEMCrypto_Initialize berhenti.
+#
+# Memberi akses ke vendor_data_file polos akan terlalu luas -- itu membuka
+# SELURUH /data/vendor bagi HAL DRM. Tipe sendiri membatasinya ke satu pohon.
+#
+# Pola ini disalin apa adanya dari dua device tree referensi AOSP di pohon
+# yang sama: device/generic/goldfish/sepolicy/common/ dan
+# device/google/cuttlefish/shared/sepolicy/vendor/.
+type mediadrm_vendor_data_file, file_type, data_file_type;

@@ -65,6 +65,14 @@ on post-fs-data
     # Level3FileSystem: Permission denied" lalu "OEMCrypto_Initialize failed: 28".
     # Disalin dari acroreiser/ULH a6010 (rootdir/etc/init.qcom.rc:94), mode sama.
     mkdir /data/vendor/mediadrm 0700 media media
+    # WAJIB menyusul mkdir, bukan opsional. init membuat direktori baru dengan
+    # label dari file_contexts, tetapi make_dir_with_options()
+    # (system/core/init/builtins.cpp:400-434) hanya chown/chmod bila direktori
+    # SUDAH ADA -- ia tidak pernah restorecon. Perangkat yang sempat menjalankan
+    # ROM sebelum label mediadrm_vendor_data_file diperkenalkan akan menyimpan
+    # vendor_data_file selamanya, sehingga aturan allow di
+    # sepolicy/hal_drm_default.te tidak pernah mengenai apa pun.
+    restorecon_recursive /data/vendor/mediadrm
 
     mkdir /data/fdAlbum 0770 camera camera
     mkdir /data/misc/camera 0770 camera camera
