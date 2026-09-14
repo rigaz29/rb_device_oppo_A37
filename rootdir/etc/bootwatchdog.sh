@@ -84,6 +84,14 @@
 # Kalau boot pertama setelah flash ternyata butuh lebih dari 120 detik di eMMC
 # yang lambat, gejalanya jelas: perangkat masuk recovery padahal /data/bootfail
 # menunjukkan boot sedang berjalan normal. Naikkan lewat properti, bukan rebuild.
+#
+# RAMALAN ITU TERJADI, 14 September 2026. Pemilik perangkat memasang NikGApps,
+# dan boot berikutnya masuk recovery padahal /data/bootfail menunjukkan boot
+# berjalan normal -- persis gejala yang ditulis di atas. Ternyata sebabnya bukan
+# eMMC lambat melainkan celah di deteksi kemajuan, yang kini ditutup oleh
+# ada_dex2oat() di bawah. Nasihat "naikkan lewat properti" tetap berlaku sebagai
+# pertolongan pertama, dan memang itu yang dipakai saat itu
+# (persist.a37.bootwatchdog.timeout=300, boot lalu selesai di 186 detik).
 
 # Nilai bukan-angka jatuh ke default. Nilai di bawah 30 detik juga ditolak:
 # `timeout 0` akan membuat loop tidak pernah berjalan dan perangkat langsung
@@ -113,6 +121,35 @@ case "$BATAS_MAKS" in
 esac
 [ "$BATAS_MAKS" -lt "$BATAS" ] && BATAS_MAKS=$((BATAS * 4))
 
+# Apakah ADA proses dex2oat saat ini.
+#
+# DITAMBAHKAN 14 September 2026, setelah pengaman ini MENJATUHKAN boot yang
+# sebenarnya sehat. Pemilik perangkat memasang NikGApps, dan boot pertama
+# sesudahnya menghabiskan 78 detik (t=43..121) untuk mengoptimalkan paket baru.
+# Selama itu init.svc.odsign TIDAK running -- pekerjaannya dilakukan installd
+# lewat DexInv, bukan odrefresh -- sehingga seluruh jendela itu terhitung
+# "tanpa kemajuan". Watchdog memicu reboot pada t=135,8 detik, sementara
+# bootanim baru keluar pada t=135,1: boot selesai di detik yang sama ia
+# dijatuhkan. Laporan yang tersimpan justru membuktikan sistemnya sehat,
+# logcat terakhir menunjukkan system_server sedang memproses OnBootPhase_1000
+# (PHASE_BOOT_COMPLETED), fase terakhir.
+#
+# odsign saja karena itu BUKAN sinyal kompilasi yang cukup. Ia hanya menutupi
+# kompilasi BOOT CLASSPATH; dexopt paket aplikasi punya jalur sendiri.
+#
+# Tidak memakai pgrep/pidof dengan alasan yang sama seperti di bawah: keduanya
+# bergantung pada toybox yang terpasang. Glob /proc dan `cat` selalu ada.
+# `comm` dipotong 15 karakter oleh kernel, dan ketiga nama yang mungkin
+# (dex2oat, dex2oat32, dex2oat64) berada jauh di bawah batas itu.
+ada_dex2oat() {
+    for c in /proc/[0-9]*/comm; do
+        case "$(cat "$c" 2>/dev/null)" in
+            dex2oat*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
 habis=0      # detik TANPA kemajuan — hanya ini yang dibandingkan dengan BATAS
 total=0      # detik sebenarnya sejak start, dibandingkan dengan pagu mutlak
 kompilasi=0  # detik yang dihabiskan ART untuk mengompilasi, untuk laporan
@@ -123,7 +160,7 @@ while [ "$habis" -lt "$BATAS" ] && [ "$total" -lt "$BATAS_MAKS" ]; do
     # odsign membungkus seluruh odrefresh -> dex2oat. Dipakai getprop dan bukan
     # pgrep/pidof karena getprop sudah pasti ada di sini, sementara ketersediaan
     # keduanya bergantung pada toybox yang terpasang.
-    if [ "$(getprop init.svc.odsign)" = "running" ]; then
+    if [ "$(getprop init.svc.odsign)" = "running" ] || ada_dex2oat; then
         kompilasi=$((kompilasi + JEDA))
     else
         habis=$((habis + JEDA))
