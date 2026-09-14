@@ -65,8 +65,29 @@ static struct hw_module_methods_t camera_module_methods = {
 camera_module_t HAL_MODULE_INFO_SYM = {
     .common = {
         .tag = HARDWARE_MODULE_TAG,
-        .version_major = 1,
-        .version_minor = 0,
+        // A37 (T-A8): pakai konstanta terkemas, bukan angka mentah.
+        // hardware.h:112 mendefinisikan version_major SEBAGAI module_api_version,
+        // sehingga ".version_major = 1" menyetel module_api_version = 1 -- padahal
+        // CAMERA_MODULE_API_VERSION_1_0 bernilai (1<<8)|0 = 256. Begitu pula
+        // version_minor, yang hardware.h:130 definisikan sebagai hal_api_version.
+        //
+        // Di Android 13 kesalahan ini TIDAK menimbulkan gejala apa pun, dan itu
+        // sudah diverifikasi: seluruh pembacaan nilai ini berupa >= atau <
+        // terhadap CAMERA_MODULE_API_VERSION_2_0 (512) ke atas, jadi 1 dan 256
+        // jatuh di sisi yang sama. Satu-satunya perbandingan == di pohon kamera
+        // adalah terhadap 2_5 (LegacyCameraProviderImpl_2_4.cpp:246), dan
+        // getHalApiVersion() nol pemanggil. Kamera memang terbukti jalan dengan
+        // nilai lama: dua device, Aperture membuka keduanya.
+        //
+        // Yang diperbaiki di sini adalah ranjau laten. Di Android 16 adapter
+        // HAL3on1 memilih cara membuka device dari nilai yang sama persis:
+        //   == CAMERA_MODULE_API_VERSION_1_0 (256) -> methods->open()
+        //   >= CAMERA_MODULE_API_VERSION_2_3 (515) -> open_legacy()
+        //   selain itu                              -> -EINVAL
+        // dan dengan nilai 1 keduanya meleset, sehingga provider legacy/0 tidak
+        // pernah naik dan nol kamera terdeteksi (proyek LOS 23.2, commit 0add9f8).
+        .module_api_version = CAMERA_MODULE_API_VERSION_1_0,
+        .hal_api_version = HARDWARE_HAL_API_VERSION,
         .id = CAMERA_HARDWARE_MODULE_ID,
         .name = "msm8916 Camera Wrapper",
         .author = "The CyanogenMod Project",

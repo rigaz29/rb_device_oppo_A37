@@ -859,7 +859,21 @@ int NativeSensorManager::getSensorListInner()
 		*nodename++ = '/';
 
 		for (i = 0; i < ARRAY_SIZE(node_map); i++) {
-			strlcpy(nodename, node_map[i].node, PATH_MAX - strlen(SYSFS_CLASS) - strlen(de->d_name));
+			/* A37 (T-A9): -1 untuk '/' yang ditulis tepat sebelum nodename di
+			 * atas. Ruang nyata di nodename adalah
+			 * PATH_MAX - 19 - strlen(d_name) - 1; batas lama satu byte lebih
+			 * besar dari itu. Baris 857 sendiri sudah pas (4096 - 19 = 4077).
+			 *
+			 * Di Android 13 kesalahan ini tidak menggigit -- keempat sensor
+			 * terbukti jalan tanpa tombstone -- dan tidak pernah meluap sungguhan
+			 * karena semua entri node_map pendek. Yang keliru adalah batasnya.
+			 * FORTIFY Android 16 memakai __builtin_dynamic_object_size sehingga
+			 * sanggup menghitung offset runtime ini dan membunuh prosesnya:
+			 * 'FORTIFY: strlcpy: prevented 4065-byte write into 4064-byte buffer'
+			 * untuk nama sensor 12 karakter -- dan perangkat ini punya dua:
+			 * lis3dh-accel dan mmc3416x-mag (LOS 23.2, commit 6de8c07). */
+			strlcpy(nodename, node_map[i].node,
+				PATH_MAX - strlen(SYSFS_CLASS) - strlen(de->d_name) - 1);
 			err = getNode((char*)(list->sensor), devname, &node_map[i]);
 			if (err) {
 				ALOGE("Get node for %s failed.\n", devname);
