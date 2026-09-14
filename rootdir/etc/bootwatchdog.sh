@@ -46,7 +46,7 @@
 #   setprop persist.a37.bootwatchdog 0            matikan sama sekali
 #   setprop persist.a37.bootwatchdog.timeout 90   ganti batas (detik)
 #
-# BATAS DEFAULT 120 DETIK — DARI PENGUKURAN, BUKAN TEBAKAN.
+# BATAS DEFAULT 300 DETIK (5 MENIT) — DARI PENGUKURAN, BUKAN TEBAKAN.
 #
 # Diukur dari bugreport perangkat nyata yang menjalankan LOS 20 dengan sehat
 # (report/bugreport.zip, properti ro.boottime.* dalam nanodetik):
@@ -76,10 +76,24 @@
 # Batas 120 detik dipertahankan sebagai anggaran "tidak ada kemajuan", karena
 # untuk mendeteksi hang sungguhan ia memang tepat.
 #
-# Kenapa tidak lebih longgar: false positive di sini MURAH — perangkat masuk
-# recovery, tempat adb hidup dan semuanya bisa dibereskan lewat properti di
-# atas. Yang mahal justru menunggu, karena setiap percobaan diagnosis menahan
-# orang di depan layar. Asimetrinya berpihak pada batas yang lebih pendek.
+# ARGUMEN LAMA, DAN KENAPA IA DICABUT. Sebelumnya batas ini 120 detik dengan
+# alasan: false positive MURAH (perangkat masuk recovery, adb hidup, semuanya
+# bisa dibereskan lewat properti), sedangkan menunggu itu MAHAL karena menahan
+# orang di depan layar. Asimetrinya dinilai berpihak pada batas yang lebih
+# pendek.
+#
+# Kenyataan membantahnya DUA KALI, dan keduanya tercatat di berkas ini:
+# report/bootfail3 (odrefresh, 81,5 detik kompilasi penuh) dan 14 September 2026
+# (NikGApps, jeda dexopt 78 detik). Dua-duanya boot yang sepenuhnya sehat, dan
+# dua-duanya dijatuhkan. Yang tidak diperhitungkan argumen lama: false positive
+# TIDAK murah kalau pemiliknya tidak tahu penyebabnya — ia terlihat persis
+# seperti ROM rusak, dan ongkos sebenarnya adalah waktu mendiagnosisnya.
+#
+# Karena itu batasnya dinaikkan ke 300 detik atas permintaan pemilik perangkat,
+# 14 September 2026. Untuk mendeteksi hang SUNGGUHAN 300 detik tetap memadai:
+# boot sehat perangkat ini selesai ~40 detik tanpa GApps dan 186 detik dengan
+# GApps, jadi 300 masih memberi margin sambil menjauh dari kedua kejadian di
+# atas.
 #
 # Kalau boot pertama setelah flash ternyata butuh lebih dari 120 detik di eMMC
 # yang lambat, gejalanya jelas: perangkat masuk recovery padahal /data/bootfail
@@ -99,9 +113,9 @@
 # dan untuk itu ada persist.a37.bootwatchdog=0.
 BATAS="$(getprop persist.a37.bootwatchdog.timeout)"
 case "$BATAS" in
-    ''|*[!0-9]*) BATAS=120 ;;
+    ''|*[!0-9]*) BATAS=300 ;;
 esac
-[ "$BATAS" -lt 30 ] && BATAS=120
+[ "$BATAS" -lt 30 ] && BATAS=300
 JEDA=5
 OUT=/data/bootfail
 
@@ -120,6 +134,13 @@ case "$BATAS_MAKS" in
     ''|*[!0-9]*) BATAS_MAKS=600 ;;
 esac
 [ "$BATAS_MAKS" -lt "$BATAS" ] && BATAS_MAKS=$((BATAS * 4))
+# Catatan rasio, supaya ini keputusan sadar dan bukan kelalaian: dengan BATAS
+# naik ke 300 sementara pagu tetap 600, rasionya turun dari 5x menjadi 2x --
+# lebih ketat dari 4x yang tersirat di baris di atas. Itu disengaja. Pagu ini
+# mengukur waktu DINDING total termasuk kompilasi, dan 10 menit sudah lebih dari
+# cukup untuk boot terburuk yang pernah terukur di perangkat ini (186 detik,
+# dengan GApps). Kalau suatu saat dexopt yang sah benar-benar melewatinya,
+# naikkan lewat persist.a37.bootwatchdog.timeout.maks.
 
 # Apakah ADA proses dex2oat saat ini.
 #
