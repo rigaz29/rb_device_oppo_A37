@@ -283,11 +283,12 @@
         <name>android.hardware.drm</name>
         <transport>hwbinder</transport>
         <version>1.0</version>
-        <!-- instance "widevine" dibuang bersama blob-nya: kedua
-             android.hardware.drm@1.x-service.widevine gagal link karena
-             libwvhidl.so butuh protobuf lama. Lihat catatan di
-             proprietary-files.txt. Deklarasi tanpa implementasi bikin klien
-             MediaDrm menunggu getService() sia-sia. -->
+        <!-- Catatan lama di sini berbunyi: instance "widevine" dibuang
+             bersama blob-nya karena libwvhidl.so butuh protobuf lama.
+             GUGUR 14 Sep 2026 (T-A4): runtime protobuf 3.0.0 kini dibangun
+             dari sumber di protobuf26/, dan ketiga blob Widevine dipasang
+             lewat A37-vendor.mk. Instance widevine dideklarasikan lagi di
+             bawah, lewat fqname. -->
         <interface>
             <name>ICryptoFactory</name>
             <instance>clearkey</instance>
@@ -300,6 +301,16 @@
         </interface>
         <fqname>@1.4::ICryptoFactory/clearkey</fqname>
         <fqname>@1.4::IDrmFactory/clearkey</fqname>
+        <!-- Widevine dihidupkan 14 Sep 2026 (T-A4). Ia mendaftar sebagai @1.1.
+             WAJIB berada di dalam blok hal INI, bukan blok baru: drm 1.0 dan
+             1.1 punya major version yang sama, dan dua blok bernama sama dengan
+             major sama membuat HalManifest::shouldAdd menolak SELURUH manifest
+             perangkat dengan -22. Di proyek LOS 23.2 kekeliruan itulah yang
+             membuat perangkat berhenti di logo OPPO waktu IRadio dinaikkan ke
+             1.4 lewat blok terpisah. fqname memberi versi per-instance tanpa
+             memecah blok. -->
+        <fqname>@1.1::ICryptoFactory/widevine</fqname>
+        <fqname>@1.1::IDrmFactory/widevine</fqname>
     </hal>
     <!-- wifi/hostapd/supplicant: dihapus — paket service bawa VINTF fragment.
          Sumber: msm8916-common lineage-18.1 -->

@@ -156,6 +156,36 @@ PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-service \
     android.hardware.drm@1.4-service.clearkey
 
+# Widevine L3 (T-A4, 14 September 2026)
+#
+# Blob-nya (biner servis, libwvhidl.so, init .rc) sudah lama ada di vendor tree
+# tetapi tidak dipasang karena libwvhidl.so menuntut runtime protobuf lama.
+# Runtime itu kini dibangun dari sumber di protobuf26/ (protobuf 3.0.0);
+# pemilihan versinya, dan mengapa 3.9.1 bawaan pohon ini tidak cukup,
+# didokumentasikan di protobuf26/Android.bp. Blob-nya sendiri datang lewat
+# A37-vendor.mk.
+#
+# DUA JEBAKAN LOS 23.2 TIDAK BERLAKU DI SINI, dan itu diperiksa bukan diasumsikan:
+#
+#   android.hardware.drm@1.1.vendor TIDAK dipasang. Di LOS 23.2 modul itu WAJIB
+#   karena servis berjalan di namespace linker vendor yang tidak bisa melihat
+#   /system/lib. Perangkat ini memakai konfigurasi linker [legacy]: satu
+#   namespace untuk /system, /vendor, /odm, /data. Seluruh 13 dependensi servis
+#   -- termasuk android.hardware.drm@1.0.so, @1.1.so, libhidltransport.so dan
+#   libhwbinder.so yang A13 masih simpan sebagai stub -- terbukti ADA di
+#   /system/lib 32-bit di ROM yang berjalan.
+#
+#   install_symlink di /vendor/lib TIDAK dipakai. Justru karena namespace
+#   tunggal itu, urutan pencarian menaruh /system/lib paling depan, sehingga
+#   symlink /vendor/lib/libprotobuf-cpp-lite.so akan terbayangi protobuf 3.9.1.
+#   Yang dipakai: stem polos pada modul + setenv LD_LIBRARY_PATH /vendor/lib di
+#   init .rc blob.
+#
+# Biner Widevine adalah prebuilt 32-bit, jadi Soong tidak tahu ia menaut apa pun;
+# modul protobuf di bawah ini compile_multilib "32" agar cocok.
+PRODUCT_PACKAGES += \
+    libprotobuf-cpp-lite-26-a37
+
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.opengles.version=196608
 

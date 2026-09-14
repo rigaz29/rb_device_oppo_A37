@@ -58,6 +58,14 @@ on fs
 
 # msm specific files that need to be created on /data
 on post-fs-data
+    # CDM Widevine L3 (T-A4) menyimpan device certificate dan usage table di
+    # /data/vendor/mediadrm/IDM<uid>/L3/ -- string path itu ada di libwvhidl.so.
+    # Servis berjalan sebagai user media sedangkan /data/vendor milik root, jadi
+    # tanpa baris ini wvcdm gagal dengan "Could not create base directories for
+    # Level3FileSystem: Permission denied" lalu "OEMCrypto_Initialize failed: 28".
+    # Disalin dari acroreiser/ULH a6010 (rootdir/etc/init.qcom.rc:94), mode sama.
+    mkdir /data/vendor/mediadrm 0700 media media
+
     mkdir /data/fdAlbum 0770 camera camera
     mkdir /data/misc/camera 0770 camera camera
 

@@ -1,0 +1,101 @@
+// protobuf 3.0.0 runtime "lite", KHUSUS untuk blob Widevine A37.
+//
+// DIUKUR ULANG UNTUK LINEAGEOS 20 (14 September 2026). Pohon Android 13 memakai
+// protobuf 3.9.1 (GOOGLE_PROTOBUF_VERSION 3009001), bukan 25.8 seperti pohon
+// Android 16 asal berkas ini. Harapan bahwa versi yang lebih tua sudah cukup
+// TERBUKTI GUGUR, tetapi kerusakannya memang lebih ringan: dari 55 simbol
+// protobuf yang dituntut libwvhidl.so, 3.9.1 kehilangan 12 (di 25.8: 21).
+//
+// Kedua belas itu mengelompok persis seperti yang diramalkan:
+//   empty_string_, empty_string_once_init_, InitEmptyString, GoogleOnceInitImpl
+//       -- dibuang dari protobuf setelah ~3.5
+//   Arena::AddListNode, Arena::AllocateAligned(type_info const*, uint32)
+//   ArenaStringPtr::AssignWithDefault
+//       -- tanda tangannya berubah
+//   CodedOutputStream::VarintSize64, VarintSize32Fallback
+//   LazyStringOutputStream ctor + dtor
+//   MessageLite::~MessageLite()   -- ini cuma soal visibilitas, lihat cflags
+//
+// Arena baru ada sejak 3.0, sedangkan empty_string_ dan GoogleOnceInit baru
+// dibuang setelah ~3.5, jadi versi yang cocok ada di antaranya. 3.0.0 dipilih
+// karena sezaman dengan HAL drm@1.1 (Android 9), era blob ini.
+//
+// PERBEDAAN MEKANISME DARI LOS 23.2. Di sana modul ini dipasang dengan nama
+// unik lalu ditunjuk install_symlink /vendor/lib/libprotobuf-cpp-lite.so, dan
+// itu cukup karena namespace linker vendor tidak bisa melihat /system/lib.
+// LineageOS 20 di perangkat ini berjalan dengan konfigurasi linker [legacy]:
+// SATU namespace, dan urutan pencariannya
+//     /system/lib -> /system/system_ext/lib -> /system/product/lib
+//     -> /vendor/lib -> /odm/lib
+// menaruh /system/lib PALING DEPAN. Karena protobuf 3.9.1 sudah terpasang di
+// sana dengan nama polos yang sama, symlink di /vendor/lib akan terbayangi dan
+// blob tetap menaut versi yang salah. Karena itu berkas ini memakai stem polos
+// (aman di sini: tanpa BOARD_VNDK_VERSION tidak ada varian .vendor protobuf
+// sama sekali, jadi tidak ada dua aturan yang membentur direktori symbols),
+// dan servisnya diberi setenv LD_LIBRARY_PATH /vendor/lib lewat init .rc supaya
+// /vendor/lib dicari lebih dulu. Diverifikasi tidak ada satu pun dari 260
+// pustaka di /vendor/lib yang membayangi dependensi servis.
+cc_library_shared {
+    name: "libprotobuf-cpp-lite-26-a37",
+    vendor: true,
+    // Blob Widevine seluruhnya 32-bit (biner servis dan libwvhidl.so), jadi
+    // varian 64-bit tidak pernah dipakai dan tidak dibangun.
+    compile_multilib: "32",
+    // Nama berkas polos: itulah yang dicari linker dari DT_NEEDED libwvhidl.so.
+    stem: "libprotobuf-cpp-lite",
+
+    srcs: [
+        "google/protobuf/stubs/bytestream.cc",
+        "google/protobuf/stubs/common.cc",
+        "google/protobuf/stubs/int128.cc",
+        "google/protobuf/stubs/once.cc",
+        "google/protobuf/stubs/status.cc",
+        "google/protobuf/stubs/statusor.cc",
+        "google/protobuf/stubs/stringpiece.cc",
+        "google/protobuf/stubs/stringprintf.cc",
+        "google/protobuf/stubs/structurally_valid.cc",
+        "google/protobuf/stubs/strutil.cc",
+        "google/protobuf/stubs/time.cc",
+        "google/protobuf/arena.cc",
+        "google/protobuf/arenastring.cc",
+        "google/protobuf/extension_set.cc",
+        "google/protobuf/generated_message_util.cc",
+        "google/protobuf/message_lite.cc",
+        "google/protobuf/repeated_field.cc",
+        "google/protobuf/wire_format_lite.cc",
+        "google/protobuf/io/coded_stream.cc",
+        "google/protobuf/io/zero_copy_stream.cc",
+        "google/protobuf/io/zero_copy_stream_impl_lite.cc",
+    ],
+
+    local_include_dirs: ["."],
+    export_include_dirs: ["."],
+
+    cflags: [
+        // config.h tidak di-include oleh common.cc, jadi HAVE_PTHREAD
+        // harus didefinisikan langsung -- autotools menyuntikkannya
+        // lewat flag, bukan lewat header.
+        "-DHAVE_PTHREAD",
+        "-DHAVE_CONFIG_H",
+        "-DGOOGLE_PROTOBUF_NO_RTTI",
+        "-Wno-error",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-sign-compare",
+        "-Wno-deprecated-declarations",
+        "-Wno-implicit-fallthrough",
+        "-Wno-writable-strings",
+        "-Wno-missing-field-initializers",
+        // MessageLite::~MessageLite() inline di header, dan AOSP membangun
+        // dengan -fvisibility-inlines-hidden sehingga varian D2-nya menjadi
+        // LOCAL HIDDEN -- terbukti ada di offset 0x14947 tapi tidak terekspor.
+        // Blob menuntutnya sebagai simbol dinamis, jadi visibilitas dibuka.
+        "-fvisibility=default",
+        "-fno-visibility-inlines-hidden",
+    ],
+    cpp_std: "gnu++11",
+    rtti: false,
+    shared_libs: ["liblog"],
+    sanitize: { never: true },
+}
