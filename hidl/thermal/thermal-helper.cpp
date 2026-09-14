@@ -544,7 +544,23 @@ bool ThermalHelper::fillCurrentCoolingDevices(bool filterType, CoolingType type,
         }
     }
     *cooling_devices = ret;
-    return ret.size() > 0;
+    // A37: daftar KOSONG bukan kegagalan.
+    //
+    // Hulu (device tree a6010) mengembalikan `ret.size() > 0`, yang berarti
+    // perangkat tanpa cooling device selalu dianggap gagal. Kernel A37 tidak
+    // mengekspos satu pun: /sys/class/thermal/cooling_device* kosong sama
+    // sekali, sehingga cooling_device_info_map_ juga kosong dan loop di atas
+    // tidak pernah berjalan.
+    //
+    // Akibatnya terlihat di logcat, tujuh kali dalam satu boot:
+    //   E ThermalHalWrapper: Couldn't get cooling device because of HAL error:
+    //                        Failed to read thermal sensors.
+    // Pesan itu menyesatkan -- tidak ada sensor yang gagal dibaca; memang tidak
+    // ada yang perlu dibaca.
+    //
+    // Kegagalan yang SUNGGUHAN tetap tertangkap: readCoolingDevice() yang gagal
+    // sudah return false lebih awal di dalam loop.
+    return true;
 }
 
 bool ThermalHelper::fillCpuUsages(hidl_vec<CpuUsage> *cpu_usages) const {

@@ -162,9 +162,36 @@ esac
 # bergantung pada toybox yang terpasang. Glob /proc dan `cat` selalu ada.
 # `comm` dipotong 15 karakter oleh kernel, dan ketiga nama yang mungkin
 # (dex2oat, dex2oat32, dex2oat64) berada jauh di bawah batas itu.
+#
+# DUA KOREKSI 15 September 2026, dari audit log setelah fungsi ini dipakai.
+#
+# 1. `read` MENGGANTI `$(cat ...)`. Versi pertama men-spawn satu proses cat per
+#    entri /proc, sekitar 300 proses tiap sapuan. Diukur di perangkat:
+#        varian cat    2121 ms per sapuan
+#        varian read     60 ms per sapuan     <- 35x lebih murah
+#    Dengan JEDA 5 detik, varian lama menghabiskan 42% duty cycle watchdog
+#    untuk menyapu /proc -- di perangkat yang justru sedang kepayahan boot.
+#
+# 2. Sapuan hanya dijalankan setelah SETENGAH anggaran habis (lihat pemanggilnya).
+#    Sebelum itu tidak ada gunanya: kalau boot memang lancar, kita tidak pernah
+#    mendekati batas.
+#
+# Yang TIDAK bisa dihindari: SELinux menolak toolbox membaca /proc/<pid>/comm
+# milik domain lain --
+#     avc: denied { open } for comm="cat" path="/proc/91/comm"
+#          scontext=u:r:toolbox:s0 tcontext=u:r:kernel:s0
+# Di perangkat ini itu hanya tercatat (androidboot.selinux=permissive), tetapi
+# versi pertama menyumbang 1030 dari 1544 denial satu boot -- 67% -- dan itu
+# membanjiri dmesg, yang justru kanal diagnosis utama proyek ini. Dua koreksi di
+# atas memangkasnya drastis karena sapuannya jauh lebih jarang.
+#
+# CATATAN untuk yang suatu saat menyalakan enforcing: di sana fungsi ini akan
+# selalu mengembalikan 1, dan perlindungannya hilang diam-diam. Batas 300 detik
+# tetap menjadi jaring pengaman utamanya.
 ada_dex2oat() {
     for c in /proc/[0-9]*/comm; do
-        case "$(cat "$c" 2>/dev/null)" in
+        read n < "$c" 2>/dev/null || continue
+        case "$n" in
             dex2oat*) return 0 ;;
         esac
     done
@@ -181,7 +208,11 @@ while [ "$habis" -lt "$BATAS" ] && [ "$total" -lt "$BATAS_MAKS" ]; do
     # odsign membungkus seluruh odrefresh -> dex2oat. Dipakai getprop dan bukan
     # pgrep/pidof karena getprop sudah pasti ada di sini, sementara ketersediaan
     # keduanya bergantung pada toybox yang terpasang.
-    if [ "$(getprop init.svc.odsign)" = "running" ] || ada_dex2oat; then
+    if [ "$(getprop init.svc.odsign)" = "running" ]; then
+        kompilasi=$((kompilasi + JEDA))
+    elif [ "$habis" -ge $((BATAS / 2)) ] && ada_dex2oat; then
+        # Sapuan /proc hanya setelah setengah anggaran habis. Boot yang lancar
+        # tidak pernah sampai sini, jadi ongkosnya nol pada kasus normal.
         kompilasi=$((kompilasi + JEDA))
     else
         habis=$((habis + JEDA))
