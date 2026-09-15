@@ -624,15 +624,25 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.product.first_api_level=21
 
-# Gerbang W1/W2 (repopick 320591 system/bpf + 320592 system/netd).
-# Kernel 3.10 tidak punya syscall bpf, dan A12 membuang gerbang versi kernel yang
-# masih ada di A11. Kedua patch membaca properti ini dan default-nya `true`, jadi
-# TANPA baris ini keduanya tidak berpengaruh apa pun dan bpfloader tetap
-# menggagalkan boot. Terverifikasi di source hasil patch:
-# system/bpf/bpfloader/BpfLoader.cpp:115 dan system/netd/server/Controllers.cpp:280.
-# ROM referensi 19.1 A37 menyetelnya sama.
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.kernel.ebpf.supported=false
+# ro.kernel.ebpf.supported DIBUANG 15 September 2026. JANGAN ditambahkan lagi.
+#
+# Baris itu dulu menyetel `false` sebagai gerbang W1/W2 (repopick 320591
+# system/bpf + 320592 system/netd) supaya bpfloader tidak menggagalkan boot di
+# kernel tanpa syscall bpf.
+#
+# Masalahnya: kedua repopick itu TIDAK PERNAH ADA di tree ini. Dibuktikan dua
+# kali sebelum dibuang -- grep seluruh source tree tidak menemukan satu pun
+# pembaca di luar device.mk sendiri, dan grep biner system/ + apex/ hasil build
+# hanya menemukannya di build.prop, tempat ia disetel. Nomor baris yang dirujuk
+# komentar lama (BpfLoader.cpp:115, Controllers.cpp:280) pun sudah tidak cocok
+# dengan isi berkasnya.
+#
+# Jadi properti itu bukan sekadar usang, ia menyesatkan: menjanjikan gerbang
+# yang tidak pernah terpasang. bpfloader memang memuat SEMUA program meski
+# nilainya `false` (bpf.progs_loaded=1), karena tidak ada yang membacanya.
+#
+# Sejak kernel g40bd72907a8 eBPF dan cgroup-BPF berjalan penuh, jadi alasan
+# aslinya pun sudah gugur. Lihat plan-64bit/lucuti-patch/.
 
 # VNDK: tanpa snapshot VNDK, nilai 'current' (sama dengan ROM 19.1 kita —
 # system_prop.mk:65 — dan ROM gt58wifi yang boot, system-build.prop:69).
