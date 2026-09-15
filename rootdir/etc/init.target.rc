@@ -115,11 +115,28 @@ on post-fs
     write /proc/sys/kernel/hung_task_timeout_secs 90
 
 on post-fs-data
+    # SATU-SATUNYA tempat antrean mmcblk0 disetel. Sampai 15 Sep 2026 nilainya
+    # ditulis DUA KALI dengan isi bertentangan: deadline/256 di sini, lalu
+    # noop/128 lagi di `on property:sys.boot_completed=1`. Yang belakangan
+    # menang, jadi alasan di bawah ini tidak pernah benar-benar berlaku dan
+    # perangkat selalu berjalan dengan noop (terverifikasi: `[noop] deadline row
+    # cfq bfq`, nr_requests 128). git blame menyelesaikan mana yang disengaja:
+    # baris noop warisan device tree asli 2018 (b1fb4fd9) yang tak pernah
+    # ditinjau ulang, sedangkan deadline pilihan sadar 31 Jul 2026 (547f8ca5).
+    # Yang warisan dibuang, yang disengaja dipertahankan.
+    #
+    # Disetel di post-fs-data, BUKAN boot_completed, karena justru sebelum boot
+    # selesai I/O paling padat -- dexopt dan pemasangan aplikasi.
+    #
     # deadline lebih cocok untuk eMMC daripada cfq (latency lebih rendah,
-    # throughput lebih tinggi untuk random I/O).
+    # throughput lebih tinggi untuk random I/O). `row` juga tersedia di kernel
+    # ini dan dirancang untuk flash, tapi nilainya baru muncul bersama penandaan
+    # urgent UI/RenderThread yang belum di-backport -- lihat
+    # plan-64bit/kandidat-backport/.
     write /sys/block/mmcblk0/queue/scheduler deadline
     write /sys/block/mmcblk0/queue/add_random 0
     write /sys/block/mmcblk0/queue/nr_requests 256
+    write /sys/block/mmcblk0/queue/rq_affinity 0
     # Cukup satu baris. queue/read_ahead_kb dan bdi/read_ahead_kb menulis field
     # yang SAMA — blk-sysfs.c:116 menyetel q->backing_dev_info.ra_pages dan
     # backing-dev.c:169 menyetel bdi->ra_pages, dan untuk perangkat blok
@@ -212,11 +229,10 @@ on property:sys.boot_completed=1
     # lineageos_a37f_defconfig, jadi /sys/kernel/mm/ksm/ tidak pernah ada.
     # Sengaja tidak dinyalakan: di Snapdragon 410 ongkos CPU untuk scanning KSM
     # tidak sepadan dengan hemat RAM-nya.
-    write /sys/block/mmcblk0/queue/scheduler noop
-    write /sys/block/mmcblk0/queue/rq_affinity 0
-    write /sys/block/mmcblk0/queue/nr_requests 128
-    # Satu baris saja — lihat catatan read_ahead_kb di blok sebelumnya.
-    write /sys/block/mmcblk0/bdi/read_ahead_kb 128
+    # Penyetelan antrean mmcblk0 yang dulu ada di sini (scheduler noop,
+    # rq_affinity 0, nr_requests 128, read_ahead_kb 128) DIPINDAH ke blok
+    # post-fs-data. Tiga yang pertama bertentangan dengan nilai di sana dan
+    # diam-diam menimpanya; yang keempat cuma pengulangan nilai yang sama.
 
 # ---------------------------------------------------------------------------
 # Pengaman boot — lihat rootdir/etc/bootwatchdog.sh untuk alasan lengkapnya.
