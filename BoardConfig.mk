@@ -232,11 +232,32 @@ TARGET_USES_64_BIT_BINDER := true
 #
 # Belum dibangun maupun diuji di LOS 20.
 #
-# ECC (ramoops.ecc=1) juga bukan kosmetik: tanpa ecc, isi buffer pstore di
-# perangkat ini terbaca rusak sebagian besar. Dengan ecc, hampir seluruhnya
-# terbaca. Nilai ini HARUS sama antara kernel ROM dan kernel recovery, karena
-# ecc mengubah tata letak buffer — kalau berbeda, recovery membaca sampah.
-BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=1
+# ECC juga bukan kosmetik: tanpa ecc, isi buffer pstore di perangkat ini terbaca
+# rusak sebagian besar. Dengan ecc, hampir seluruhnya terbaca. Nilai ini HARUS
+# sama antara kernel ROM dan kernel recovery, karena ecc mengubah tata letak
+# buffer -- kalau berbeda, recovery membaca sampah.
+#
+# DINAIKKAN 1 -> 32 pada 15 September 2026, dan syarat "harus sama" di atas
+# ternyata SUDAH DILANGGAR sejak lama tanpa ada yang menyadarinya: device tree
+# TWRP (device/oppo/A37f/BoardConfig.mk) memakai ramoops.ecc=32 sejak 31 Agustus
+# 2026, sementara baris ini masih 1.
+#
+# Akibatnya terukur, dan justru merusak alat diagnosis yang paling diandalkan
+# proyek ini. Ekor setiap dump console-ramoops berbunyi:
+#
+#   0 Corrected bytes, 2030 unrecoverable blocks    (boot biasa)
+#   0 Corrected bytes, 3388 unrecoverable blocks    (dump kegagalan boot GApps)
+#
+# "0 Corrected bytes" itu intinya: dengan ecc=1 praktis tidak ada yang bisa
+# dikoreksi. Boot ini sendiri mencatat 13x "persistent_ram: uncorrectable error
+# in header" di dmesg. Saat mendiagnosis kegagalan boot 14 September, dump yang
+# dibaca memuat 3388 blok rusak -- baris penyebabnya kebetulan selamat.
+#
+# Nilai 32 mengikuti pengukuran proyek TWRP di perangkat yang SAMA: laju
+# kerusakan RAM melintasi reset terukur 6,9%, sementara kapasitas koreksi ecc=16
+# hanya 6,25% -- lewat ambang sedikit, dan hampir seluruh blok jatuh. ecc=32
+# memberi 12,5%.
+BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 ramoops.mem_address=0x9ff00000 ramoops.mem_size=0x400000 ramoops.record_size=0x40000 ramoops.console_size=0x100000 ramoops.pmsg_size=0x40000 ramoops.dump_oops=1 ramoops.ecc=32
 BOARD_KERNEL_BASE := 0x80000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
