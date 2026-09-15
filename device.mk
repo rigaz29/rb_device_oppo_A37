@@ -683,10 +683,55 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # lmkd-nya sudah membunuh tiga proses saat boot pertama, sinyal yang lebih tajam
 # berarti keputusan membunuh yang lebih tepat waktu.
 #
-# ro.lmk.use_new_strategy TETAP false — ia properti terpisah dan belum diukur.
+# ro.lmk.use_new_strategy: false -> true, 15 September 2026.
+#
+# Komentar lama berbunyi "TETAP false — ia properti terpisah dan belum diukur".
+# Sekarang SUDAH diukur, dan hasilnya buruk: lmkd membunuh aplikasi yang sedang
+# di layar. Dalam satu boot ada 23 pembunuhan, termasuk com.android.settings
+# pada oom_score_adj 0 procState TOP dan com.android.launcher3 pada adj 100 --
+# saat 211 MB bebas, 1016 MB cached, dan zram 95% kosong. Rinciannya di
+# a37-20/plan-64bit/temuan-lmkd-membunuh-foreground/.
+#
+# Sebabnya berlapis dua, dan keduanya bergantung pada properti ini.
+#
+# (1) Blok override ambang PSI hanya jalan bila properti ini menyala
+#     (lmkd.cpp:3210-3214). Dengan false, lmkd memakai psi_thresholds bawaan:
+#
+#       level      false (dulu)        true (sekarang)        level_oomadj
+#       LOW        SOME  70 ms AKTIF   0 -> tidak didaftarkan  1001
+#       MEDIUM     SOME 100 ms         psi_partial_stall  200  800
+#       CRITICAL   FULL  70 ms         psi_complete_stall 700  0
+#
+#     CRITICAL menyala pada 70 ms, bukan 700 ms -- SEPULUH KALI lebih sensitif
+#     dari yang dimaksudkan -- sementara level_oomadj CRITICAL defaultnya 0,
+#     yang menjadikan setiap proses calon, termasuk yang sedang dipandang.
+#     Angka 200 ms itu sendiri sudah versi khusus low-RAM
+#     (DEF_PARTIAL_STALL_LOWRAM, lmkd.cpp:156) yang tidak pernah kita pakai.
+#
+# (2) Properti ini juga memilih handler-nya (lmkd.cpp:3143):
+#       handler = use_new_strategy ? mp_event_psi : mp_event_common;
+#     mp_event_common + ro.config.low_ram=true masuk ke cabang lmkd.cpp:3067
+#     yang membunuh TANPA memeriksa ketersediaan memori sama sekali; penjaga
+#     nr_free_pages >= watermark hanya ada di cabang else. mp_event_psi tidak
+#     punya cabang itu -- diperiksa, low_ram_device tidak disebut satu kali pun
+#     dalam rentang 2558-2888.
+#
+# Disetel EKSPLISIT true, bukan sekadar dihapus. Defaultnya memang sudah true
+# (low_ram_device || !use_minfree_levels, dengan use_minfree_levels default
+# false), tapi nilai eksplisit membuat keputusan ini terbaca di build.prop dan
+# kebal terhadap perubahan default AOSP.
+#
+# Rujukan: Mi-Thorium (msm8937/sdm439, sampai Redmi Go 1 GB) tidak menyetel satu
+# pun ro.lmk.*, jadi mereka memakai default true. Review lengkap di
+# a37-20/plan-64bit/review-mithorium/.
+#
+# ro.config.low_ram SENGAJA tetap true: ia mengaktifkan per-app memcg yang
+# terbukti bekerja (77 direktori /dev/memcg/apps/uid_*) dan memberi lmkd default
+# PSI serta thrashing yang justru lebih longgar. Satu-satunya kerugiannya cabang
+# di (2), dan baris ini menghapusnya.
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.lmk.use_psi=true \
-    ro.lmk.use_new_strategy=false
+    ro.lmk.use_new_strategy=true
 
 # Properti baru 18.1 (Sumber: msm8916-common lineage-18.1 + a6000 ref)
 PRODUCT_PROPERTY_OVERRIDES += \

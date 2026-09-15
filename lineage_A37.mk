@@ -69,7 +69,15 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # untuk NILAI APA PUN yang tidak kosong, termasuk string "false". Menyetelnya
 # `:= false` tetap menghasilkan ro.adb.secure=0 (terbukti di build
 # 20260808_130028: ro.adb.secure masih 0 meski flag sudah "false").
-#WITH_ADB_INSECURE := true
+#
+# 15 September 2026: DINYALAKAN LAGI, atas permintaan pemilik perangkat, supaya
+# adb hidup sejak boot pertama tanpa harus menyalakannya lewat Opsi Pengembang
+# dan tanpa dialog otorisasi RSA.
+#
+# ⚠️ Peringatan di atas TETAP BERLAKU: dengan ini menyala, siapa pun yang
+# mencolokkan USB mendapat shell adb tanpa persetujuan. ROM hasil build ini
+# untuk perangkat sendiri.
+WITH_ADB_INSECURE := true
 
 # Inherit from those products. Most specific first.
 #
