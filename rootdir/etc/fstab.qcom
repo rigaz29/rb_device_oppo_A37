@@ -9,7 +9,27 @@
 #   /sys/block/mmcblk0/queue/discard_granularity  524288 (512 KB)
 # Tanpa TRIM, blok yang sudah dihapus tetap dianggap terpakai oleh controller
 # eMMC sehingga write amplification naik seiring umur pemakaian.
-/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard                   wait,check,formattable
+# fsync_mode=nobarrier DINYALAKAN 15 September 2026, atas keputusan pemilik
+# perangkat setelah angkanya diukur.
+#
+# APA YANG DITUKAR, supaya tidak terlupa: fsync() tidak lagi menerbitkan cache
+# flush ke eMMC untuk berkas non-atomic. Data yang sudah di-fsync() bisa HILANG
+# saat daya putus mendadak -- cabut baterai, kernel panic, reboot karena OOM.
+# Yang paling sering memanggil fsync justru SQLite: basis data pesan, kontak,
+# riwayat.
+#
+# Imbalannya, diukur berselang-seling posix/nobarrier di perangkat ini dengan
+# frekuensi dikunci performance, 200 fsync per jalan, empat putaran:
+#   posix     7230 / 7105 / 7159 / 7154 ms
+#   nobarrier 6864 / 6861 / 6894 / 6909 ms
+#   -> 1,40 ms per fsync, konsisten arahnya di keempat putaran
+#
+# Opsinya sendiri hasil backport dari 4.17 (commit kernel 23c9861d2df).
+# Default kernel tetap posix; baris inilah yang menyalakannya.
+#
+# Membatalkannya cukup menghapus ",fsync_mode=nobarrier" di bawah -- tidak
+# perlu format ulang, tidak ada perubahan format on-disk.
+/dev/block/bootdevice/by-name/userdata       /data        f2fs    nosuid,nodev,noatime,inline_xattr,discard,fsync_mode=nobarrier   wait,check,formattable
 /dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       f2fs    nosuid,nodev,noatime,inline_xattr                           wait,check,formattable
 /dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable
