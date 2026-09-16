@@ -515,9 +515,20 @@ static int camera_device_close(hw_device_t *device)
         goto done;
     }
 
-    for (int i = 0; i < camera_get_number_of_cameras(); i++) {
-        if (fixed_set_params[i])
+    /*
+     * A37: kosongkan pointernya setelah free, dan jaga fixed_set_params
+     * sendiri terhadap NULL.
+     *
+     * Sebelumnya entri di-free tanpa di-NULL-kan, meninggalkan pointer
+     * menggantung di variabel GLOBAL. Dua kali close tanpa open di antaranya
+     * -- atau menutup satu kamera sementara kamera lain masih memakai
+     * entrinya -- berarti free ganda.
+     */
+    if (fixed_set_params) {
+        for (int i = 0; i < camera_get_number_of_cameras(); i++) {
             free(fixed_set_params[i]);
+            fixed_set_params[i] = NULL;
+        }
     }
 
     wrapper_dev = (wrapper_camera_device_t*) device;
@@ -578,6 +589,17 @@ static int camera_device_open(const hw_module_t *module, const char *name,
         cameraid = atoi(name);
         num_cameras = gVendorModule->get_number_of_cameras();
 
+        /*
+         * A37: bebaskan array lama sebelum mengalokasikan yang baru.
+         * camera_device_open dipanggil tiap kali kamera dibuka, dan tanpa ini
+         * array sebelumnya bocor pada SETIAP pembukaan.
+         */
+        if (fixed_set_params) {
+            for (int i = 0; i < num_cameras; i++)
+                free(fixed_set_params[i]);
+            free(fixed_set_params);
+            fixed_set_params = NULL;
+        }
         fixed_set_params = (char **) malloc(sizeof(char *) * num_cameras);
         if (!fixed_set_params) {
             ALOGE("parameter memory allocation fail");
@@ -586,7 +608,16 @@ static int camera_device_open(const hw_module_t *module, const char *name,
         }
         memset(fixed_set_params, 0, sizeof(char *) * num_cameras);
 
-        if (cameraid > num_cameras) {
+        /*
+         * A37: `>= num_cameras`, bukan `> num_cameras`, dan tolak negatif.
+         *
+         * Indeks yang sah untuk fixed_set_params hanya 0..num_cameras-1,
+         * sehingga cameraid == num_cameras dulu LOLOS pemeriksaan lalu
+         * dipakai sebagai indeks di camera_fixup_setparams() -- free() dan
+         * strdup() tepat di luar array. cameraid juga berasal dari
+         * atoi(name) yang bisa memulangkan nilai negatif.
+         */
+        if (cameraid < 0 || cameraid >= num_cameras) {
             ALOGE("camera service provided cameraid out of bounds, "
                     "cameraid = %d, num supported = %d",
                     cameraid, num_cameras);
@@ -720,7 +751,16 @@ static int camera_get_number_of_cameras(void)
 static int camera_get_camera_info(int camera_id, struct camera_info *info)
 {
     ALOGV("%s", __FUNCTION__);
+    /*
+     * A37: -EINVAL, bukan 0.
+     *
+     * Memulangkan 0 berarti "berhasil" sementara *info tidak pernah disentuh,
+     * sehingga pemanggil membaca facing dan orientation yang tak
+     * terinisialisasi. Itu kelas bug yang sama dengan info sensor kosong yang
+     * pernah membuat seluruh foto terputar 90 derajat dan kamera depan
+     * dilaporkan menghadap belakang.
+     */
     if (check_vendor_module())
-        return 0;
+        return -EINVAL;
     return gVendorModule->get_camera_info(camera_id, info);
 }
