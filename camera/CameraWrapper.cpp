@@ -177,7 +177,29 @@ static char *camera_fixup_setparams(int id, const char *settings)
     params.dump();
 #endif
 
-    params.set("zsl", "on");
+    /*
+     * A37: ZSL hanya untuk kamera BELAKANG.
+     *
+     * Baris ini terbawa apa adanya dari impor borongan wrapper Lenovo a6020
+     * (caff279); ia tidak pernah disetel khusus untuk A37, dan `id` yang sudah
+     * tersedia di tanda tangan fungsi ini tidak pernah dipakai sehingga kedua
+     * kamera diperlakukan sama.
+     *
+     * Memaksanya pada kamera depan bermasalah: ZSL menyimpan ring buffer
+     * bingkai, dan jalur multi-bingkai vendor memakan buffer itu. Saat Open
+     * Camera menjalankan HDR di kamera depan -- yang berarti beberapa
+     * penangkapan beruntun -- blob mati di dalam jalur tersebut:
+     *
+     *   camera.vendor.msm8916.so  VDSuperPhoto_AddFrame+0
+     *   SIGSEGV @ fault addr 0x00000190, pemanggil [anon:.bss]
+     *
+     * Kamera depan melaporkan `zsl-values: off,on`, jadi mematikannya sah.
+     * Kamera belakang tetap memakai ZSL supaya shutter lag tidak kembali.
+     */
+    if (id == 0)
+        params.set("zsl", "on");
+    else
+        params.set("zsl", "off");
 
 #if !LOG_NDEBUG
     ALOGV("%s: fixed parameters:", __FUNCTION__);
@@ -648,7 +670,25 @@ static int camera_device_open(const hw_module_t *module, const char *name,
             rv = gVendorModule->common.methods->open(
                     (const hw_module_t*)gVendorModule, name,
                     (hw_device_t**)&(camera_device->vendor));
-            retry = --retries > 0 && rv;
+            /*
+             * A37: ulangi juga ketika rv == 0 tetapi vendor tidak terisi.
+             *
+             * Gelung ini semula hanya mengulang saat rv != 0, sehingga
+             * kegagalan yang menyamar sebagai sukses -- rv 0 dengan vendor
+             * NULL -- lolos tanpa satu pun percobaan ulang. Itu justru
+             * kegagalan yang paling sering terjadi di sini, karena enumerasi
+             * kamera berjalan saat mediaserver menyala dan berlomba dengan
+             * mm-qcamera-daemon yang belum sempat mendaftarkan antrean
+             * peristiwanya.
+             *
+             * Akibatnya bukan sekadar kamera gagal dibuka: DeviceInfo1 hanya
+             * mengisi info kamera kalau open() berhasil, jadi satu kegagalan
+             * di saat enumerasi membuat facing, orientation, dan flash tetap
+             * pada nilai baku -- kedua kamera dilaporkan menghadap belakang,
+             * orientasi 0 sehingga semua foto terputar 90 derajat, dan lampu
+             * kilat dianggap tidak ada.
+             */
+            retry = --retries > 0 && (rv || camera_device->vendor == NULL);
             if (retry)
                 usleep(OPEN_RETRY_MSEC * 1000);
         } while (retry);
