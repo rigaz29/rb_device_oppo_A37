@@ -594,7 +594,14 @@ static int camera_device_open(const hw_module_t *module, const char *name,
             goto fail;
         }
 
-        camera_device = (wrapper_camera_device_t*)malloc(sizeof(*camera_device));
+        /*
+         * A37: calloc, BUKAN malloc. Dengan malloc, camera_device->vendor
+         * berisi sampah sampai HAL vendor mengisinya -- dan kalau vendor
+         * memulangkan sukses tanpa mengisinya, VENDOR_CALL akan
+         * mendereference pointer sampah. calloc membuatnya deterministik
+         * NULL sehingga pemeriksaan di bawah bisa menangkapnya.
+         */
+        camera_device = (wrapper_camera_device_t*)calloc(1, sizeof(*camera_device));
         if (!camera_device) {
             ALOGE("camera_device allocation fail");
             rv = -ENOMEM;
@@ -614,8 +621,32 @@ static int camera_device_open(const hw_module_t *module, const char *name,
             if (retry)
                 usleep(OPEN_RETRY_MSEC * 1000);
         } while (retry);
-        if (rv) {
-            ALOGE("vendor camera open fail");
+        /*
+         * A37, 16 Sep 2026: jangan percaya rv saja -- periksa juga bahwa HAL
+         * vendor benar-benar MENGISI device-nya.
+         *
+         * Blob msm8916 terbukti memulangkan sukses (rv == 0) tanpa menyetel
+         * camera_device->vendor. Karena `vendor` lalu NULL, VENDOR_CALL di
+         * makro atas mendereference __wrapper_dev->vendor->ops dan jatuh
+         * tepat di offset ops, yaitu 0x40:
+         *
+         *   camera_set_callbacks+46   SIGSEGV @ fault addr 0x00000040
+         *
+         * Itu menjatuhkan mediaserver, dan karena terjadi di jalur enumerasi
+         * saat mediaserver menyala, kematiannya berulang sampai perangkat
+         * di-reboot.
+         *
+         * Menangkapnya DI SINI penting, bukan di lapisan AOSP di atas:
+         * label fail: di bawah membebaskan camera_device dan camera_ops lalu
+         * menyetel *device = NULL, sehingga tidak ada yang bocor. Percobaan
+         * sebelumnya menjaga di hardware/interfaces justru membocorkan sumber
+         * daya karena di sana tidak ada jalur pembersihan yang setara.
+         */
+        if (rv || camera_device->vendor == NULL) {
+            ALOGE("vendor camera open fail (rv=%d vendor=%p)",
+                    rv, camera_device->vendor);
+            if (rv == 0)
+                rv = -ENODEV;
             goto fail;
         }
         ALOGV("%s: got vendor camera device 0x%08X",
