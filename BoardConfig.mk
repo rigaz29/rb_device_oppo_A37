@@ -263,15 +263,17 @@ BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
 BOARD_KERNEL_PAGESIZE := 2048
 BOARD_KERNEL_OFFSET := 0x00008000
-# androidboot.selinux=permissive DIBUANG 17 Sep 2026 -- perangkat kini ENFORCING.
-# Seluruh denial jalur-boot ditangkap dan ditangani di sepolicy/enforcing.te.
-# Stack RIL (rild, qmuxd, netmgrd) dan mm-qcamerad sementara permissive
-# per-domain di berkas itu sampai terbukti tanpa denial baru dalam pemakaian
-# nyata; domain aplikasi dan platform sudah enforcing penuh.
+# PERMISSIVE (dikembalikan 18 Sep 2026 atas keputusan pemilik perangkat).
 #
-# Untuk kembali ke permissive global saat diagnosis (mis. gejala baru yang
-# dicurigai SELinux), aktifkan sementara baris berikut LALU build:
-# BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+# Sempat enforcing 17 Sep (androidboot.selinux dibuang; denial ditangani di
+# sepolicy/enforcing.te dengan permissive per-domain pada stack RIL + kamera).
+# Dikembalikan ke permissive global atas permintaan.
+#
+# sepolicy/enforcing.te DIBIARKAN: seluruh isinya inert di bawah permissive
+# global (allow rules tidak membahayakan, permissive per-domain tak berpengaruh
+# lagi), tetapi menyimpan hasil audit denial supaya enforcing bisa dinyalakan
+# lagi hanya dengan membuang baris di bawah ini.
+BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
 
 # Kalau init mati fatal, boot ke recovery — jangan menggantung di logo OPPO.
 # Ini alat diagnosis utama Fase 9: stuck di logo TANPA reboot ke recovery berarti
