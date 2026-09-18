@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The LineageOS Project
+     Licensed under the Apache License, Version 2.0 (the "License").
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- A37: nama hotspot baku. Di Android 13 resource ini ada di Settings,
+         bukan framework-res. Overlay framework-res lama (bernilai "Kraft-A6000"
+         warisan Lenovo A6000) menyasar paket yang salah sehingga tidak pernah
+         berlaku; dipindah ke sini agar benar-benar tampil. -->
+    <string name="wifi_tether_configure_ssid_default" translatable="false">A37</string>
+</resources>
