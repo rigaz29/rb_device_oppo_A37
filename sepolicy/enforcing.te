@@ -1,0 +1,66 @@
+# =============================================================================
+# A37: aturan untuk SELinux ENFORCING (17 Sep 2026)
+#
+# Denial jalur-boot ditangkap dengan `dmesg | grep 'avc: denied'` pada boot
+# bersih (NeoZygisk dinonaktifkan agar domain zygote tidak tercemar), lalu
+# diubah jadi aturan di bawah. Hampir semuanya pembacaan properti dan daemon
+# vendor menyentuh file/proc miliknya -- tidak ada yang berbahaya.
+#
+# SELINUX_IGNORE_NEVERALLOWS tetap true: lint saat BUILD untuk sepolicy-legacy
+# QCOM, tidak berhubungan dengan enforcing runtime.
+#
+# CATATAN tipe privat: policy device berjalan di konteks VENDOR dan hanya boleh
+# mereferensi tipe PUBLIK. Tiga denial menyentuh tipe privat platform yang
+# TIDAK BISA di-allow dari sini -- dibiarkan sebagai denial benigna, dicatat
+# di bagian bawah berkas ini:
+#   hal_graphics_composer_default -> init_service_status_private_prop
+#   gmscore_app -> system_adbd_prop, adbd_prop
+# Ketiganya sekadar pembacaan properti status; aplikasi/HAL menanganinya dengan
+# anggun bila ditolak. Kalau ternyata bermasalah, perbaikannya menjadikan tipe
+# itu publik di platform, bukan menambal dari device tree.
+# =============================================================================
+
+# --- Pembacaan properti (get_prop): semua tipe terverifikasi PUBLIK ---
+get_prop(vm_bms, default_prop)
+get_prop(vendor_init, default_prop)
+get_prop(mediacodec, default_prop)
+get_prop(mediaserver, vendor_default_prop)
+get_prop(audioserver, vendor_default_prop)
+get_prop(surfaceflinger, vendor_default_prop)
+get_prop(hal_graphics_composer_default, default_prop)
+get_prop(hal_graphics_composer_default, system_prop)
+get_prop(hal_graphics_allocator_default, default_prop)
+get_prop(hal_gnss_default, system_prop)
+get_prop(hal_audio_default, audio_prop)
+get_prop(system_server, build_bootimage_prop)
+
+# --- toolbox stat fifo init (write sudah ada di toolbox.te) ---
+allow toolbox init:fifo_file getattr;
+
+# --- vold menulis read_ahead_kb pada sysfs mmc host ---
+allow vold sysfs_mmc_host:file write;
+
+# --- rmt_storage butuh dac_override (net_raw sudah ada di rmt_storage.te) ---
+allow rmt_storage self:capability dac_override;
+
+# --- vendor_init menulis /proc/sys/kernel/hung_task_* (dari hung_task_panic=1) ---
+allow vendor_init proc_hung_task:file write;
+
+# =============================================================================
+# JARING PERMISSIVE untuk build enforcing PERTAMA.
+#
+# Keempat domain ini daemon vendor QCOM sumber-tertutup (stack RIL + kamera).
+# Aturan allow eksplisit untuk mereka SENGAJA TIDAK ditulis: dengan permissive,
+# denial apa pun -- termasuk yang belum tertangkap saat menelepon, fix GPS,
+# atau data seluler -- tercatat tetapi tidak memblokir, jadi boot tidak macet
+# dan fungsi tidak putus. Domain APLIKASI dan PLATFORM tetap enforcing penuh;
+# di situlah keuntungan keamanannya.
+#
+# Cara memperketat nanti: jalankan beberapa hari, kumpulkan denial keempatnya
+# dengan `audit2allow`, tulis aturan yang benar (hanya tipe publik), lalu hapus
+# baris permissive satu per satu.
+# =============================================================================
+permissive rild;
+permissive qmuxd;
+permissive netmgrd;
+permissive mm-qcamerad;
