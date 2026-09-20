@@ -51,12 +51,9 @@ on fs
     setprop sys.usb.ffs.aio_compat 1
     setprop sys.usb.mtp.device_type 2
 
-    # Kernel f_fs.c sudah punya backport AIO (ffs_epfile_aio_read/write di
-    # drivers/usb/gadget/f_fs.c), jadi pakai jalur nonblocking (AIO). Kalau
-    # io_submit gagal, adbd jatuh balik sendiri ke jalur legacy, dan
-    # aio_compat=1 di atas menjaga fallback itu tetap pakai helper non-AIO.
-    setprop persist.adb.nonblocking_ffs 1
-    setprop ro.adb.nonblocking_ffs 1
+    # Avoid USB crash
+    setprop persist.adb.nonblocking_ffs 0
+    setprop ro.adb.nonblocking_ffs 0
 
     # DIAGNOSTIK (Fase 9): aktifkan adb lebih awal, langsung dari init —
     # sebelum UsbService (yang butuh system_server jalan). Kalau hang terjadi
