@@ -46,6 +46,13 @@ allow rmt_storage self:capability dac_override;
 # --- vendor_init menulis /proc/sys/kernel/hung_task_* (dari hung_task_panic=1) ---
 allow vendor_init proc_hung_task:file write;
 
+# --- HAL kamera (HAL1, di dalam mediaserver) akses sensorservice (29 Sep 2026) ---
+# Tanpa find, open kamera menggantung menunggu sensorservice tanpa henti.
+# sensorservice jalan di dalam system_server, jadi kanal event sensornya lewat
+# unix_stream_socket dari system_server. Sepasang, sama seperti audioserver AOSP.
+allow mediaserver sensorservice_service:service_manager find;
+allow mediaserver system_server:unix_stream_socket { read write };
+
 # =============================================================================
 # JARING PERMISSIVE untuk build enforcing PERTAMA.
 #
