@@ -263,17 +263,16 @@ BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET := 0x01000000
 BOARD_KERNEL_PAGESIZE := 2048
 BOARD_KERNEL_OFFSET := 0x00008000
-# PERMISSIVE (dikembalikan 18 Sep 2026 atas keputusan pemilik perangkat).
+# ENFORCING (29 Sep 2026, atas keputusan pemilik perangkat).
 #
-# Sempat enforcing 17 Sep (androidboot.selinux dibuang; denial ditangani di
-# sepolicy/enforcing.te dengan permissive per-domain pada stack RIL + kamera).
-# Dikembalikan ke permissive global atas permintaan.
+# Tanpa androidboot.selinux di cmdline, init memilih enforcing. Denial jalur-boot
+# ditangani di sepolicy/enforcing.te (audit 17 Sep) plus fix mediaserver ->
+# sensorservice (audit 29 Sep; tanpa itu open kamera menggantung). Stack RIL +
+# mm-qcamerad masih permissive per-domain di sana sebagai jaring.
 #
-# sepolicy/enforcing.te DIBIARKAN: seluruh isinya inert di bawah permissive
-# global (allow rules tidak membahayakan, permissive per-domain tak berpengaruh
-# lagi), tetapi menyimpan hasil audit denial supaya enforcing bisa dinyalakan
-# lagi hanya dengan membuang baris di bawah ini.
-BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+# Untuk kembali ke permissive saat debug, kembalikan baris ini:
+#   BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+# Kernel zip susfs juga menyetel mode ini lewat anykernel3/anykernel.sh.
 
 # Kalau init mati fatal, boot ke recovery — jangan menggantung di logo OPPO.
 # Ini alat diagnosis utama Fase 9: stuck di logo TANPA reboot ke recovery berarti
@@ -536,8 +535,8 @@ TARGET_LD_SHIM_LIBS := \
 #
 # Catatan: baris di bawah ini redundan karena sepolicy-legacy juga menyetelnya,
 # tapi dipertahankan supaya niatnya eksplisit saat file itu nanti diganti.
-# Flag ini hanya mematikan pemeriksaan neverallow saat BUILD; mode permissive
-# runtime datang dari androidboot.selinux=permissive di BOARD_KERNEL_CMDLINE.
+# Flag ini hanya mematikan pemeriksaan neverallow saat BUILD; mode enforcing/
+# permissive runtime ditentukan androidboot.selinux di BOARD_KERNEL_CMDLINE.
 SELINUX_IGNORE_NEVERALLOWS := true
 include device/qcom/sepolicy-legacy/sepolicy.mk
 # Di 18.1 BOARD_SEPOLICY_DIRS diganti BOARD_VENDOR_SEPOLICY_DIRS.
