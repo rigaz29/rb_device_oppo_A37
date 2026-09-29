@@ -34,7 +34,6 @@ on boot
     write /sys/class/android_usb/android0/iProduct ${ro.product.model}
     write /sys/class/android_usb/android0/f_rndis/manufacturer ${ro.product.manufacturer}
     write /sys/class/android_usb/android0/f_rndis/vendorID ${ro.usb.vid}
-    setprop persist.sys.usb.config.extra none
 
 on charger
     setprop sys.usb.config mass_storage
@@ -51,9 +50,9 @@ on fs
     setprop sys.usb.ffs.aio_compat 1
     setprop sys.usb.mtp.device_type 2
 
-    # Avoid USB crash
-    setprop persist.adb.nonblocking_ffs 0
-    setprop ro.adb.nonblocking_ffs 0
+    # ro.adb.nonblocking_ffs dan persist.sys.usb.config.extra ada di device.mk
+    # (PRODUCT_SYSTEM_PROPERTIES): rc ini jalan sebagai vendor_init, yang dalam
+    # enforcing tidak boleh menyetel default_prop/system_prop.
 
     # DIAGNOSTIK (Fase 9): aktifkan adb lebih awal, langsung dari init —
     # sebelum UsbService (yang butuh system_server jalan). Kalau hang terjadi

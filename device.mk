@@ -522,6 +522,15 @@ PRODUCT_PACKAGES += \
     init.recovery.qcom.rc \
     ueventd.qcom.rc
 
+# Properti USB yang dulu di-setprop init.qcom.usb.rc. Rc itu jalan sebagai
+# vendor_init, yang dalam enforcing ditolak menyetel default_prop/system_prop;
+# /system/build.prop dimuat dengan konteks init. Tanpa ro.adb.nonblocking_ffs=0
+# adbd (patch legacy FunctionFS) mencoba AIO di FFS, yang tidak didukung 3.10,
+# lalu offline.
+PRODUCT_SYSTEM_PROPERTIES += \
+    ro.adb.nonblocking_ffs=0 \
+    persist.sys.usb.config.extra=none
+
 # For config.fs
 PRODUCT_PACKAGES += \
     fs_config_files
