@@ -1159,8 +1159,12 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
     $(LOCAL_PATH)/configs/sensors/_hals.conf:$(TARGET_COPY_OUT_VENDOR)/etc/sensors/_hals.conf
 
-# USB ID
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+# USB ID. PRODUCT_DEFAULT_PROPERTY_OVERRIDES masuk /vendor/build.prop, yang
+# dimuat sebagai vendor_init; dalam enforcing ro.usb.* ditolak di sana
+# ("Do not have permissions to set 'ro.usb.id.mtp'"). Tanpa ro.usb.vid dan
+# ro.usb.id.mtp_adb, "Transfer file" memakai VID/PID adb-saja 18d1:4ee7 untuk
+# komposisi mtp,adb, dan Windows kehilangan MTP sekaligus adb.
+PRODUCT_SYSTEM_PROPERTIES += \
     ro.usb.id.midi=90BA \
     ro.usb.id.midi_adb=90BB \
     ro.usb.id.mtp=2281 \
