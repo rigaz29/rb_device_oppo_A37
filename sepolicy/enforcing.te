@@ -64,6 +64,14 @@ allow init sysfs_leds:lnk_file read;
 # init membuang trigger properti di rc vendor yang tak bisa dibaca vendor_init.
 get_prop(vendor_init, radio_prop)
 
+# --- sys.post_boot.parsed untuk perfd (30 Sep 2026) ---
+# init.qcom.power.rc (vendor_init) menyetelnya di akhir enable-low-power, dan
+# libqti-perfd membacanya sebelum memuat perf-profile. Nama lama sys.* jatuh ke
+# system_prop: vendor_init tak boleh set, perfd tak boleh baca. property_contexts
+# memetakannya ke vendor_mpctl_prop (tipe sepolicy-legacy untuk
+# vendor.post_boot.parsed, sudah dibaca hal_perf_default).
+set_prop(vendor_init, vendor_mpctl_prop)
+
 # =============================================================================
 # JARING PERMISSIVE untuk build enforcing PERTAMA.
 #
