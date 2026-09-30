@@ -307,6 +307,8 @@ TARGET_KERNEL_CONFIG := lineageos_a37f_defconfig
 # host tools (fixdep, conf) bisa di-link dengan lld.
 # Sumber: msm8916-common lineage-18.1 BoardConfigCommon.mk
 TARGET_KERNEL_ADDITIONAL_FLAGS := HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-line-argument"
+# user@host di /proc/version; tanpa ini terisi root@<hostname mesin build>.
+TARGET_KERNEL_ADDITIONAL_FLAGS += KBUILD_BUILD_USER=builder KBUILD_BUILD_HOST=localhost
 
 # File System
 TARGET_FS_CONFIG_GEN := $(PLATFORM_PATH)/config.fs
