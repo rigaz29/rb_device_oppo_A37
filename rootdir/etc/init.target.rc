@@ -128,12 +128,13 @@ on post-fs-data
     # Disetel di post-fs-data, BUKAN boot_completed, karena justru sebelum boot
     # selesai I/O paling padat -- dexopt dan pemasangan aplikasi.
     #
-    # deadline lebih cocok untuk eMMC daripada cfq (latency lebih rendah,
-    # throughput lebih tinggi untuk random I/O). `row` juga tersedia di kernel
-    # ini dan dirancang untuk flash, tapi nilainya baru muncul bersama penandaan
-    # urgent UI/RenderThread yang belum di-backport -- lihat
-    # plan-64bit/kandidat-backport/.
-    write /sys/block/mmcblk0/queue/scheduler deadline
+    # row (30 Sep 2026, menggantikan deadline). Diukur di perangkat: baca 128 MB
+    # sambil 200 MB ditulis dengan fsync di latar -- deadline ~30 MB/s, row
+    # 93-97 MB/s. ROW menandai baca sinkron sebagai urgent dan eMMC (HPI) memotong
+    # tulis yang sedang jalan untuk melayaninya. Penandaan RenderThread dari a6010
+    # justru membuang logika itu (baca selain RenderThread kembali ~30 MB/s),
+    # jadi tidak dipakai -- lihat plan-64bit/kandidat-backport/.
+    write /sys/block/mmcblk0/queue/scheduler row
     write /sys/block/mmcblk0/queue/add_random 0
     write /sys/block/mmcblk0/queue/nr_requests 256
     write /sys/block/mmcblk0/queue/rq_affinity 0
