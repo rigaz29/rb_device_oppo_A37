@@ -247,6 +247,10 @@ vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti
 #     locate symbol "_ZN6google8protobuf8internal13empty_string_E"
 # Simbol protobuf lama yang sama. Widevine baru bisa hidup kalau blob
 # libprotobuf-cpp-lite.so seangkatan ikut ditambahkan.
+# PEMBARUAN: @1.1-service.widevine, libwvhidl.so dan .rc-nya kini dipasang
+# langsung dari vendor tree (A37-vendor.mk), bukan lewat daftar ini. protobuf
+# 3.0.0 dibangun di protobuf26/ dengan nama unik libprotobuf-cpp-lite-26-a37.so
+# dan libwvhidl.so di-patchelf ke nama itu (lihat protobuf26/Android.bp).
 vendor/bin/hw/vendor.qti.hardware.perf@1.0-service
 vendor/bin/irsc_util
 vendor/bin/mm-pp-daemon

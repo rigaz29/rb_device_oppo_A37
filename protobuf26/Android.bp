@@ -20,29 +20,33 @@
 // dibuang setelah ~3.5, jadi versi yang cocok ada di antaranya. 3.0.0 dipilih
 // karena sezaman dengan HAL drm@1.1 (Android 9), era blob ini.
 //
-// PERBEDAAN MEKANISME DARI LOS 23.2. Di sana modul ini dipasang dengan nama
-// unik lalu ditunjuk install_symlink /vendor/lib/libprotobuf-cpp-lite.so, dan
-// itu cukup karena namespace linker vendor tidak bisa melihat /system/lib.
-// LineageOS 20 di perangkat ini berjalan dengan konfigurasi linker [legacy]:
-// SATU namespace, dan urutan pencariannya
+// MEKANISME (diganti 2 Oktober 2026). LineageOS 20 di perangkat ini berjalan
+// dengan konfigurasi linker [legacy]: SATU namespace, dan urutan pencariannya
 //     /system/lib -> /system/system_ext/lib -> /system/product/lib
 //     -> /vendor/lib -> /odm/lib
-// menaruh /system/lib PALING DEPAN. Karena protobuf 3.9.1 sudah terpasang di
-// sana dengan nama polos yang sama, symlink di /vendor/lib akan terbayangi dan
-// blob tetap menaut versi yang salah. Karena itu berkas ini memakai stem polos
-// (aman di sini: tanpa BOARD_VNDK_VERSION tidak ada varian .vendor protobuf
-// sama sekali, jadi tidak ada dua aturan yang membentur direktori symbols),
-// dan servisnya diberi setenv LD_LIBRARY_PATH /vendor/lib lewat init .rc supaya
-// /vendor/lib dicari lebih dulu. Diverifikasi tidak ada satu pun dari 260
-// pustaka di /vendor/lib yang membayangi dependensi servis.
+// menaruh /system/lib PALING DEPAN, tempat protobuf 3.9.1 terpasang dengan
+// nama polos libprotobuf-cpp-lite.so. Karena itu modul ini dipasang dengan
+// nama UNIK (nama modulnya sendiri, tanpa stem), dan DT_NEEDED libwvhidl.so di
+// vendor tree di-patchelf ke nama itu. Nama unik tidak bisa dibayangi siapa
+// pun, jadi tidak perlu trik urutan pencarian.
+//
+// Cara lama (14 September) memakai stem polos plus "setenv LD_LIBRARY_PATH
+// /vendor/lib" di init .rc. Itu hanya jalan saat SELinux permissive. Saat
+// enforcing, transisi domain init -> hal_drm_default tanpa izin noatsecure
+// (neverallow di AOSP) membuat kernel menyetel AT_SECURE, linker membuang
+// LD_LIBRARY_PATH, servis menaut protobuf 3.9.1 dan gagal link tiap 5 detik:
+//     CANNOT LINK EXECUTABLE ... "_ZN6google8protobuf8internal13empty_string_E"
+// Di LOS 23.2 nama unik plus install_symlink cukup karena namespace vendor
+// tidak bisa melihat /system/lib; di sini symlink pun akan terbayangi, jadi
+// yang dipakai patchelf.
 cc_library_shared {
     name: "libprotobuf-cpp-lite-26-a37",
     vendor: true,
     // Blob Widevine seluruhnya 32-bit (biner servis dan libwvhidl.so), jadi
     // varian 64-bit tidak pernah dipakai dan tidak dibangun.
     compile_multilib: "32",
-    // Nama berkas polos: itulah yang dicari linker dari DT_NEEDED libwvhidl.so.
-    stem: "libprotobuf-cpp-lite",
+    // Nama berkas = nama modul (libprotobuf-cpp-lite-26-a37.so), juga SONAME-nya.
+    // libwvhidl.so di vendor tree sudah di-patchelf untuk menuntut nama ini.
 
     srcs: [
         "google/protobuf/stubs/bytestream.cc",

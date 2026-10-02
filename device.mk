@@ -186,8 +186,11 @@ PRODUCT_PACKAGES += \
 #   install_symlink di /vendor/lib TIDAK dipakai. Justru karena namespace
 #   tunggal itu, urutan pencarian menaruh /system/lib paling depan, sehingga
 #   symlink /vendor/lib/libprotobuf-cpp-lite.so akan terbayangi protobuf 3.9.1.
-#   Yang dipakai: stem polos pada modul + setenv LD_LIBRARY_PATH /vendor/lib di
-#   init .rc blob.
+#   Yang dipakai (sejak 2 Oktober 2026): modul protobuf terpasang dengan nama
+#   unik libprotobuf-cpp-lite-26-a37.so, dan libwvhidl.so di vendor tree
+#   di-patchelf untuk menuntut nama itu. Trik lama "setenv LD_LIBRARY_PATH" di
+#   init .rc tidak tahan SELinux enforcing (AT_SECURE membuang variabelnya);
+#   rinciannya di protobuf26/Android.bp.
 #
 # Biner Widevine adalah prebuilt 32-bit, jadi Soong tidak tahu ia menaut apa pun;
 # modul protobuf di bawah ini compile_multilib "32" agar cocok.
