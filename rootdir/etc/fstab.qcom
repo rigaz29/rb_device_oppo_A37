@@ -56,9 +56,9 @@
 # lihat ref/evidence/ramdisk-fstab.qcom.
 /devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto
 /devices/platform/msm_hsusb*                 auto         auto    defaults                                                    voldmanaged=usb:auto
-# zram 256 -> 768 MB, 14 September 2026 (T-A2).
-# Dengan LZ4 rasio ~2,5:1, 768 MB menampung ~1,9 GB data efektif; ongkosnya hanya
-# RAM yang benar-benar terisi. 768 MB = 40% dari 1,84 GB, batas atas rentang lazim
-# 25-50%. Diukur di perangkat 14 Sep 2026: zram 256 MB sudah terpakai 122 MB
-# (48%) hanya 4 menit sesudah boot -- ruangnya memang kurang.
-/dev/block/zram0                             none         swap    defaults zramsize=805306368
+# zram 256 -> 768 (14 Sep 2026, T-A2) -> 1024 MB (3 Okt 2026, dicoba).
+# Dengan LZ4 rasio ~2,5:1, biayanya hanya RAM yang benar-benar terisi. 1024 MB =
+# ~53% dari 1,84 GB, sedikit di atas rentang lazim 25-50% untuk menahan lebih
+# banyak app di memori (lebih sedikit relaunch). Eksperimen: pantau MemFree/cache
+# dan tanda thrashing; kalau tertekan, turunkan lagi ke 768.
+/dev/block/zram0                             none         swap    defaults zramsize=1073741824
