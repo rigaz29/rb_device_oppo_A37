@@ -144,7 +144,14 @@ on post-fs-data
     # keduanya backing_dev_info yang sama. Baris "queue/read_ahead_kb 512" yang
     # dulu ada di sini langsung ditimpa baris berikutnya, jadi tidak pernah
     # berlaku — dibuang supaya tidak menyesatkan.
-    write /sys/block/mmcblk0/bdi/read_ahead_kb 128
+    #
+    # 128 -> 512 (3 Okt 2026). Diukur di perangkat: baca 128 MB saat 256 MB
+    # ditulis fsync di latar (scheduler row) -- 128 ~107-110 MB/s, 512
+    # ~127-137 MB/s (+~22%). readahead lebih besar menolong baca sekuensial saat
+    # ada kontensi tulis (buffer video streaming, dex/oat/so saat buka app),
+    # melengkapi row. Ditahan di 512, bukan lebih tinggi, supaya tidak memboroskan
+    # RAM untuk I/O acak di device 2 GB.
+    write /sys/block/mmcblk0/bdi/read_ahead_kb 512
 
 on charger
    wait /dev/block/bootdevice/by-name/system
