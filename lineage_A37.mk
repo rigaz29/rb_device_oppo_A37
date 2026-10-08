@@ -77,7 +77,7 @@ LINEAGE_VERSION_APPEND_TIME_OF_DAY := true
 # ⚠️ Peringatan di atas TETAP BERLAKU: dengan ini menyala, siapa pun yang
 # mencolokkan USB mendapat shell adb tanpa persetujuan. ROM hasil build ini
 # untuk perangkat sendiri.
-WITH_ADB_INSECURE := true
+# WITH_ADB_INSECURE := true   # DIMATIKAN untuk build rilis bertanda tangan (adb minta otorisasi RSA)
 
 # Inherit from those products. Most specific first.
 #
